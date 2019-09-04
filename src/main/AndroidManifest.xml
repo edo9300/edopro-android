@@ -47,7 +47,7 @@
 				android:value="EdoproClient" />
 		</activity>
 		<activity
-			android:name=".MinetestTextEntry"
+			android:name=".TextEntry"
 			android:configChanges="keyboardHidden|orientation|screenSize"
 			android:theme="@style/Theme.Dialog"
 			android:windowSoftInputMode="stateAlwaysHidden"/>

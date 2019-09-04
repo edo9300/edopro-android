@@ -81,6 +81,7 @@ bool Game::Initialize(ANDROID_APP app) {
 		ErrorLog("Failed to create Irrlicht Engine device!");
 		return false;
 	}
+	porting::mainDevice = device;
 	filesystem = device->getFileSystem();
 	coreloaded = true;
 	auto logger = device->getLogger();

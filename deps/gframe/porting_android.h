@@ -28,10 +28,13 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <android/log.h>
 
 #include <string>
+#include <irrlicht.h>
 
 namespace porting {
 /** java app **/
 extern android_app *app_global;
+
+extern irr::IrrlichtDevice* mainDevice;
 
 /** java <-> c++ interaction interface **/
 extern JNIEnv *jnienv;

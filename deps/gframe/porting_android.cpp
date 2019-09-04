@@ -26,6 +26,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <sstream>
 #include <exception>
 #include <cstdlib>
+#include "bufferio.h"
 
 extern int main(int argc, char *argv[]);
 
@@ -57,9 +58,35 @@ void android_main(android_app *app)
 /* TODO this doesn't work as expected, no idea why but there's a workaround   */
 /* for it right now */
 extern "C" {
-	JNIEXPORT void JNICALL Java_net_minetest_EpNativeActivity_putMessageBoxResult(
-			JNIEnv * env, jclass thiz, jstring text)
+	JNIEXPORT void JNICALL Java_io_github_edo9300_edopro_TextEntry_putMessageBoxResult(
+		JNIEnv * env, jclass thiz, jstring textString)
 	{
+		if (porting::mainDevice) {
+			auto device = static_cast<irr::IrrlichtDevice*>(porting::mainDevice);
+			auto irrenv = device->getGUIEnvironment();
+			auto element = irrenv->getFocus();
+			if (element && element->getType() == irr::gui::EGUIET_EDIT_BOX) {
+				auto editbox = static_cast<irr::gui::IGUIEditBox*>(element);
+				const char* text = env->GetStringUTFChars(textString, NULL);
+				auto wtext = BufferIO::DecodeUTF8s(text);
+				editbox->setText(wtext.c_str());
+				irrenv->removeFocus(editbox);
+				irrenv->setFocus(editbox->getParent());
+				irr::SEvent changeEvent;
+				changeEvent.EventType = irr::EET_GUI_EVENT;
+				changeEvent.GUIEvent.Caller = editbox;
+				changeEvent.GUIEvent.Element = 0;
+				changeEvent.GUIEvent.EventType = irr::gui::EGET_EDITBOX_CHANGED;
+				editbox->getParent()->OnEvent(changeEvent);
+				irr::SEvent enterEvent;
+				enterEvent.EventType = irr::EET_GUI_EVENT;
+				enterEvent.GUIEvent.Caller = editbox;
+				enterEvent.GUIEvent.Element = 0;
+				enterEvent.GUIEvent.EventType = irr::gui::EGET_EDITBOX_ENTER;
+				editbox->getParent()->OnEvent(enterEvent);
+				env->DeleteLocalRef(textString);
+			}
+		}
 		// errorstream << "Java_net_minetest_EpNativeActivity_putMessageBoxResult got: "
 // 				<< std::string((const char*)env->GetStringChars(text,0))
 // 				<< std::endl;
@@ -73,6 +100,8 @@ std::string path_storage = "sdcard";
 android_app* app_global;
 JNIEnv*      jnienv;
 jclass       nativeActivity;
+
+irr::IrrlichtDevice* mainDevice;
 
 jclass findClass(std::string classname, JNIEnv* env = nullptr)
 {
@@ -302,21 +331,21 @@ int downloadFile(const char* url, const char* path) {
 // 	jclass nativeactivity = findClass("io/github/edo9300/edopro/EpNativeActivity", jni);
 	jobject lNativeActivity = app_global->activity->clazz;
 	jclass ClassNativeActivity = jni->GetObjectClass(lNativeActivity);
-	jmethodID MethodGetApp = jni->GetMethodID(ClassNativeActivity,
-											  "getApplication", "()Landroid/app/Application;");
-	jobject application = jni->CallObjectMethod(lNativeActivity, MethodGetApp);
-	jclass classApp = jni->GetObjectClass(application);
-	jmethodID downloadFileMethod = jni->GetMethodID(classApp, "downloadFile", "(Ljava/lang/String;Ljava/lang/String;)I");
+	jmethodID downloadFileMethod = jni->GetMethodID(ClassNativeActivity,
+													"downloadFile", "(Ljava/lang/String;Ljava/lang/String;)I");
+// 	jobject application = jni->CallObjectMethod(lNativeActivity, MethodGetApp);
+// 	jclass classApp = jni->GetObjectClass(application);
+// 	jmethodID downloadFileMethod = jni->GetMethodID(classApp, "downloadFile", "(Ljava/lang/String;Ljava/lang/String;)I");
 	jstring urlstring = jni->NewStringUTF(url);
 	jstring pathstring = jni->NewStringUTF(path);
-	jint result = jni->CallIntMethod(application, downloadFileMethod, urlstring, pathstring);
+	jint result = jni->CallIntMethod(lNativeActivity, downloadFileMethod, urlstring, pathstring);
 	if (urlstring) {
 		jni->DeleteLocalRef(urlstring);
 	}
 	if (pathstring) {
 		jni->DeleteLocalRef(pathstring);
 	}
-	jni->DeleteLocalRef(classApp);
+// 	jni->DeleteLocalRef(classApp);
 	jni->DeleteLocalRef(ClassNativeActivity);
 	jvm->DetachCurrentThread();
 	return result;
