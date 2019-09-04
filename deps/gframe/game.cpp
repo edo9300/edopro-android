@@ -1741,18 +1741,18 @@ void Game::ShowCardInfo(int code, bool resize) {
 		} else
 			stDataInfo->setText(L"");
 	}
-	int offset = 37;
-	stInfo->setRelativePosition(Scale(15, offset, 287 * window_scale.X, offset + stInfo->getTextHeight()));
+	int offset = Scale(37);
+	stInfo->setRelativePosition(recti(Scale(15), offset, Scale(287 * window_scale.X), offset + stInfo->getTextHeight()));
 	offset += stInfo->getTextHeight();
 	if(wcscmp(stDataInfo->getText(), L"")) {
-		stDataInfo->setRelativePosition(Scale(15, offset, 287 * window_scale.X, offset + stDataInfo->getTextHeight()));
+		stDataInfo->setRelativePosition(recti(Scale(15), offset, Scale(287 * window_scale.X), offset + stDataInfo->getTextHeight()));
 		offset += stDataInfo->getTextHeight();
 	}
 	if(wcscmp(stSetName->getText(), L"")) {
-		stSetName->setRelativePosition(Scale(15, offset, 287 * window_scale.X, offset + stSetName->getTextHeight()));
+		stSetName->setRelativePosition(recti(Scale(15), offset, Scale(287 * window_scale.X), offset + stSetName->getTextHeight()));
 		offset += stSetName->getTextHeight();
 	}
-	stText->setRelativePosition(Scale(15, offset, 287 * window_scale.X, 324 * window_scale.Y));
+	stText->setRelativePosition(recti(Scale(15), offset, Scale(287 * window_scale.X), Scale(324 * window_scale.Y)));
 	stText->setText(dataManager.GetText(code).c_str());
 }
 void Game::ClearCardInfo(int player) {
