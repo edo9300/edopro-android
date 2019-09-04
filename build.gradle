@@ -1,0 +1,71 @@
+buildscript {
+	repositories {
+		google()
+		jcenter()
+	}
+	dependencies {
+		classpath 'com.android.tools.build:gradle:3.4.2'
+	}
+}
+
+allprojects {
+	repositories {
+		google()
+		jcenter()
+	}
+}
+
+apply plugin: "com.android.application"
+
+android {
+	compileSdkVersion 28
+
+	defaultConfig {
+		versionCode 1
+		versionName "${System.env.VERSION_STR}.${versionCode}"
+		minSdkVersion 19
+		targetSdkVersion 28
+		applicationId "io.github.edo9300.edopro"
+		manifestPlaceholders = [package: "io.github.edo9300.edopro", project: project.name]
+		ndk {
+			// Specifies the ABI configurations of your native
+			// libraries Gradle should build and package with your APK.
+			// abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+			abiFilters 'armeabi-v7a'
+		}
+	}
+	
+	sourceSets{
+		main{
+			jniLibs.srcDirs 'libs'
+		}
+	}
+
+	lintOptions {
+		disable "OldTargetApi", "GoogleAppIndexingWarning"
+	}
+
+	Properties props = new Properties()
+	props.load(new FileInputStream(file("local.properties")))
+
+	if (props.getProperty("keystore") != null) {
+		signingConfigs {
+			release {
+				storeFile file(props["keystore"])
+				storePassword props["keystore.password"]
+				keyAlias props["key"]
+				keyPassword props["key.password"]
+			}
+		}
+
+		buildTypes {
+			release {
+				signingConfig signingConfigs.release
+			}
+		}
+	}
+}
+
+dependencies {
+	implementation 'com.android.support:support-v4:28.0.0'
+}
