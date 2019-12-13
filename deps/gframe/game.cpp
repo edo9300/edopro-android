@@ -901,7 +901,7 @@ bool Game::Initialize(ANDROID_APP app) {
 	stCardListTip->setVisible(false);
 	device->setEventReceiver(&menuHandler);
 #ifdef _IRR_ANDROID_PLATFORM_
-	void* payload = static_cast<void*>(&app);
+	void* payload = static_cast<void*>(&working_directory);
 #else
 	void* payload = nullptr;
 #endif

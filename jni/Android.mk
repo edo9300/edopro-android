@@ -3,7 +3,7 @@ LOCAL_PATH := $(call my-dir)/..
 include $(CLEAR_VARS)
 LOCAL_MODULE := EdoproClient
 
-LOCAL_CFLAGS := -D_IRR_ANDROID_PLATFORM_ -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -std=c++11
+LOCAL_CFLAGS := -D_IRR_ANDROID_PLATFORM_  -DYGOPRO_USE_SDL_MIXER -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -std=c++11
 LOCAL_CPPFLAGS := -std=c++11 
 
 ifndef NDEBUG
@@ -43,6 +43,8 @@ LOCAL_C_INCLUDES += $(GFRAME_PATH)/CGUIImageButton
 LOCAL_C_INCLUDES += $(GFRAME_PATH)/CGUITTFont
 LOCAL_C_INCLUDES += $(GFRAME_PATH)/CProgressBar
 LOCAL_C_INCLUDES += $(GFRAME_PATH)/ResizeablePanel
+LOCAL_C_INCLUDES += $(CLASSES_PATH)/SDL2/include
+LOCAL_C_INCLUDES += $(CLASSES_PATH)/SDL2_mixer/include
 
 LOCAL_SRC_FILES := $(CLASSES_PATH)/android/android_tools.cpp \
 				$(CLASSES_PATH)/android/xstring.cpp \
@@ -88,6 +90,7 @@ LOCAL_SRC_FILES := $(CLASSES_PATH)/android/android_tools.cpp \
 				$(GFRAME_PATH)/replay.cpp \
 				$(GFRAME_PATH)/single_mode.cpp \
 				$(GFRAME_PATH)/sound_manager.cpp \
+				$(GFRAME_PATH)/sound_sdlmixer.cpp \
 				$(GFRAME_PATH)/utils.cpp 
 # 				$(LOCAL_PATH)/jni/cn_garymb_ygomobile_core_IrrlichtBridge.cpp
 
@@ -106,6 +109,8 @@ LOCAL_STATIC_LIBRARIES += libft2
 LOCAL_STATIC_LIBRARIES += fmt_static
 LOCAL_STATIC_LIBRARIES += git2
 LOCAL_STATIC_LIBRARIES += curl
+LOCAL_SHARED_LIBRARIES := SDL2
+LOCAL_SHARED_LIBRARIES += SDL2_mixer
 
 include $(BUILD_SHARED_LIBRARY)
 $(call import-add-path,$(CLASSES_PATH))
@@ -123,6 +128,8 @@ $(call import-module,fmt)
 $(call import-module,libgit2)
 $(call import-module,libssh2)
 $(call import-module,curl)
+$(call import-module,SDL2)
+$(call import-module,SDL_mixer)
 
 $(call import-module,android/native_app_glue)
 

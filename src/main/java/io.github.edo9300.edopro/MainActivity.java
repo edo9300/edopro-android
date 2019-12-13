@@ -1,5 +1,6 @@
 package io.github.edo9300.edopro;
 
+import org.libsdl.app.SDLActivity;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
@@ -9,19 +10,21 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;;
+import android.util.Log;
 import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class MainActivity extends Activity {
+public class MainActivity extends SDLActivity {
 
 	private final static int PERMISSIONS = 1;
 	private static final String[] REQUIRED_SDK_PERMISSIONS = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE};
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
+		Log.e("bbb", "ccc");
 		super.onCreate(savedInstanceState);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			checkPermission();
@@ -72,8 +75,11 @@ public class MainActivity extends Activity {
 	}
 
 	public void next() {
-		Intent intent = new Intent(this, EpNativeActivity.class);
+		/*Intent intent = new Intent(this, SDLActivity.class);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-		startActivity(intent);
+		startActivity(intent);*/
+		Intent intent2 = new Intent(this, EpNativeActivity.class);
+		intent2.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+		startActivity(intent2);
 	}
 }
