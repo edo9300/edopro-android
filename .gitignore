@@ -6,3 +6,4 @@ build/
 .id*/
 local.properties
 *.iml
+**/*vs/
