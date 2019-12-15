@@ -974,7 +974,7 @@ void Game::MainLoop() {
 	if(gameConf.fullscreen)
 		Utils::ToggleFullscreen();
 #endif
-#ifndef _IRR_ANDROID_PLATFORM_
+#ifdef _IRR_ANDROID_PLATFORM_
 	ogles2Solid = 0;
 	ogles2TrasparentAlpha = 0;
 	ogles2BlendTexture = 0;
