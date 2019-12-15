@@ -7,11 +7,8 @@ namespace irr {
 namespace gui {
 
 void Draw2DImageRotation(video::IVideoDriver* driver, video::ITexture* image, core::rect<s32> sourceRect,
-                         core::position2d<s32> position, core::position2d<s32> rotationPoint, f32 rotation, core::vector2df scale, bool useAlphaChannel, video::SColor color) {
+						 core::position2d<s32> position, core::position2d<s32> rotationPoint, f32 rotation, core::vector2df scale, bool useAlphaChannel, video::SColor color) {
 	irr::video::SMaterial material;
-#if defined(_IRR_ANDROID_PLATFORM_)
-	driver->enableMaterial2D(true);
-#endif
 	irr::core::matrix4 oldProjMat = driver->getTransform(irr::video::ETS_PROJECTION);
 	driver->setTransform(irr::video::ETS_PROJECTION, irr::core::matrix4());
 	irr::core::matrix4 oldViewMat = driver->getTransform(irr::video::ETS_VIEW);
@@ -21,8 +18,8 @@ void Draw2DImageRotation(video::IVideoDriver* driver, video::ITexture* image, co
 	corner[1] = irr::core::vector2df(position.X + sourceRect.getWidth() * scale.X, position.Y);
 	corner[2] = irr::core::vector2df(position.X, position.Y + sourceRect.getHeight() * scale.Y);
 	corner[3] = irr::core::vector2df(position.X + sourceRect.getWidth() * scale.X, position.Y + sourceRect.getHeight() * scale.Y);
-	if (rotation != 0.0f) {
-		for (int x = 0; x < 4; x++)
+	if(rotation != 0.0f) {
+		for(int x = 0; x < 4; x++)
 			corner[x].rotateBy(rotation, irr::core::vector2df(rotationPoint.X, rotationPoint.Y));
 	}
 	irr::core::vector2df uvCorner[4];
@@ -30,7 +27,7 @@ void Draw2DImageRotation(video::IVideoDriver* driver, video::ITexture* image, co
 	uvCorner[1] = irr::core::vector2df(sourceRect.LowerRightCorner.X, sourceRect.UpperLeftCorner.Y);
 	uvCorner[2] = irr::core::vector2df(sourceRect.UpperLeftCorner.X, sourceRect.LowerRightCorner.Y);
 	uvCorner[3] = irr::core::vector2df(sourceRect.LowerRightCorner.X, sourceRect.LowerRightCorner.Y);
-	for (int x = 0; x < 4; x++) {
+	for(int x = 0; x < 4; x++) {
 		float uvX = uvCorner[x].X / (float)image->getOriginalSize().Width;
 		float uvY = uvCorner[x].Y / (float)image->getOriginalSize().Height;
 		uvCorner[x] = irr::core::vector2df(uvX, uvY);
@@ -39,7 +36,7 @@ void Draw2DImageRotation(video::IVideoDriver* driver, video::ITexture* image, co
 	irr::u16 indices[6] = { 0, 1, 2, 3, 2, 1 };
 	float screenWidth = driver->getScreenSize().Width;
 	float screenHeight = driver->getScreenSize().Height;
-	for (int x = 0; x < 4; x++) {
+	for(int x = 0; x < 4; x++) {
 		float screenPosX = ((corner[x].X / screenWidth) - 0.5f) * 2.0f;
 		float screenPosY = ((corner[x].Y / screenHeight) - 0.5f) * -2.0f;
 		vertices[x].Pos = irr::core::vector3df(screenPosX, screenPosY, 1);
@@ -50,32 +47,27 @@ void Draw2DImageRotation(video::IVideoDriver* driver, video::ITexture* image, co
 	material.ZWriteEnable = false;
 	material.TextureLayer[0].Texture = image;
 #if defined(_IRR_ANDROID_PLATFORM_)
-	if (!ygo::mainGame->isNPOTSupported) {
+	if(!ygo::mainGame->isNPOTSupported) {
 		material.TextureLayer[0].TextureWrapU = ETC_CLAMP_TO_EDGE;
 		material.TextureLayer[0].TextureWrapV = ETC_CLAMP_TO_EDGE;
 	}
-	if (useAlphaChannel)
+	if(useAlphaChannel)
 		material.MaterialType = (video::E_MATERIAL_TYPE)ygo::mainGame->ogles2TrasparentAlpha;
 	else material.MaterialType = (video::E_MATERIAL_TYPE)ygo::mainGame->ogles2Solid;
 #else
-	if (useAlphaChannel)
+	if(useAlphaChannel)
 		material.MaterialType = irr::video::EMT_TRANSPARENT_ALPHA_CHANNEL;
 	else material.MaterialType = irr::video::EMT_SOLID;
 #endif
+
 	driver->setMaterial(material);
 	driver->drawIndexedTriangleList(&vertices[0], 4, &indices[0], 2);
-#if defined(_IRR_ANDROID_PLATFORM_)
-	driver->enableMaterial2D(false);
-#endif
 	driver->setTransform(irr::video::ETS_PROJECTION, oldProjMat);
 	driver->setTransform(irr::video::ETS_VIEW, oldViewMat);
 }
 void Draw2DImageQuad(video::IVideoDriver* driver, video::ITexture* image, core::rect<s32> sourceRect,
-                         core::position2d<s32> corner[4], bool useAlphaChannel, video::SColor color) {
+					 core::position2d<s32> corner[4], bool useAlphaChannel, video::SColor color) {
 	irr::video::SMaterial material;
-#if defined(_IRR_ANDROID_PLATFORM_)
-	driver->enableMaterial2D(true);
-#endif
 	irr::core::matrix4 oldProjMat = driver->getTransform(irr::video::ETS_PROJECTION);
 	driver->setTransform(irr::video::ETS_PROJECTION, irr::core::matrix4());
 	irr::core::matrix4 oldViewMat = driver->getTransform(irr::video::ETS_VIEW);
@@ -85,7 +77,7 @@ void Draw2DImageQuad(video::IVideoDriver* driver, video::ITexture* image, core::
 	uvCorner[1] = irr::core::vector2df(sourceRect.LowerRightCorner.X, sourceRect.UpperLeftCorner.Y);
 	uvCorner[2] = irr::core::vector2df(sourceRect.UpperLeftCorner.X, sourceRect.LowerRightCorner.Y);
 	uvCorner[3] = irr::core::vector2df(sourceRect.LowerRightCorner.X, sourceRect.LowerRightCorner.Y);
-	for (int x = 0; x < 4; x++) {
+	for(int x = 0; x < 4; x++) {
 		float uvX = uvCorner[x].X / (float)image->getOriginalSize().Width;
 		float uvY = uvCorner[x].Y / (float)image->getOriginalSize().Height;
 		uvCorner[x] = irr::core::vector2df(uvX, uvY);
@@ -94,7 +86,7 @@ void Draw2DImageQuad(video::IVideoDriver* driver, video::ITexture* image, core::
 	irr::u16 indices[6] = { 0, 1, 2, 3, 2, 1 };
 	float screenWidth = driver->getScreenSize().Width;
 	float screenHeight = driver->getScreenSize().Height;
-	for (int x = 0; x < 4; x++) {
+	for(int x = 0; x < 4; x++) {
 		float screenPosX = ((corner[x].X / screenWidth) - 0.5f) * 2.0f;
 		float screenPosY = ((corner[x].Y / screenHeight) - 0.5f) * -2.0f;
 		vertices[x].Pos = irr::core::vector3df(screenPosX, screenPosY, 1);
@@ -105,23 +97,20 @@ void Draw2DImageQuad(video::IVideoDriver* driver, video::ITexture* image, core::
 	material.ZWriteEnable = false;
 	material.TextureLayer[0].Texture = image;
 #if defined(_IRR_ANDROID_PLATFORM_)
-	if (!ygo::mainGame->isNPOTSupported) {
+	if(!ygo::mainGame->isNPOTSupported) {
 		material.TextureLayer[0].TextureWrapU = ETC_CLAMP_TO_EDGE;
 		material.TextureLayer[0].TextureWrapV = ETC_CLAMP_TO_EDGE;
 	}
-	if (useAlphaChannel)
-			material.MaterialType = (video::E_MATERIAL_TYPE)ygo::mainGame->ogles2TrasparentAlpha;
-		else material.MaterialType = (video::E_MATERIAL_TYPE)ygo::mainGame->ogles2Solid;
+	if(useAlphaChannel)
+		material.MaterialType = (video::E_MATERIAL_TYPE)ygo::mainGame->ogles2TrasparentAlpha;
+	else material.MaterialType = (video::E_MATERIAL_TYPE)ygo::mainGame->ogles2Solid;
 #else
-	if (useAlphaChannel)
+	if(useAlphaChannel)
 		material.MaterialType = irr::video::EMT_TRANSPARENT_ALPHA_CHANNEL;
 	else material.MaterialType = irr::video::EMT_SOLID;
 #endif
 	driver->setMaterial(material);
 	driver->drawIndexedTriangleList(&vertices[0], 4, &indices[0], 2);
-#if defined(_IRR_ANDROID_PLATFORM_)
-	driver->enableMaterial2D(false);
-#endif
 	driver->setTransform(irr::video::ETS_PROJECTION, oldProjMat);
 	driver->setTransform(irr::video::ETS_VIEW, oldViewMat);
 }
@@ -139,7 +128,7 @@ CGUIImageButton* CGUIImageButton::addImageButton(IGUIEnvironment *env, const cor
 	return button;
 }
 void CGUIImageButton::draw() {
-	if (!IsVisible)
+	if(!IsVisible)
 		return;
 	IGUISkin* skin = Environment->getSkin();
 	video::IVideoDriver* driver = Environment->getVideoDriver();
@@ -152,18 +141,17 @@ void CGUIImageButton::draw() {
 		pos.Y += 1;
 		center.X += 1;
 		center.Y += 1;
-		if (DrawBorder)
+		if(DrawBorder)
 			skin->draw3DButtonPanePressed(this, AbsoluteRect, &AbsoluteClippingRect);
 	} else {
-		if (DrawBorder)
+		if(DrawBorder)
 			skin->draw3DButtonPaneStandard(this, AbsoluteRect, &AbsoluteClippingRect);
 	}
 	if(Image && isDrawImage)
 		irr::gui::Draw2DImageRotation(driver, Image, ImageRect, pos, center, imageRotation, imageScale);
 	IGUIElement::draw();
 }
-void CGUIImageButton::setImage(video::ITexture* image)
-{
+void CGUIImageButton::setImage(video::ITexture* image) {
 	if(image)
 		image->grab();
 	if(Image)
@@ -193,18 +181,16 @@ void CGUIImageButton::setImageSize(core::dimension2di s) {
 	imageSize = s;
 }
 
-IGUIFont* CGUIImageButton::getOverrideFont( void ) const
-{
+IGUIFont* CGUIImageButton::getOverrideFont(void) const {
 	IGUISkin* skin = Environment->getSkin();
-	if (!skin)
+	if(!skin)
 		return NULL;
 	return skin->getFont();
 }
 
-IGUIFont* CGUIImageButton::getActiveFont() const
-{
+IGUIFont* CGUIImageButton::getActiveFont() const {
 	IGUISkin* skin = Environment->getSkin();
-	if (!skin)
+	if(!skin)
 		return NULL;
 	return skin->getFont();
 }
