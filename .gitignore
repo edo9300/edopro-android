@@ -7,3 +7,5 @@ build/
 local.properties
 *.iml
 **/*vs/
+*.jks
+release/
