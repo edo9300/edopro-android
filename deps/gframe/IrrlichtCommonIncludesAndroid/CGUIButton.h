@@ -18,16 +18,18 @@ namespace irr
 namespace gui
 {
 
-	class CGUIButton : public IGUIButton
+	class CGUIImageButton : public IGUIButton
 	{
 	public:
 
+		static CGUIImageButton* addImageButton(IGUIEnvironment *env, const core::rect<s32>& rectangle, IGUIElement* parent, s32 id);
+
 		//! constructor
-		CGUIButton(IGUIEnvironment* environment, IGUIElement* parent,
+		CGUIImageButton(IGUIEnvironment* environment, IGUIElement* parent,
 			s32 id, core::rect<s32> rectangle, bool noclip=false);
 
 		//! destructor
-		virtual ~CGUIButton();
+		virtual ~CGUIImageButton();
 
 		//! called if an event happened.
 		virtual bool OnEvent(const SEvent& event) _IRR_OVERRIDE_;
@@ -122,6 +124,14 @@ namespace gui
 		//! Reads attributes of the element
 		virtual void deserializeAttributes(io::IAttributes* in, io::SAttributeReadWriteOptions* options) _IRR_OVERRIDE_;
 
+		virtual void setDrawImage(bool b);
+
+		virtual void setImageRotation(f32 r);
+
+		virtual void setImageScale(core::vector2df s);
+
+		virtual void setImageSize(core::dimension2di s);
+
 	protected:
 		void drawSprite(EGUI_BUTTON_STATE state, u32 startTime, const core::position2di& center);
 
@@ -160,6 +170,13 @@ namespace gui
 		bool UseAlphaChannel;
 		bool DrawBorder;
 		bool ScaleImage;
+
+
+		bool isDrawImage;
+		bool isFixedSize;
+		f32 imageRotation;
+		core::vector2df imageScale;
+		core::dimension2di imageSize;
 	};
 
 } // end namespace gui

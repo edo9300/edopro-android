@@ -2,11 +2,7 @@
 #define DATAMANAGER_H
 
 #include "config.h"
-#ifdef _IRR_ANDROID_PLATFORM_
-#include <sqlite3.h>
-#else
 #include "sqlite3.h"
-#endif
 #include "client_card.h"
 #include <unordered_map>
 
@@ -29,8 +25,8 @@ public:
 	bool GetString(int code, CardString* pStr);
 	std::wstring GetName(int code);
 	std::wstring GetText(int code);
-	std::wstring GetDesc(u64 strCode);
-	std::wstring GetSysString(int code);
+	std::wstring GetDesc(u64 strCode, bool compat);
+	std::wstring GetSysString(u64 code);
 	std::wstring GetVictoryString(int code);
 	std::wstring GetCounterName(int code);
 	std::wstring GetSetName(int code);
@@ -51,7 +47,7 @@ public:
 	std::unordered_map<unsigned int, std::wstring> _sysStrings;
 
 	static const wchar_t* unknown_string;
-	static int CardReader(int, void*);
+	static void CardReader(void* payload, int code, CardData* data);
 
 };
 

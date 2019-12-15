@@ -2,9 +2,6 @@
 #define MENU_HANDLER_H
 
 #include "config.h"
-#ifdef _IRR_ANDROID_PLATFORM_
-#include <android/TouchEventTransferAndroid.h>
-#endif
 
 namespace ygo {
 

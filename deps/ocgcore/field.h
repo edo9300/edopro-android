@@ -23,8 +23,6 @@
 #include <bitset>
 #include <cmath>
 
-class card;
-struct card_data;
 class duel;
 class group;
 class effect;
@@ -274,8 +272,6 @@ struct processor {
 	uint8 summon_cancelable;
 	card* attacker;
 	card* attack_target;
-	uint32 limit_extra_summon_zone;
-	uint32 limit_extra_summon_releasable;
 	bool set_forced_attack;
 	bool forced_attack;
 	card* forced_attacker;
@@ -295,7 +291,6 @@ struct processor {
 	uint8 extra_summon[2];
 	int32 spe_effect[2];
 	int32 duel_options;
-	int32 duel_rule;
 	uint32 copy_reset;
 	uint8 copy_reset_count;
 	uint32 last_control_changed_id;
@@ -393,7 +388,7 @@ public:
 	int32 get_mzone_limit(uint8 playerid, uint8 uplayer, uint32 reason);
 	int32 get_szone_limit(uint8 playerid, uint8 uplayer, uint32 reason);
 	int32 get_forced_zones(card* pcard, uint8 playerid, uint8 location, uint32 uplayer, uint32 reason);
-	uint32 get_linked_zone(int32 playerid);
+	uint32 get_linked_zone(int32 playerid, bool free = false);
 	void get_linked_cards(uint8 self, uint8 location1, uint8 location2, card_set* cset);
 	int32 check_extra_link(int32 playerid, card* pcard, int32 sequence);
 	void get_cards_in_zone(card_set* cset, uint32 zone, int32 playerid, int32 location);
@@ -406,9 +401,7 @@ public:
 	bool relay_check(uint8 playerid);
 	void next_player(uint8 playerid);
 
-	bool is_flag(int32 flag) {
-		return core.duel_options & flag;
-	}
+	bool is_flag(int32 flag);
 	int32 get_pzone_index(uint8 seq);
 
 	void add_effect(effect* peffect, uint8 owner_player = 2);
@@ -467,10 +460,10 @@ public:
 	bool confirm_attack_target();
 	void attack_all_target_check();
 	int32 check_tribute(card* pcard, int32 min, int32 max, group* mg, uint8 toplayer, uint32 zone = 0x1f, uint32 releasable = 0xff00ff, uint32 pos = 0x1);
-	static int32 check_with_sum_limit(const card_vector& mats, int32 acc, int32 index, int32 count, int32 min, int32 max);
-	static int32 check_with_sum_limit_m(const card_vector& mats, int32 acc, int32 index, int32 min, int32 max, int32 must_count);
-	static int32 check_with_sum_greater_limit(const card_vector& mats, int32 acc, int32 index, int32 opmin);
-	static int32 check_with_sum_greater_limit_m(const card_vector& mats, int32 acc, int32 index, int32 opmin, int32 must_count);
+	static int32 check_with_sum_limit(const card_vector& mats, int32 acc, int32 index, int32 count, int32 min, int32 max, int32* should_continue);
+	static int32 check_with_sum_limit_m(const card_vector& mats, int32 acc, int32 index, int32 min, int32 max, int32 must_count, int32* should_continue);
+	static int32 check_with_sum_greater_limit(const card_vector& mats, int32 acc, int32 index, int32 opmin, int32* should_continue);
+	static int32 check_with_sum_greater_limit_m(const card_vector& mats, int32 acc, int32 index, int32 opmin, int32 must_count, int32* should_continue);
 
 	int32 is_player_can_draw(uint8 playerid);
 	int32 is_player_can_discard_deck(uint8 playerid, int32 count);
@@ -492,7 +485,7 @@ public:
 	int32 is_player_can_send_to_grave(uint8 playerid, card* pcard);
 	int32 is_player_can_send_to_hand(uint8 playerid, card* pcard);
 	int32 is_player_can_send_to_deck(uint8 playerid, card* pcard);
-	int32 is_player_can_remove(uint8 playerid, card* pcard);
+	int32 is_player_can_remove(uint8 playerid, card* pcard, uint32 reason);
 	int32 is_chain_negatable(uint8 chaincount);
 	int32 is_chain_disablable(uint8 chaincount);
 	int32 is_chain_disabled(uint8 chaincount);
@@ -713,14 +706,13 @@ public:
 #define GLOBALFLAG_SPSUMMON_ONCE		0x200
 #define GLOBALFLAG_TUNE_MAGICIAN		0x400
 //
-#define PROCESSOR_FLAG_NONE		0
+#define PROCESSOR_FLAG_END		0
 #define PROCESSOR_FLAG_WAITING	0x1
-#define PROCESSOR_FLAG_END		0x2
+#define PROCESSOR_FLAG_CONTINUE	0x2
 
 #define PROCESSOR_ADJUST			1
 #define PROCESSOR_HINT				2
 #define PROCESSOR_TURN				3
-#define PROCESSOR_WAIT				4
 #define PROCESSOR_REFRESH_LOC		5
 #define PROCESSOR_STARTUP			6
 #define PROCESSOR_SELECT_IDLECMD	10

@@ -1,12 +1,14 @@
 #include "utils.h"
 #include "game.h"
 #include <fstream>
-#include <android/bufferio_android.h>
+#include "bufferio.h"
 #ifdef _WIN32
 #include "../irrlicht/src/CIrrDeviceWin32.h"
 #elif defined(__linux__) && !defined(_IRR_ANDROID_PLATFORM_)
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
+#elif defined(__APPLE__)
+#include "osx_menu.h"
 #endif
 namespace ygo {
 	bool Utils::Makedirectory(const path_string& path) {
@@ -96,6 +98,7 @@ namespace ygo {
 		Makedirectory(TEXT("puzzles"));
 		Makedirectory(TEXT("pics"));
 		Makedirectory(TEXT("pics/field"));
+		Makedirectory(TEXT("pics/cover"));
 		Makedirectory(TEXT("pics/temp/"));
 		ClearDirectory(TEXT("pics/temp/"));
 		Makedirectory(TEXT("replay"));
@@ -240,6 +243,8 @@ namespace ygo {
 		XChangeProperty(display, window, property, property, 32, PropModeReplace, (unsigned char*)&hints, 5);
 		XMapWindow(display, window);
 		XFlush(display);
+#elif defined(__APPLE__)
+		EDOPRO_ToggleFullScreen();
 #endif
 	}
 

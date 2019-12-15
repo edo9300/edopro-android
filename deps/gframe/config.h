@@ -18,6 +18,7 @@
 #define socklen_t int
 
 #else //_WIN32
+
 #ifdef _IRR_ANDROID_PLATFORM_
 #include <android_native_app_glue.h>
 #include <android/android_tools.h>
@@ -57,12 +58,7 @@ inline int _wtoi(const wchar_t * s) {
 #endif // UNICODE
 #endif
 
-
 #include <irrlicht.h>
-#include <cstdlib>
-#ifdef YGOPRO_USE_IRRKLANG
-#include <irrKlang.h>
-#endif
 #ifdef _IRR_ANDROID_PLATFORM_
 #include <GLES/gl.h>
 #include <GLES/glext.h>
@@ -84,11 +80,7 @@ inline int _wtoi(const wchar_t * s) {
 #include <unordered_set>
 #include <unordered_map>
 #include <algorithm>
-#ifdef _IRR_ANDROID_PLATFORM_
-#include <android/bufferio_android.h>
-#else
 #include "bufferio.h"
-#endif
 #include <mutex>
 #include "mysignal.h"
 #include <thread>
@@ -96,6 +88,7 @@ inline int _wtoi(const wchar_t * s) {
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include "utils.h"
+#include "server_lobby.h"
 #ifndef YGOPRO_BUILD_DLL
 #include <ocgapi.h>
 #else
@@ -115,14 +108,8 @@ using namespace gui;
 extern unsigned short PRO_VERSION;
 extern int enable_log;
 extern bool exit_on_return;
+extern bool is_from_discord;
 extern bool open_file;
 extern path_string open_file_name;
-
-#ifdef _IRR_ANDROID_PLATFORM_
-#define MATERIAL_GUARD(f) do {mainGame->driver->enableMaterial2D(true); f; mainGame->driver->enableMaterial2D(false);} while(false);
-#else
-#define MATERIAL_GUARD(f) do {f;} while(false);
-#endif
-
 
 #endif

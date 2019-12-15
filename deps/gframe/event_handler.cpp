@@ -5,21 +5,24 @@
 #include "game.h"
 #include "duelclient.h"
 #include "data_manager.h"
-#include "sound_manager.h"
 #include "image_manager.h"
 #include "replay_mode.h"
 #include "single_mode.h"
 #include "materials.h"
 #include "progressivebuffer.h"
-#include <algorithm>
+#ifdef _IRR_ANDROID_PLATFORM_
 #include "porting_android.h"
+#include <android/TouchEventTransferAndroid.h>
+#include <android/android_tools.h>
+#endif
+#include <algorithm>
 
 namespace ygo {
 
 bool ClientField::OnEvent(const irr::SEvent& event) {
 #ifdef _IRR_ANDROID_PLATFORM_
 	irr::SEvent transferEvent;
-	if (irr::android::TouchEventTransferAndroid::OnTransferCommon(event, false)) {
+	if(irr::android::TouchEventTransferAndroid::OnTransferCommon(event, false)) {
 		return true;
 	}
 #endif
@@ -124,6 +127,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 					DuelClient::StopClient();
 					mainGame->dInfo.isInDuel = false;
 					mainGame->dInfo.isStarted = false;
+					mainGame->soundManager->StopSounds();
 					mainGame->device->setEventReceiver(&mainGame->menuHandler);
 					mainGame->mTopMenu->setVisible(true);
 					mainGame->stTip->setVisible(false);
@@ -136,7 +140,11 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 					mainGame->btnCreateHost->setEnabled(true);
 					mainGame->btnJoinHost->setEnabled(true);
 					mainGame->btnJoinCancel->setEnabled(true);
-					mainGame->ShowElement(mainGame->wLanWindow);
+					if(mainGame->isHostingOnline) {
+						mainGame->ShowElement(mainGame->wRoomListPlaceholder);
+					} else {
+						mainGame->ShowElement(mainGame->wLanWindow);
+					}
 					mainGame->SetMesageWindow();
 					if(exit_on_return)
 						mainGame->device->closeDevice();
@@ -261,7 +269,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 				mainGame->btnOptionn->setVisible(true);
 				if(selected_option == 0)
 					mainGame->btnOptionp->setVisible(false);
-				mainGame->stOptions->setText(dataManager.GetDesc(select_options[selected_option]).c_str());
+				mainGame->stOptions->setText(dataManager.GetDesc(select_options[selected_option], mainGame->dInfo.compat_mode).c_str());
 				break;
 			}
 			case BUTTON_OPTION_NEXT: {
@@ -269,7 +277,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 				mainGame->btnOptionp->setVisible(true);
 				if(selected_option == select_options.size() - 1)
 					mainGame->btnOptionn->setVisible(false);
-				mainGame->stOptions->setText(dataManager.GetDesc(select_options[selected_option]).c_str());
+				mainGame->stOptions->setText(dataManager.GetDesc(select_options[selected_option], mainGame->dInfo.compat_mode).c_str());
 				break;
 			}
 			case BUTTON_OPTION_0:
@@ -314,9 +322,9 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 					select_options.clear();
 					for (size_t i = 0; i < activatable_cards.size(); ++i) {
 						if (activatable_cards[i] == clicked_card) {
-							if(activatable_descs[i].second == EDESC_OPERATION)
+							if(activatable_descs[i].second == EFFECT_CLIENT_MODE_RESOLVE)
 								continue;
-							if(activatable_descs[i].second == EDESC_RESET) {
+							if(activatable_descs[i].second == EFFECT_CLIENT_MODE_RESET) {
 								if(id == BUTTON_CMD_ACTIVATE) continue;
 							} else {
 								if(id == BUTTON_CMD_RESET) continue;
@@ -603,7 +611,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 						select_options.clear();
 						for (size_t i = 0; i < activatable_cards.size(); ++i) {
 							if (activatable_cards[i] == command_card) {
-								if(activatable_descs[i].second == EDESC_OPERATION) {
+								if(activatable_descs[i].second == EFFECT_CLIENT_MODE_RESOLVE) {
 									if(list_command == COMMAND_ACTIVATE) continue;
 								} else {
 									if(list_command == COMMAND_OPERATION) continue;
@@ -622,7 +630,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 							}
 							mainGame->HideElement(mainGame->wCardSelect, true);
 						} else {
-							mainGame->stOptions->setText(dataManager.GetDesc(select_options[0]).c_str());
+							mainGame->stOptions->setText(dataManager.GetDesc(select_options[0], mainGame->dInfo.compat_mode).c_str());
 							selected_option = 0;
 							mainGame->wCardSelect->setVisible(false);
 							ShowSelectOption();
@@ -817,7 +825,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 			case SCROLL_OPTION_SELECT: {
 				int step = mainGame->scrOption->isVisible() ? mainGame->scrOption->getPos() : 0;
 				for(int i = 0; i < 5; i++) {
-					mainGame->btnOption[i]->setText(dataManager.GetDesc(select_options[i + step]).c_str());
+					mainGame->btnOption[i]->setText(dataManager.GetDesc(select_options[i + step], mainGame->dInfo.compat_mode).c_str());
 				}
 
 				break;
@@ -1436,26 +1444,14 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 				} else if(hovered_location == LOCATION_REMOVED) {
 					if(remove[hovered_controler].size()) {
 						mcard = remove[hovered_controler].back();
-						if(mcard->position & POS_FACEDOWN) {
-							mcard = 0;
-							mainGame->ClearCardInfo(0);
-						}
 					}
 				} else if(hovered_location == LOCATION_EXTRA) {
 					if(extra[hovered_controler].size()) {
 						mcard = extra[hovered_controler].back();
-						if(mcard->position & POS_FACEDOWN) {
-							mcard = 0;
-							mainGame->ClearCardInfo(0);
-						}
 					}
 				} else if(hovered_location == LOCATION_DECK) {
 					if(deck[hovered_controler].size())
 						mcard = deck[hovered_controler].back();
-					if(mcard && mcard->position & POS_FACEDOWN) {
-						mcard = 0;
-						mainGame->ClearCardInfo(0);
-					}
 				} else {
 					if(mainGame->Resize(327, 8, 630, 51).isPointInside(mousepos))
 						mplayer = 0;
@@ -1541,7 +1537,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 									str.append(fmt::format(L"\n{}{}", dataManager.GetSysString(215), mcard->chValue));
 							}
 							for(auto iter = mcard->desc_hints.begin(); iter != mcard->desc_hints.end(); ++iter) {
-								str.append(fmt::format(L"\n*{}", dataManager.GetDesc(iter->first)));
+								str.append(fmt::format(L"\n*{}", dataManager.GetDesc(iter->first, mainGame->dInfo.compat_mode)));
 							}
 							should_show_tip = true;
 							irr::core::dimension2d<unsigned int> dtip = mainGame->textFont->getDimension(str.c_str()) + mainGame->Scale(irr::core::dimension2d<unsigned int>(10, 10));
@@ -1564,7 +1560,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 						player_name = mainGame->dInfo.clientname[mainGame->dInfo.current_player[mplayer]];
 					const auto& player_desc_hints = mainGame->dField.player_desc_hints[mplayer];
 					for(auto iter = player_desc_hints.begin(); iter != player_desc_hints.end(); ++iter) {
-						player_name.append(fmt::format(L"\n*{}", dataManager.GetDesc(iter->first)));
+						player_name.append(fmt::format(L"\n*{}", dataManager.GetDesc(iter->first, mainGame->dInfo.compat_mode)));
 					}
 					should_show_tip = true;
 					irr::core::dimension2d<unsigned int> dtip = mainGame->textFont->getDimension(player_name.c_str()) + mainGame->Scale(irr::core::dimension2d<unsigned int>(10, 10));
@@ -1713,44 +1709,6 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 	return false;
 }
 bool ClientField::OnCommonEvent(const irr::SEvent& event) {
-		if (event.EventType == EET_MOUSE_INPUT_EVENT &&
-				event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN) {
-			gui::IGUIElement *hovered =
-				mainGame->env->getRootGUIElement()->getElementFromPoint(
-					core::position2d<s32>(event.MouseInput.X, event.MouseInput.Y));
-			if ((hovered) && (hovered->getType() == irr::gui::EGUIET_EDIT_BOX)) {
-				bool retval = hovered->OnEvent(event);
-				if (retval)
-					mainGame->env->setFocus(hovered);
-
-// 				std::string field_name = getNameByID(hovered->getID());
-// 				// read-only field
-// 				if (field_name.empty())
-// 					return retval;
-// 
-// 				m_jni_field_name = field_name;
-// 				std::string message = gettext("Enter ");
-// 				std::string label = wide_to_utf8(getLabelByID(hovered->getID()));
-// 				if (label.empty())
-// 					label = "text";
-// 				message += gettext(label) + ":";
-
-				// single line text input
-				int type = 2;
-
-				// multi line text input
-				if (((gui::IGUIEditBox *)hovered)->isMultiLineEnabled())
-					type = 1;
-
-				// passwords are always single line
-				if (((gui::IGUIEditBox *)hovered)->isPasswordBox())
-					type = 3;
-
-				porting::showInputDialog("ok", "",
-					BufferIO::EncodeUTF8s(((gui::IGUIEditBox *)hovered)->getText()),	type);
-				return retval;
-			}
-		}
 	switch(event.EventType) {
 	case irr::EET_GUI_EVENT: {
 		s32 id = event.GUIEvent.Caller->getID();
@@ -1841,10 +1799,14 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 		}
 		case irr::gui::EGET_SCROLL_BAR_CHANGED: {
 			switch(id) {
-			case SCROLL_VOLUME: {
-				mainGame->gameConf.volume = (double)mainGame->scrVolume->getPos() / 100;
-				soundManager.SetSoundVolume(mainGame->gameConf.volume);
-				soundManager.SetMusicVolume(mainGame->gameConf.volume);
+			case SCROLL_MUSIC_VOLUME: {
+				mainGame->gameConf.musicVolume = (double)mainGame->scrMusicVolume->getPos() / 100;
+				mainGame->soundManager->SetMusicVolume(mainGame->gameConf.musicVolume);
+				return true;
+			}
+			case SCROLL_SOUND_VOLUME: {
+				mainGame->gameConf.soundVolume = (double)mainGame->scrSoundVolume->getPos() / 100;
+				mainGame->soundManager->SetSoundVolume(mainGame->gameConf.soundVolume);
 				return true;
 			}
 			}
@@ -1853,8 +1815,11 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 		case irr::gui::EGET_CHECKBOX_CHANGED: {
 			switch (id) {
 			case CHECKBOX_ENABLE_MUSIC: {
-				if(!mainGame->chkEnableMusic->isChecked())
-					soundManager.StopBGM();
+				mainGame->soundManager->EnableMusic(mainGame->chkEnableMusic->isChecked());
+				return true;
+			}
+			case CHECKBOX_ENABLE_SOUND: {
+				mainGame->soundManager->EnableSounds(mainGame->chkEnableSound->isChecked());
 				return true;
 			}
 			case CHECKBOX_QUICK_ANIMATION: {
@@ -1903,11 +1868,6 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 	case irr::EET_KEY_INPUT_EVENT: {
 		switch(event.KeyInput.Key) {
 		case irr::KEY_KEY_R: {
-			if(!event.KeyInput.PressedDown && !mainGame->HasFocus(EGUIET_EDIT_BOX))
-				mainGame->textFont->setTransparency(true);
-			return true;
-		}
-		case irr::KEY_F9: {
 			if(!event.KeyInput.PressedDown && !mainGame->HasFocus(EGUIET_EDIT_BOX))
 				mainGame->textFont->setTransparency(true);
 			return true;

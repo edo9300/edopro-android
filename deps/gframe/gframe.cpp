@@ -3,18 +3,20 @@
 #include "data_manager.h"
 #include <event2/thread.h>
 #include <memory>
-#include "porting_android.h"
 #ifdef __APPLE__
 #import <CoreFoundation/CoreFoundation.h>
+#include "osx_menu.h"
+#endif
+#ifdef _IRR_ANDROID_PLATFORM_
+#include "porting_android.h"
 #endif
 
 int enable_log = 0;
 bool exit_on_return = false;
-
+bool is_from_discord = false;
 bool open_file = false;
 path_string open_file_name = TEXT("");
 
-#ifndef _IRR_ANDROID_PLATFORM_
 void ClickButton(irr::gui::IGUIElement* btn) {
 	irr::SEvent event;
 	event.EventType = irr::EET_GUI_EVENT;
@@ -24,7 +26,7 @@ void ClickButton(irr::gui::IGUIElement* btn) {
 }
 #ifdef _WIN32
 #ifdef UNICODE
-#pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:wmainCRTStartup") 
+//#pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:wmainCRTStartup") 
 int wmain(int argc, wchar_t* argv[]) {
 #else
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup") 
@@ -34,26 +36,45 @@ int main(int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
 	setlocale(LC_CTYPE, "UTF-8");
 #endif
+#ifdef _IRR_ANDROID_PLATFORM_
+	porting::initAndroid();
+	porting::initializePathsAndroid();
+	chdir((porting::path_storage + "/ygocore").c_str());
+#endif
 #ifdef __APPLE__
 	CFURLRef bundle_url = CFBundleCopyBundleURL(CFBundleGetMainBundle());
+	CFStringRef bundle_path = CFURLCopyFileSystemPath(bundle_url, kCFURLPOSIXPathStyle);
 	CFURLRef bundle_base_url = CFURLCreateCopyDeletingLastPathComponent(NULL, bundle_url);
 	CFRelease(bundle_url);
 	CFStringRef path = CFURLCopyFileSystemPath(bundle_base_url, kCFURLPOSIXPathStyle);
 	CFRelease(bundle_base_url);
+#ifdef MAC_OS_DISCORD_LAUNCHER
+	system(fmt::format("open {}/Contents/MacOS/discord-launcher.app --args random", CFStringGetCStringPtr(bundle_path, kCFStringEncodingUTF8)).c_str());
+#endif
 	chdir(CFStringGetCStringPtr(path, kCFStringEncodingUTF8));
 	CFRelease(path);
+	CFRelease(bundle_path);
 #endif //__APPLE__
-#if defined(_WIN32) && !defined(_DEBUG)
-	if(argc == 2) {
-		auto extension = ygo::Utils::GetFileExtension(argv[1]);
-		if(extension == TEXT("ydk") || extension == TEXT("yrp") || extension == TEXT("yrpx")) {
-			fschar_t exepath[MAX_PATH];
-			GetModuleFileName(NULL, exepath, MAX_PATH);
-			auto path = ygo::Utils::GetFilePath(exepath);
-			SetCurrentDirectory(path.c_str());
+	if(argc >= 2) {
+		if(argv[1] == path_string(TEXT("from_discord"))) {
+			is_from_discord = true;
+#if defined(_WIN32)
+			SetCurrentDirectory(argv[2]);
+#if !defined(_DEBUG)
+		} else {
+			auto extension = ygo::Utils::GetFileExtension(argv[1]);
+			if(extension == TEXT("ydk") || extension == TEXT("yrp") || extension == TEXT("yrpx")) {
+				fschar_t exepath[MAX_PATH];
+				GetModuleFileName(NULL, exepath, MAX_PATH);
+				std::wcout << exepath << std::endl;
+				auto path = ygo::Utils::GetFilePath(exepath);
+				std::wcout << path << std::endl;
+				SetCurrentDirectory(path.c_str());
+			}
+#endif //_DEBUG
+#endif //_WIN32
 		}
 	}
-#endif //_WIN32 && !_DEBUG
 #ifdef _WIN32
 	WORD wVersionRequested;
 	WSADATA wsaData;
@@ -65,8 +86,17 @@ int main(int argc, char* argv[]) {
 #endif //_WIN32
 	ygo::Game _game;
 	ygo::mainGame = &_game;
+#ifdef _IRR_ANDROID_PLATFORM_
+	ygo::mainGame->appMain = porting::app_global;
+	ygo::mainGame->working_directory = porting::path_storage + "/ygocore";
+#else
+	ygo::mainGame->working_directory = "./";
+#endif
 	if(!ygo::mainGame->Initialize())
 		return EXIT_FAILURE;
+#ifdef __APPLE__
+	EDOPRO_SetupMenuBar(&_game.is_fullscreen);
+#endif
 	bool keep_on_return = false;
 	for(int i = 1; i < argc; ++i) {
 		path_string parameter(argv[i]);
@@ -159,19 +189,3 @@ int main(int argc, char* argv[]) {
 #endif //_WIN32
 	return EXIT_SUCCESS;
 }
-#else
-int main(int argc, char* argv[]) {
-	//app->inputPollSource.process = android::process_input;
-	//app_dummy();
-	porting::initAndroid();
-	porting::initializePathsAndroid();
-	ygo::Game _game;
-	ygo::mainGame = &_game;
-	if(!ygo::mainGame->Initialize(porting::app_global))
-		return EXIT_FAILURE;
-	ygo::mainGame->externalSignal.Set();
-	ygo::mainGame->externalSignal.SetNoWait(true);
-	ygo::mainGame->MainLoop();
-	return EXIT_SUCCESS;
-}
-#endif //_IRR_ANDROID_PLATFORM_

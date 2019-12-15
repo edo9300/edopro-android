@@ -1,24 +1,16 @@
 #ifndef SOUNDMANAGER_H
 #define SOUNDMANAGER_H
 
-#include "game.h"
+#include <memory>
 #include <random>
+#include "utils.h"
 #include "sound_backend.h"
 
 namespace ygo {
 
 class SoundManager {
-private:
-	std::vector<std::string> BGMList[8];
-	std::map<unsigned int,std::string> ChantsList;
-	int bgm_scene;
-	std::unique_ptr<SoundBackend> mixer;
-	void RefershBGMDir(path_string path, int scene);
-	void RefreshChantsList();
-	std::mt19937 rnd;
-
 public:
-	enum Sounds {
+	enum SFX {
 		SUMMON,
 		SPECIAL_SUMMON,
 		ACTIVATE,
@@ -44,27 +36,42 @@ public:
 		PLAYER_ENTER,
 		CHAT
 	};
-	bool Init(void* payload = nullptr);
+	enum BGM {
+		ALL,
+		DUEL,
+		MENU,
+		DECK,
+		ADVANTAGE,
+		DISADVANTAGE,
+		WIN,
+		LOSE
+	};
+	bool Init(double sounds_volume, double music_volume, bool sounds_enabled, bool music_enabled, const std::string& working_directory);
 	void RefreshBGMList();
-	void PlaySoundEffect(Sounds sound);
-	void PlayMusic(const std::string& song, bool loop);
-	void PlayBGM(int scene);
-	void StopBGM();
+	void PlaySoundEffect(SFX sound);
+	void PlayBGM(BGM scene);
 	bool PlayChant(unsigned int code);
 	void SetSoundVolume(double volume);
 	void SetMusicVolume(double volume);
+	void EnableSounds(bool enable);
+	void EnableMusic(bool enable);
+	void StopSounds();
+	void StopMusic();
+	void PauseMusic(bool pause);
+	void Tick();
+
+private:
+	std::vector<std::string> BGMList[8];
+	std::map<unsigned int, std::string> ChantsList;
+	int bgm_scene = -1;
+	std::mt19937 rnd;
+	std::unique_ptr<SoundBackend> mixer;
+	void RefreshBGMDir(path_string path, BGM scene);
+	void RefreshChantsList();
+	bool soundsEnabled = false;
+	bool musicEnabled = false;
+	std::string working_dir = "./";
 };
-
-extern SoundManager soundManager;
-
-#define BGM_ALL						0
-#define BGM_DUEL					1
-#define BGM_MENU					2
-#define BGM_DECK					3
-#define BGM_ADVANTAGE				4
-#define BGM_DISADVANTAGE			5
-#define BGM_WIN						6
-#define BGM_LOSE					7
 
 }
 

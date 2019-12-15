@@ -24,47 +24,31 @@ public:
 	virtual void TPResult(DuelPlayer* dp, unsigned char tp);
 	virtual void Process();
 	virtual void Surrender(DuelPlayer* dp);
-	virtual int Analyze(char* msgbuffer, unsigned int len);
+	virtual int Analyze(CoreUtils::Packet packet);
 	virtual void GetResponse(DuelPlayer* dp, void* pdata, unsigned int len);
 	virtual void TimeConfirm(DuelPlayer* dp);
 	virtual void EndDuel();
-	
+
+	void BeforeParsing(CoreUtils::Packet& packet, int& return_value, bool& record, bool& record_last);
+	void Sending(CoreUtils::Packet& packet, int& return_value, bool& record, bool& record_last);
+	void AfterParsing(CoreUtils::Packet& packet, int& return_value, bool& record, bool& record_last);
 	void DuelEndProc();
 	void WaitforResponse(int playerid);
-	void RefreshMzone(int player, int flag = 0x881fff, int use_cache = 1);
-	void RefreshSzone(int player, int flag = 0xe81fff, int use_cache = 1);
-	void RefreshHand(int player, int flag = 0x781fff, int use_cache = 1);
-	void RefreshGrave(int player, int flag = 0x81fff, int use_cache = 1);
-	void RefreshExtra(int player, int flag = 0x81fff, int use_cache = 1);
-	void RefreshSingle(int player, int location, int sequence, int flag = 0xf81fff);
+	void RefreshMzone(int player, int flag = 0x3881fff);
+	void RefreshSzone(int player, int flag = 0x3e81fff);
+	void RefreshHand(int player, int flag = 0x3781fff);
+	void RefreshGrave(int player, int flag = 0x381fff);
+	void RefreshExtra(int player, int flag = 0x381fff);
+	void RefreshLocation(int player, int flag, int location);
+	void RefreshSingle(int player, int location, int sequence, int flag = 0x3f81fff);
 	
 	static void GenericTimer(evutil_socket_t fd, short events, void* arg);
 
-	void PseudoRefreshDeck(int player, int flag = 0x181fff);
+	void PseudoRefreshDeck(int player, int flag = 0x1181fff);
 	static ReplayStream replay_stream;
 	
 protected:
-	class Packet {
-	public:
-		Packet() {}
-		Packet(char * buf, int len) {
-			uint8_t msg = BufferIO::Read<uint8_t>(buf);
-			Set(msg, buf, len);
-		};
-		Packet(int msg, char * buf, int len) {
-			Set(msg, buf, len);
-		};
-		void Set(int msg, char * buf, int len) {
-			message = msg;
-			data.resize(len);
-			if(len)
-				memcpy(data.data(), buf, data.size());
-			data.insert(data.begin(), (uint8_t)message);
-		};
-		uint8_t message;
-		std::vector<unsigned char> data;
-	};
-	std::vector<Packet> packets_cache;
+	std::vector<CoreUtils::Packet> packets_cache;
 	class duelist {
 	public:
 		DuelPlayer* player;

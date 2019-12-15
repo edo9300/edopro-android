@@ -1,62 +1,38 @@
-/*
- * interface.h
- *
- *  Created on: 2010-4-28
- *      Author: Argon
- */
+#ifndef OCGAPI_H
+#define OCGAPI_H
+#include "ocgapi_types.h"
 
-#ifndef OCGAPI_H_
-#define OCGAPI_H_
-
-#include "common.h"
-#if defined(WIN32) && defined(YGOPRO_BUILD_DLL)
-#define DECL_DLLEXPORT __declspec(dllexport)
+#ifdef __cplusplus
+#define EXTERN_C extern "C"
 #else
-#define DECL_DLLEXPORT
+#define EXTERN_C
 #endif
 
-#define DUEL_API_VERSION_MAJOR 3
-#define DUEL_API_VERSION_MINOR 2
+#if defined(WIN32) && defined(OCGCORE_EXPORT_FUNCTIONS)
+#define OCGAPI EXTERN_C __declspec(dllexport)
+#else
+#define OCGAPI EXTERN_C
+#endif
 
-class card;
-struct card_data;
-struct card_info;
-class group;
-class effect;
-class interpreter;
+/*** CORE INFORMATION ***/
+OCGAPI void OCG_GetVersion(int* major, int* minor);
+/* OCGAPI void OCG_GetName(const char** name); Maybe created by git hash? */
 
-typedef byte* (*script_reader)(const char*, int*);
-typedef uint32 (*card_reader)(uint32, card_data*);
-typedef uint32 (*message_handler)(void*, uint32);
+/*** DUEL CREATION AND DESTRUCTION ***/
+OCGAPI int OCG_CreateDuel(OCG_Duel* duel, OCG_DuelOptions options);
+OCGAPI void OCG_DestroyDuel(OCG_Duel duel);
+OCGAPI void OCG_DuelNewCard(OCG_Duel duel, OCG_NewCardInfo info);
+OCGAPI void OCG_StartDuel(OCG_Duel duel);
 
-extern "C" DECL_DLLEXPORT int get_api_version(int* min);
+/*** DUEL PROCESSING AND QUERYING ***/
+OCGAPI int OCG_DuelProcess(OCG_Duel duel);
+OCGAPI void* OCG_DuelGetMessage(OCG_Duel duel, uint32_t* length);
+OCGAPI void OCG_DuelSetResponse(OCG_Duel duel, void* buffer, uint32_t length);
+OCGAPI int OCG_LoadScript(OCG_Duel duel, const char* buffer, uint32_t length, const char* name);
 
-extern "C" DECL_DLLEXPORT void set_script_reader(script_reader f);
-extern "C" DECL_DLLEXPORT void set_card_reader(card_reader f);
-extern "C" DECL_DLLEXPORT void set_message_handler(message_handler f);
+OCGAPI uint32_t OCG_DuelQueryCount(OCG_Duel duel, uint8_t team, uint32_t loc);
+OCGAPI void* OCG_DuelQuery(OCG_Duel duel, uint32_t* length, OCG_QueryInfo info);
+OCGAPI void* OCG_DuelQueryLocation(OCG_Duel duel, uint32_t* length, OCG_QueryInfo info);
+OCGAPI void* OCG_DuelQueryField(OCG_Duel duel, uint32_t* length);
 
-byte* read_script(const char* script_name, int* len);
-uint32 read_card(uint32 code, card_data* data);
-uint32 handle_message(void* pduel, uint32 message_type);
-
-extern "C" DECL_DLLEXPORT ptr create_duel(uint32 seed);
-extern "C" DECL_DLLEXPORT void start_duel(ptr pduel, int32 options);
-extern "C" DECL_DLLEXPORT void end_duel(ptr pduel);
-extern "C" DECL_DLLEXPORT void set_player_info(ptr pduel, int32 playerid, int32 lp, int32 startcount, int32 drawcount);
-extern "C" DECL_DLLEXPORT void get_log_message(ptr pduel, byte* buf);
-extern "C" DECL_DLLEXPORT int32 get_message(ptr pduel, byte* buf);
-extern "C" DECL_DLLEXPORT int32 process(ptr pduel);
-extern "C" DECL_DLLEXPORT void new_card(ptr pduel, uint32 code, uint8 owner, uint8 playerid, uint8 location, uint8 sequence, uint8 position, int32 duelist);
-extern "C" DECL_DLLEXPORT int32 get_cached_query(ptr pduel, byte* buf);
-extern "C" DECL_DLLEXPORT int32 query_card(ptr pduel, uint8 playerid, uint8 location, uint8 sequence, int32 query_flag, byte* buf, int32 use_cache, int32 ignore_cache = FALSE);
-extern "C" DECL_DLLEXPORT int32 query_field_count(ptr pduel, uint8 playerid, uint8 location);
-extern "C" DECL_DLLEXPORT int32 query_field_card(ptr pduel, uint8 playerid, uint8 location, int32 query_flag, byte* buf, int32 use_cache, int32 ignore_cache = FALSE);
-extern "C" DECL_DLLEXPORT int32 query_field_info(ptr pduel, byte* buf);
-extern "C" DECL_DLLEXPORT void set_responsei(ptr pduel, int32 value);
-extern "C" DECL_DLLEXPORT void set_responseb(ptr pduel, byte* buf, size_t len);
-extern "C" DECL_DLLEXPORT int32 preload_script(ptr pduel, char* script, int32 len, int32 scriptlen, char* scriptbuff);
-byte* default_script_reader(const char* script_name, int* len);
-uint32 default_card_reader(uint32 code, card_data* data);
-uint32 default_message_handler(void* pduel, uint32 msg_type);
-
-#endif /* OCGAPI_H_ */
+#endif /* OCGAPI_H */

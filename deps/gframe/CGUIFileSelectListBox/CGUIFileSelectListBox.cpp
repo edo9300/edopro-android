@@ -12,8 +12,13 @@
 #include "IVideoDriver.h"
 #include "IGUIFont.h"
 #include "IGUISpriteBank.h"
+#ifdef _IRR_ANDROID_PLATFORM_
+#include "../IrrlichtCommonIncludesAndroid/CGUIScrollBar.h"
+#include "../IrrlichtCommonIncludesAndroid/os.h"
+#else
 #include "../IrrlichtCommonIncludes/CGUIScrollBar.h"
 #include "../IrrlichtCommonIncludes/os.h"
+#endif
 #include "../utils.h"
 
 namespace irr {
@@ -829,10 +834,12 @@ void CGUIFileSelectListBox::setDrawBackground(bool draw) {
 	DrawBack = draw;
 }
 
-
+#ifdef _IRR_ANDROID_PLATFORM_
 IGUIScrollBar* CGUIFileSelectListBox::getVerticalScrollBar() const {
 	return ScrollBar;
 }
+#endif
+
 
 void CGUIFileSelectListBox::refreshList() {
 	LoadFolderContents();

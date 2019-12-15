@@ -102,7 +102,6 @@ field::field(duel* pduel) {
 	core.forced_summon_maxc = 0;
 	core.last_control_changed_id = 0;
 	core.duel_options = 0;
-	core.duel_rule = 0;
 	core.attacker = 0;
 	core.attack_target = 0;
 	core.set_forced_attack = false;
@@ -115,6 +114,7 @@ field::field(duel* pduel) {
 	core.effect_damage_step = FALSE;
 	core.shuffle_check_disabled = FALSE;
 	core.global_flag = 0;
+	nil_event.trigger_card = nullptr;
 	nil_event.event_code = 0;
 	nil_event.event_cards = 0;
 	nil_event.event_player = PLAYER_NONE;
@@ -125,7 +125,7 @@ field::field(duel* pduel) {
 }
 void field::reload_field_info() {
 	auto message = pduel->new_message(MSG_RELOAD_FIELD);
-	message->write<uint8>(core.duel_rule + ((is_flag(SPEED_DUEL) ? 1 : 0) << 4));
+	message->write<uint32>(core.duel_options);
 	for(int32 playerid = 0; playerid < 2; ++playerid) {
 		message->write<uint32>(player[playerid].lp);
 		for(auto& pcard : player[playerid].list_mzone) {
@@ -757,24 +757,24 @@ int32 field::get_forced_zones(card* pcard, uint8 playerid, uint8 location, uint3
 		(res >>= 16 )&= 0xff;
 	return res;
 }
-uint32 field::get_linked_zone(int32 playerid) {
+uint32 field::get_linked_zone(int32 playerid, bool free) {
 	uint32 zones = 0;
 	for(auto& pcard : player[playerid].list_mzone) {
 		if(pcard)
-			zones |= pcard->get_linked_zone();
+			zones |= pcard->get_linked_zone(free);
 	}
 	for(auto& pcard : player[playerid].list_szone) {
 		if(pcard)
-			zones |= pcard->get_linked_zone();
+			zones |= pcard->get_linked_zone(free);
 	}
 	uint32 oppzones = 0;
 	for(auto& pcard : player[1 - playerid].list_mzone) {
 		if(pcard)
-			oppzones |= pcard->get_linked_zone();
+			oppzones |= pcard->get_linked_zone(free);
 	}
 	for(auto& pcard : player[1 - playerid].list_szone) {
 		if(pcard)
-			oppzones |= pcard->get_linked_zone();
+			oppzones |= pcard->get_linked_zone(free);
 	}
 	zones |= ((oppzones & 0xffff) << 16) | (oppzones >> 16);
 	effect_set eset;
@@ -801,15 +801,18 @@ int32 field::check_extra_link(int32 playerid, card* pcard, int32 sequence) {
 	uint8 cur_controler = pcard->current.controler;
 	uint8 cur_location = pcard->current.location;
 	uint8 cur_sequence = pcard->current.sequence;
+	uint8 cur_position = pcard->current.position;
 	player[playerid].list_mzone[sequence] = pcard;
 	pcard->current.controler = playerid;
 	pcard->current.location = LOCATION_MZONE;
 	pcard->current.sequence = sequence;
+	pcard->current.position = POS_FACEUP;
 	int32 ret = pcard->is_extra_link_state();
 	player[playerid].list_mzone[sequence] = 0;
 	pcard->current.controler = cur_controler;
 	pcard->current.location = cur_location;
 	pcard->current.sequence = cur_sequence;
+	pcard->current.position = cur_position;
 	return ret;
 }
 void field::get_cards_in_zone(card_set* cset, uint32 zone, int32 playerid, int32 location) {
@@ -897,10 +900,8 @@ void field::shuffle(uint8 playerid, uint8 location) {
 				auto message = pduel->new_message(MSG_DECK_TOP);
 				message->write<uint8>(playerid);
 				message->write<uint32>(0);
-				if(ptop->current.position != POS_FACEUP_DEFENSE)
-					message->write<uint32>(ptop->data.code);
-				else
-					message->write<uint32>(ptop->data.code | 0x80000000);
+				message->write<uint32>(ptop->data.code);
+				message->write<uint32>(ptop->current.position);
 			}
 		}
 	}
@@ -1048,10 +1049,14 @@ void field::tag_swap(uint8 playerid) {
 		message->write<uint32>(player[playerid].list_main.back()->data.code);
 	else
 		message->write<uint32>(0);
-	for(auto& pcard : player[playerid].list_hand)
-		message->write<uint32>(pcard->data.code | (pcard->is_position(POS_FACEUP) ? 0x80000000 : 0));
-	for(auto& pcard : player[playerid].list_extra)
-		message->write<uint32>(pcard->data.code | (pcard->is_position(POS_FACEUP) ? 0x80000000 : 0));
+	for(auto& pcard : player[playerid].list_hand) {
+		message->write<uint32>(pcard->data.code);
+		message->write<uint32>(pcard->current.position);
+	}
+	for(auto& pcard : player[playerid].list_extra) {
+		message->write<uint32>(pcard->data.code);
+		message->write<uint32>(pcard->current.position);
+	}
 	player[playerid].tag_index = (player[playerid].tag_index + 1) % player[playerid].extra_lists_main.size();
 }
 bool field::relay_check(uint8 playerid) {
@@ -1104,15 +1109,22 @@ void field::next_player(uint8 playerid) {
 		message->write<uint32>(player[playerid].list_main.back()->data.code);
 	else
 		message->write<uint32>(0);
-	for(auto& pcard : player[playerid].list_hand)
-		message->write<uint32>(pcard->data.code | (pcard->is_position(POS_FACEUP) ? 0x80000000 : 0));
-	for(auto& pcard : player[playerid].list_extra)
-		message->write<uint32>(pcard->data.code | (pcard->is_position(POS_FACEUP) ? 0x80000000 : 0));
+	for(auto& pcard : player[playerid].list_hand) {
+		message->write<uint32>(pcard->data.code);
+		message->write<uint32>(pcard->current.position);
+	}
+	for(auto& pcard : player[playerid].list_extra) {
+		message->write<uint32>(pcard->data.code);
+		message->write<uint32>(pcard->current.position);
+	}
 	player[playerid].lp = player[playerid].start_lp;
 	message = pduel->new_message(MSG_LPUPDATE);
 	message->write<uint8>(playerid);
 	message->write<uint32>(player[playerid].start_lp);
 	player[playerid].recharge = false;
+}
+bool field::is_flag(int32 flag) {
+	return (core.duel_options & flag) == flag;
 }
 int32 field::get_pzone_index(uint8 seq) {
 	if(seq > 1)
@@ -1120,7 +1132,7 @@ int32 field::get_pzone_index(uint8 seq) {
 	if(is_flag(DUEL_SEPARATE_PZONE)) {
 		return seq + 6;
 	}
-	if(is_flag(SPEED_DUEL)) {
+	if(is_flag(DUEL_SPEED)) {
 		if(seq == 0)
 			return 1;
 		return 3;
@@ -1709,7 +1721,7 @@ void field::get_ritual_material(uint8 playerid, effect* peffect, card_set* mater
 		if((pcard->data.type & TYPE_MONSTER) && pcard->is_releasable_by_nonsummon(playerid))
 			material->insert(pcard);
 	for(auto& pcard : player[playerid].list_grave)
-		if((pcard->data.type & TYPE_MONSTER) && pcard->is_affected_by_effect(EFFECT_EXTRA_RITUAL_MATERIAL) && pcard->is_removeable(playerid))
+		if((pcard->data.type & TYPE_MONSTER) && pcard->is_affected_by_effect(EFFECT_EXTRA_RITUAL_MATERIAL) && pcard->is_removeable(playerid, POS_FACEUP, REASON_EFFECT))
 			material->insert(pcard);
 }
 void field::get_fusion_material(uint8 playerid, card_set* material) {
@@ -2256,7 +2268,7 @@ int32 field::get_attack_target(card* pcard, card_vector* v, uint8 chain_attack, 
 					continue;
 				if(atype >= 2 && atarget->is_affected_by_effect(EFFECT_IGNORE_BATTLE_TARGET))
 					continue;
-				if(select_target && atype == 4) {
+				if(select_target && (atype == 2 || atype == 4)) {
 					if(atarget->is_affected_by_effect(EFFECT_CANNOT_BE_BATTLE_TARGET, pcard))
 						continue;
 					if(pcard->is_affected_by_effect(EFFECT_CANNOT_SELECT_BATTLE_TARGET, atarget))
@@ -2278,7 +2290,7 @@ int32 field::get_attack_target(card* pcard, card_vector* v, uint8 chain_attack, 
 			mcount++;
 		if(chain_attack && core.chain_attack_target && atarget != core.chain_attack_target)
 			continue;
-		if(select_target && atype == 4) {
+		if(select_target && (atype == 2 || atype == 4)) {
 			if(atarget->is_affected_by_effect(EFFECT_CANNOT_BE_BATTLE_TARGET, pcard))
 				continue;
 			if(pcard->is_affected_by_effect(EFFECT_CANNOT_SELECT_BATTLE_TARGET, atarget))
@@ -2298,8 +2310,8 @@ int32 field::get_attack_target(card* pcard, card_vector* v, uint8 chain_attack, 
 bool field::confirm_attack_target() {
 	card_vector cv;
 	get_attack_target(core.attacker, &cv, core.chain_attack, false);
-	return core.attack_target && std::find(cv.begin(), cv.end(), core.attack_target) != cv.end()
-		|| !core.attack_target && core.attacker->direct_attackable;
+	return (core.attack_target && std::find(cv.begin(), cv.end(), core.attack_target) != cv.end())
+		|| (!core.attack_target && core.attacker->direct_attackable);
 }
 // update the validity for EFFECT_ATTACK_ALL (approximate solution)
 void field::attack_all_target_check() {
@@ -2331,7 +2343,7 @@ int32 field::check_tribute(card* pcard, int32 min, int32 max, group* mg, uint8 t
 	int32 ct = get_tofield_count(pcard, toplayer, LOCATION_MZONE, sumplayer, LOCATION_REASON_TOFIELD, zone);
 	if(ct <= 0 && max <= 0)
 		return FALSE;
-	for(auto& pcard : (ex_list.size() >= min) ? ex_list : release_list) {
+	for(auto& pcard : (static_cast<int>(ex_list.size()) >= min) ? ex_list : release_list) {
 		if(pcard->current.location == LOCATION_MZONE && pcard->current.controler == toplayer) {
 			s++;
 			if((zone >> pcard->current.sequence) & 1)
@@ -2350,7 +2362,7 @@ int32 field::check_tribute(card* pcard, int32 min, int32 max, group* mg, uint8 t
 		return FALSE;
 	return TRUE;
 }
-int32 field::check_with_sum_limit(const card_vector& mats, int32 acc, int32 index, int32 count, int32 min, int32 max) {
+int32 field::check_with_sum_limit(const card_vector& mats, int32 acc, int32 index, int32 count, int32 min, int32 max, int32* should_continue) {
 	if(count > max)
 		return FALSE;
 	while(index < (int32)mats.size()) {
@@ -2359,55 +2371,59 @@ int32 field::check_with_sum_limit(const card_vector& mats, int32 acc, int32 inde
 		if((op1 == acc || op2 == acc) && count >= min)
 			return TRUE;
 		index++;
-		if(acc > op1 && check_with_sum_limit(mats, acc - op1, index, count + 1, min, max))
+		if(acc > op1 && check_with_sum_limit(mats, acc - op1, index, count + 1, min, max, should_continue))
 			return TRUE;
-		if(op2 && acc > op2 && check_with_sum_limit(mats, acc - op2, index, count + 1, min, max))
+		if(op2 && acc > op2 && check_with_sum_limit(mats, acc - op2, index, count + 1, min, max, should_continue))
 			return TRUE;
 	}
+	if(count + 1 < min && should_continue)
+		*should_continue = FALSE;
 	return FALSE;
 }
-int32 field::check_with_sum_limit_m(const card_vector& mats, int32 acc, int32 index, int32 min, int32 max, int32 must_count) {
+int32 field::check_with_sum_limit_m(const card_vector& mats, int32 acc, int32 index, int32 min, int32 max, int32 must_count, int32* should_continue) {
 	if(acc == 0)
 		return index == must_count && 0 >= min && 0 <= max;
 	if(index == must_count)
-		return check_with_sum_limit(mats, acc, index, 1, min, max);
+		return check_with_sum_limit(mats, acc, index, 1, min, max, should_continue);
 	if(index >= (int32)mats.size())
 		return FALSE;
 	int32 op1 = mats[index]->sum_param & 0xffff;
 	int32 op2 = (mats[index]->sum_param >> 16) & 0xffff;
-	if(acc >= op1 && check_with_sum_limit_m(mats, acc - op1, index + 1, min, max, must_count))
+	if(acc >= op1 && check_with_sum_limit_m(mats, acc - op1, index + 1, min, max, must_count, should_continue))
 		return TRUE;
-	if(op2 && acc >= op2 && check_with_sum_limit_m(mats, acc - op2, index + 1, min, max, must_count))
+	if(op2 && acc >= op2 && check_with_sum_limit_m(mats, acc - op2, index + 1, min, max, must_count, should_continue))
 		return TRUE;
 	return FALSE;
 }
-int32 field::check_with_sum_greater_limit(const card_vector& mats, int32 acc, int32 index, int32 opmin) {
+int32 field::check_with_sum_greater_limit(const card_vector& mats, int32 acc, int32 index, int32 opmin, int32* should_continue) {
 	while(index < (int32)mats.size()) {
 		int32 op1 = mats[index]->sum_param & 0xffff;
 		int32 op2 = (mats[index]->sum_param >> 16) & 0xffff;
 		if((acc <= op1 && acc + opmin > op1) || (op2 && acc <= op2 && acc + opmin > op2))
 			return TRUE;
 		index++;
-		if(check_with_sum_greater_limit(mats, acc - op1, index, std::min(opmin, op1)))
+		if(check_with_sum_greater_limit(mats, acc - op1, index, std::min(opmin, op1), should_continue))
 			return TRUE;
-		if(op2 && check_with_sum_greater_limit(mats, acc - op2, index, std::min(opmin, op2)))
+		if(op2 && check_with_sum_greater_limit(mats, acc - op2, index, std::min(opmin, op2), should_continue))
 			return TRUE;
 	}
 	return FALSE;
 }
-int32 field::check_with_sum_greater_limit_m(const card_vector& mats, int32 acc, int32 index, int32 opmin, int32 must_count) {
+int32 field::check_with_sum_greater_limit_m(const card_vector& mats, int32 acc, int32 index, int32 opmin, int32 must_count, int32* should_continue) {
 	if(acc <= 0)
 		return index == must_count && acc + opmin > 0;
 	if(index == must_count)
-		return check_with_sum_greater_limit(mats, acc, index, opmin);
+		return check_with_sum_greater_limit(mats, acc, index, opmin, should_continue);
 	if(index >= (int32)mats.size())
 		return FALSE;
 	int32 op1 = mats[index]->sum_param & 0xffff;
 	int32 op2 = (mats[index]->sum_param >> 16) & 0xffff;
-	if(check_with_sum_greater_limit_m(mats, acc - op1, index + 1, std::min(opmin, op1), must_count))
+	if(check_with_sum_greater_limit_m(mats, acc - op1, index + 1, std::min(opmin, op1), must_count, should_continue))
 		return TRUE;
-	if(op2 && check_with_sum_greater_limit_m(mats, acc - op2, index + 1, std::min(opmin, op2), must_count))
+	if(op2 && check_with_sum_greater_limit_m(mats, acc - op2, index + 1, std::min(opmin, op2), must_count, should_continue))
 		return TRUE;
+	if(should_continue && index < must_count && (acc - op1 <= 0 && (!op2 || acc - op2 <= 0)))
+		*should_continue = FALSE;
 	return FALSE;
 }
 int32 field::is_player_can_draw(uint8 playerid) {
@@ -2528,6 +2544,8 @@ int32 field::is_player_can_spsummon(effect* peffect, uint32 sumtype, uint8 sumpo
 		return FALSE;
 	if(pcard->is_status(STATUS_FORBIDDEN))
 		return FALSE;
+	if((pcard->data.type & TYPE_TOKEN) && (pcard->current.location & LOCATION_ONFIELD))
+		return FALSE;
 	if((pcard->data.type & TYPE_LINK) && (pcard->data.type & TYPE_MONSTER))
 		sumpos &= POS_FACEUP_ATTACK;
 	if(sumpos == 0)
@@ -2597,7 +2615,7 @@ int32 field::is_player_can_flipsummon(uint8 playerid, card * pcard) {
 int32 field::is_player_can_spsummon_monster(uint8 playerid, uint8 toplayer, uint8 sumpos, uint32 sumtype, card_data* pdata) {
 	temp_card->data = *pdata;
 	int32 result = is_player_can_spsummon(core.reason_effect, sumtype, sumpos, playerid, toplayer, temp_card);
-	temp_card->data.clear();
+	temp_card->data = {};
 	return result;
 }
 int32 field::is_player_can_release(uint8 playerid, card * pcard) {
@@ -2701,7 +2719,8 @@ int32 field::is_player_can_send_to_hand(uint8 playerid, card * pcard) {
 		pduel->lua->add_param(eset[i], PARAM_TYPE_EFFECT);
 		pduel->lua->add_param(pcard, PARAM_TYPE_CARD);
 		pduel->lua->add_param(playerid, PARAM_TYPE_INT);
-		if(pduel->lua->check_condition(eset[i]->target, 3))
+		pduel->lua->add_param(core.reason_effect, PARAM_TYPE_EFFECT);
+		if(pduel->lua->check_condition(eset[i]->target, 4))
 			return FALSE;
 	}
 	if(pcard->is_extra_deck_monster() && !is_player_can_send_to_deck(playerid, pcard))
@@ -2722,7 +2741,7 @@ int32 field::is_player_can_send_to_deck(uint8 playerid, card * pcard) {
 	}
 	return TRUE;
 }
-int32 field::is_player_can_remove(uint8 playerid, card * pcard) {
+int32 field::is_player_can_remove(uint8 playerid, card * pcard, uint32 reason) {
 	effect_set eset;
 	filter_player_effect(playerid, EFFECT_CANNOT_REMOVE, &eset);
 	for(effect_set::size_type i = 0; i < eset.size(); ++i) {
@@ -2731,7 +2750,9 @@ int32 field::is_player_can_remove(uint8 playerid, card * pcard) {
 		pduel->lua->add_param(eset[i], PARAM_TYPE_EFFECT);
 		pduel->lua->add_param(pcard, PARAM_TYPE_CARD);
 		pduel->lua->add_param(playerid, PARAM_TYPE_INT);
-		if (pduel->lua->check_condition(eset[i]->target, 3))
+		pduel->lua->add_param(reason, PARAM_TYPE_INT);
+		pduel->lua->add_param(core.reason_effect, PARAM_TYPE_EFFECT);
+		if(pduel->lua->check_condition(eset[i]->target, 5))
 			return FALSE;
 	}
 	return TRUE;
@@ -2931,8 +2952,8 @@ int32 field::check_deck_effect(chain& ch) const {
 	card* phandler = peffect->get_handler();
 	if(!peffect->is_flag(EFFECT_FLAG_FIELD_ONLY)
 		&& ch.triggering_location == LOCATION_DECK && (phandler->current.location & LOCATION_DECK)) {
-		if((peffect->type & EFFECT_TYPE_SINGLE) && !peffect->is_flag(EFFECT_FLAG_SINGLE_RANGE)
-			&& peffect->code == EVENT_TO_DECK || (peffect->range & LOCATION_DECK)) {
+		if(((peffect->type & EFFECT_TYPE_SINGLE) && !peffect->is_flag(EFFECT_FLAG_SINGLE_RANGE) && peffect->code == EVENT_TO_DECK)
+			|| (peffect->range & LOCATION_DECK)) {
 			ch.flag |= CHAIN_DECK_EFFECT;
 		} else
 			return FALSE;
@@ -2943,13 +2964,13 @@ int32 field::check_hand_trigger(chain& ch) {
 	effect* peffect = ch.triggering_effect;
 	card* phandler = peffect->get_handler();
 	if(!peffect->is_flag(EFFECT_FLAG_FIELD_ONLY)
-		&& ((peffect->type & EFFECT_TYPE_SINGLE) && !peffect->is_flag(EFFECT_FLAG_SINGLE_RANGE)
-			&& phandler->is_has_relation(ch) && ch.triggering_location == LOCATION_HAND
+		&& (((peffect->type & EFFECT_TYPE_SINGLE) && !peffect->is_flag(EFFECT_FLAG_SINGLE_RANGE)
+			&& phandler->is_has_relation(ch) && ch.triggering_location == LOCATION_HAND)
 			|| (peffect->range & LOCATION_HAND))) {
 		ch.flag |= CHAIN_HAND_TRIGGER;
 		core.new_ochain_h.push_back(ch);
-		if(ch.triggering_location == LOCATION_HAND && phandler->is_position(POS_FACEDOWN)
-			|| peffect->range && !peffect->in_range(ch))
+		if((ch.triggering_location == LOCATION_HAND && phandler->is_position(POS_FACEDOWN))
+			|| (peffect->range && !peffect->in_range(ch)))
 			return FALSE;
 	}
 	return TRUE;

@@ -5,9 +5,6 @@
 #include <vector>
 #include <set>
 #include <map>
-#ifdef _IRR_ANDROID_PLATFORM_
-#include <android/TouchEventTransferAndroid.h>
-#endif
 
 namespace ygo {
 
@@ -73,7 +70,7 @@ public:
 	std::vector<int64> declare_opcodes;
 	std::vector<ClientCard*> display_cards;
 	std::vector<int> sort_list;
-	std::map<int, int> player_desc_hints[2];
+	std::map<int64, int> player_desc_hints[2];
 	bool grave_act;
 	bool remove_act;
 	bool deck_act;
@@ -93,8 +90,8 @@ public:
 	ClientCard* GetCard(int controler, int location, int sequence, int sub_seq = 0);
 	void AddCard(ClientCard* pcard, int controler, int location, int sequence);
 	ClientCard* RemoveCard(int controler, int location, int sequence);
-	void UpdateCard(int controler, int location, int sequence, char* data);
-	void UpdateFieldCard(int controler, int location, char* data);
+	void UpdateCard(int controler, int location, int sequence, char* data, int len = 0);
+	void UpdateFieldCard(int controler, int location, char* data, int len = 0);
 	void ClearCommandFlag();
 	void ClearSelect();
 	void ClearChainSelect();

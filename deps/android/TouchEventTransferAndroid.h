@@ -9,7 +9,7 @@
 #define TOUCHEVENTTRANSFERANDROID_H_
 
 #include <irrlicht.h>
-#include "../gframe/os.h"
+#include "os.h"
 #include <unistd.h>
 #include <signal.h>
 #include <stdio.h>

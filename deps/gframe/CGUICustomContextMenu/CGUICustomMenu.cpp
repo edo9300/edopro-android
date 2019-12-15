@@ -10,8 +10,11 @@
 #include "IVideoDriver.h"
 #include "IGUIFont.h"
 #include "IGUIWindow.h"
-
+#ifdef _IRR_ANDROID_PLATFORM_
+#include "../IrrlichtCommonIncludesAndroid/os.h"
+#else
 #include "../IrrlichtCommonIncludes/os.h"
+#endif
 
 namespace irr
 {

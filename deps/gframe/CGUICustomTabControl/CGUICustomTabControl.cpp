@@ -5,13 +5,18 @@
 #include "CGUICustomTabControl.h"
 #ifdef _IRR_COMPILE_WITH_GUI_
 
+#ifdef _IRR_ANDROID_PLATFORM_
+#include "../IrrlichtCommonIncludesAndroid/CGUIButton.h"
+#include "../IrrlichtCommonIncludesAndroid/os.h"
+#else
 #include "../IrrlichtCommonIncludes/CGUIButton.h"
+#include "../IrrlichtCommonIncludes/os.h"
+#endif
 #include "IGUISkin.h"
 #include "IGUIEnvironment.h"
 #include "IGUIFont.h"
 #include "IVideoDriver.h"
 #include "rect.h"
-#include "../IrrlichtCommonIncludes/os.h"
 
 namespace irr
 {

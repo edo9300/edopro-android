@@ -49,28 +49,31 @@ LOCAL_C_INCLUDES += $(CLASSES_PATH)/SDL2_mixer/include
 LOCAL_SRC_FILES := $(CLASSES_PATH)/android/android_tools.cpp \
 				$(CLASSES_PATH)/android/xstring.cpp \
 				$(CLASSES_PATH)/android/TouchEventTransferAndroid.cpp \
-				$(CLASSES_PATH)/android/CAndroidGUIEditBox.cpp \
-				$(CLASSES_PATH)/android/CAndroidGUIComboBox.cpp \
-				$(CLASSES_PATH)/android/CAndroidGUIListBox.cpp \
-				$(CLASSES_PATH)/android/CAndroidGUISkin.cpp \
 				$(CLASSES_PATH)/android/CustomShaderConstantSetCallBack.cpp \
+				$(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
 				$(GFRAME_PATH)/CGUICustomContextMenu/CGUICustomContextMenu.cpp \
 				$(GFRAME_PATH)/CGUICustomContextMenu/CGUICustomMenu.cpp \
 				$(GFRAME_PATH)/CGUICustomTabControl/CGUICustomTabControl.cpp \
+				$(GFRAME_PATH)/CGUICustomTable/CGUICustomTable.cpp \
 				$(GFRAME_PATH)/CGUICustomText/CGUICustomText.cpp \
 				$(GFRAME_PATH)/CGUIFileSelectListBox/CGUIFileSelectListBox.cpp \
 				$(GFRAME_PATH)/CGUIImageButton/CGUIImageButton.cpp \
+				$(GFRAME_PATH)/CGUISkinSystem/CConfigMap.cpp \
+				$(GFRAME_PATH)/CGUISkinSystem/CGUIProgressBar.cpp \
+				$(GFRAME_PATH)/CGUISkinSystem/CGUISkinSystem.cpp \
+				$(GFRAME_PATH)/CGUISkinSystem/CImageGUISkin.cpp \
 				$(GFRAME_PATH)/CGUITTFont/CGUITTFont.cpp \
 				$(GFRAME_PATH)/CProgressBar/CProgressBar.cpp \
+				$(GFRAME_PATH)/CXMLRegistry/CXMLNode.cpp \
+				$(GFRAME_PATH)/CXMLRegistry/CXMLRegistry.cpp \
 				$(GFRAME_PATH)/ResizeablePanel/ResizeablePanel.cpp \
 				$(GFRAME_PATH)/client_card.cpp \
-				$(GFRAME_PATH)/CGUIButton.cpp \
-				$(GFRAME_PATH)/CGUIComboBox.cpp \
-				$(GFRAME_PATH)/CGUIEditBox.cpp \
 				$(GFRAME_PATH)/client_field.cpp \
+				$(GFRAME_PATH)/core_utils.cpp \
 				$(GFRAME_PATH)/data_manager.cpp \
 				$(GFRAME_PATH)/deck_con.cpp \
 				$(GFRAME_PATH)/deck_manager.cpp \
+				$(GFRAME_PATH)/discord_wrapper.cpp \
 				$(GFRAME_PATH)/dllinterface.cpp \
 				$(GFRAME_PATH)/drawing.cpp \
 				$(GFRAME_PATH)/duelclient.cpp \
@@ -84,15 +87,15 @@ LOCAL_SRC_FILES := $(CLASSES_PATH)/android/android_tools.cpp \
 				$(GFRAME_PATH)/netserver.cpp \
 				$(GFRAME_PATH)/old_replay_mode.cpp \
 				$(GFRAME_PATH)/porting_android.cpp \
-				$(GFRAME_PATH)/repo_manager.cpp \
 				$(GFRAME_PATH)/readonlymemvfs.cpp \
 				$(GFRAME_PATH)/replay_mode.cpp \
+				$(GFRAME_PATH)/repo_manager.cpp \
 				$(GFRAME_PATH)/replay.cpp \
+				$(GFRAME_PATH)/server_lobby.cpp \
 				$(GFRAME_PATH)/single_mode.cpp \
 				$(GFRAME_PATH)/sound_manager.cpp \
 				$(GFRAME_PATH)/sound_sdlmixer.cpp \
 				$(GFRAME_PATH)/utils.cpp 
-# 				$(LOCAL_PATH)/jni/cn_garymb_ygomobile_core_IrrlichtBridge.cpp
 
 LOCAL_LDLIBS := -lEGL -llog -lGLESv1_CM -lGLESv2 -landroid -lOpenSLES
 

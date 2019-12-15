@@ -9,7 +9,7 @@ public:
 	Signal():_nowait(false), _signaled(false){}
 	~Signal() {}
 	void Set() {
-		val.notify_one();
+		val.notify_all();
 		_signaled = true;
 	}
 	void Reset() {
@@ -35,9 +35,6 @@ public:
 		if (nowait){
 			Set();
 		}
-	}
-	bool GetNoWait() {
-		return _nowait;
 	}
 private:
 	std::mutex mut;

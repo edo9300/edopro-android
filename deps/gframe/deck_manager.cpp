@@ -212,27 +212,13 @@ int DeckManager::CheckDeck(Deck& deck, int lfhash, bool allow_ocg, bool allow_tc
 int DeckManager::LoadDeck(Deck& deck, int* dbuf, int mainc, int sidec, int mainc2, int sidec2) {
 	std::vector<int> mainvect;
 	std::vector<int> sidevect;
-	int code;
-	for(int i = 0; i < mainc; ++i) {
-		code = dbuf[i];
-		mainvect.push_back(code);
-	}
+	mainvect.insert(mainvect.end(), dbuf, dbuf + mainc);
 	dbuf += mainc;
-	for(int i = 0; i < sidec; ++i) {
-		code = dbuf[i];
-		sidevect.push_back(code);
-	}
+	sidevect.insert(sidevect.end(), dbuf, dbuf + sidec);
 	dbuf += sidec;
-	for(int i = 0; i < mainc2; ++i) {
-		code = dbuf[i];
-		mainvect.push_back(code);
-	}
+	mainvect.insert(mainvect.end(), dbuf, dbuf + mainc2);
 	dbuf += mainc2;
-	for(int i = 0; i < sidec2; ++i) {
-		code = dbuf[i];
-		sidevect.push_back(code);
-	}
-	dbuf += sidec2;
+	sidevect.insert(sidevect.end(), dbuf, dbuf + sidec2);
 	return LoadDeck(deck, mainvect, sidevect);
 }
 int DeckManager::LoadDeck(Deck& deck, std::vector<int> mainlist, std::vector<int> sidelist) {

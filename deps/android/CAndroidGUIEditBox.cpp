@@ -4,7 +4,7 @@
  *  Created on: 2014年2月24日
  *      Author: mabin
  */
-
+#if 0
 #include "CAndroidGUIEditBox.h"
 #include "android_tools.h"
 #include "../gframe/game.h"
@@ -46,3 +46,4 @@ inline void CAndroidGUIEditBox::toggleIME(bool pShow) {
 
 } /* namespace gui */
 } /* namespace irr */
+#endif

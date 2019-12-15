@@ -39,7 +39,9 @@ public:
 	static unsigned short temp_ver;
 	static bool try_needed;
 
-	static bool StartClient(unsigned int ip, unsigned short port, bool create_game = true);
+	static std::pair<unsigned int, unsigned short> ResolveServer(const std::wstring& address, const std::wstring& port);
+	static std::pair<unsigned int, unsigned short> ResolveServer(const std::wstring& address, int port);
+	static bool StartClient(unsigned int ip, unsigned short port, unsigned int gameid = 0, bool create_game = true);
 	static void ConnectTimeout(evutil_socket_t fd, short events, void* arg);
 	static void StopClient(bool is_exiting = false);
 	static void ClientRead(bufferevent* bev, void* ctx);
@@ -47,6 +49,8 @@ public:
 	static int ClientThread();
 	static void HandleSTOCPacketLan(char* data, unsigned int len);
 	static bool CheckReady();
+	static void SetPlayersCount();
+	static std::pair<int, int> GetPlayersCount();
 	static ReplayStream replay_stream;
 	static Replay last_replay;
 	static bool old_replay;

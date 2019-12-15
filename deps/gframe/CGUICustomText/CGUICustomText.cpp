@@ -6,8 +6,13 @@
 #include "IGUIFont.h"
 #include "IVideoDriver.h"
 #include "rect.h"
+#ifdef _IRR_ANDROID_PLATFORM_
+#include "../IrrlichtCommonIncludesAndroid/os.h"
+#else
 #include "../IrrlichtCommonIncludes/os.h"
+#endif
 #include <algorithm>
+#include <cmath>
 
 namespace irr
 {
@@ -167,8 +172,8 @@ void CGUICustomText::draw()
 				if(hasVerticalAutoscrolling())
 					r.UpperLeftCorner.Y -= round((float)curFrame * animationStep);
 
-				u32 end = std::min(BrokenText.size(), (u32)(floor((AbsoluteClippingRect.getHeight() + offset) / height) + 1));
-				u32 start = std::max(0, (s32)(end - floor(AbsoluteClippingRect.getHeight() / height) - 2));
+				u32 end = std::min(BrokenText.size(), (u32)(std::floor((AbsoluteClippingRect.getHeight() + offset) / height) + 1));
+				u32 start = std::max(0, (s32)(end - std::floor(AbsoluteClippingRect.getHeight() / height) - 2));
 				r.UpperLeftCorner.Y += height * start;
 				for(u32 i = start; i < end; ++i, r.UpperLeftCorner.Y += height) {
 					if(HAlign == EGUIA_LOWERRIGHT) {
@@ -654,7 +659,7 @@ void CGUICustomText::updateAbsolutePosition()
 		else if(ScrollRatio)
 			width2 = width - round(width*ScrollRatio);
 		else
-			width2 = width - round(width*0.1);
+			width2 = width - Environment->getSkin()->getSize(EGDS_SCROLLBAR_SIZE);
 		scrText->setRelativePosition(irr::core::rect<s32>(width2, 0, width, RelativeRect.getHeight()));
 	}
 	if(prev_rect.getHeight() != RelativeRect.getHeight() || prev_rect.getWidth() != RelativeRect.getWidth()) {

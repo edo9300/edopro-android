@@ -1,8 +1,10 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
+#include "dllinterface.h"
 #include "config.h"
 #include "deck_manager.h"
+#include "core_utils.h"
 #include <event2/event.h>
 #include <event2/listener.h>
 #include <event2/bufferevent.h>
@@ -54,6 +56,7 @@ struct CTOS_CreateGame {
 	HostInfo info;
 	unsigned short name[20];
 	unsigned short pass[20];
+	char notes[200];
 };
 struct CTOS_JoinGame {
 	unsigned short version;
@@ -135,7 +138,7 @@ public:
 	virtual void HandResult(DuelPlayer* dp, unsigned char res) {}
 	virtual void TPResult(DuelPlayer* dp, unsigned char tp) {}
 	virtual void Process() {}
-	virtual int Analyze(char* msgbuffer, unsigned int len) {
+	virtual int Analyze(CoreUtils::Packet packet) {
 		return 0;
 	}
 	virtual void Surrender(DuelPlayer* dp) {}
@@ -148,7 +151,7 @@ public:
 	DuelPlayer* host_player;
 	HostInfo host_info;
 	int duel_stage;
-	void* pduel;
+	OCG_Duel pduel;
 	wchar_t name[20];
 	wchar_t pass[20];
 };
@@ -240,7 +243,7 @@ public:
 #define SEALED_DUEL			0x1
 #define BOOSTER_DUEL		0x2
 #define DESTINY_DRAW		0x4
-#define DUEL_SPEED			0x8
+#define SPEED_DUEL			0x8
 #define CONCENTRATION_DUEL	0x10
 #define BOSS_DUEL			0x20
 #define BATTLE_CITY			0x40

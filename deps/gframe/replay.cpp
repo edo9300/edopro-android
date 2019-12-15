@@ -2,10 +2,7 @@
 #include <algorithm>
 #include <fstream>
 #include "lzma/LzmaLib.h"
-template<typename T, typename... Args>
-std::unique_ptr<T> make_unique(Args&&... args) {
-	return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-}
+
 namespace ygo {
 
 ReplayPacket::ReplayPacket(char* buf, int len) {
@@ -220,7 +217,7 @@ void Replay::ParseNames() {
 	}
 	auto f = [this](size_t& count) {
 		if(pheader.flag & REPLAY_NEWREPLAY)
-			count = Read<size_t>();
+			count = Read<uint32_t>();
 		else if(pheader.flag & REPLAY_TAG)
 			count = 2;
 		else if(pheader.flag & REPLAY_RELAY)
@@ -302,7 +299,7 @@ void Replay::ParseStream() {
 			continue;
 		}
 		if(p.message == OLD_REPLAY_MODE && !yrp) {
-			yrp = make_unique<Replay>();
+			yrp = std::unique_ptr<Replay>(new Replay());
 			yrp->OpenReplayFromBuffer(p.data);
 			continue;
 		}

@@ -415,6 +415,9 @@ void Game::DrawCard(ClientCard* pcard) {
 			pcard->aniFrame = 0;
 			pcard->is_moving = false;
 			pcard->is_fading = false;
+			if(pcard->refresh_on_stop)
+				dField.GetCardLocation(pcard, &pcard->curPos, &pcard->curRot, true);
+			pcard->refresh_on_stop = false;
 		}
 	}
 	matManager.mCard.AmbientColor = 0xffffffff;
@@ -422,12 +425,12 @@ void Game::DrawCard(ClientCard* pcard) {
 	driver->setTransform(irr::video::ETS_WORLD, pcard->mTransform);
 	auto m22 = pcard->mTransform(2, 2);
 	if(m22 > -0.99 || pcard->is_moving) {
-		matManager.mCard.setTexture(0, imageManager.GetTexture(pcard->code));
+		matManager.mCard.setTexture(0, imageManager.GetTextureCard(pcard->code, ImageManager::ART));
 		driver->setMaterial(matManager.mCard);
 		driver->drawVertexPrimitiveList(matManager.vCardFront, 4, matManager.iRectangle, 2);
 	}
 	if(m22 < 0.99 || pcard->is_moving) {
-		matManager.mCard.setTexture(0, imageManager.tCover[pcard->controler]);
+		matManager.mCard.setTexture(0, imageManager.GetTextureCard(pcard->cover, ImageManager::COVER));
 		driver->setMaterial(matManager.mCard);
 		driver->drawVertexPrimitiveList(matManager.vCardBack, 4, matManager.iRectangle, 2);
 	}
@@ -635,24 +638,29 @@ void Game::DrawMisc() {
 /*Draws the stats of a card based on its relative position
 */
 void Game::DrawStatus(ClientCard* pcard) {
+	auto static collisionmanager = device->getSceneManager()->getSceneCollisionManager();
+	auto static getcoords = [&](const core::vector3df & pos3d) {return collisionmanager->getScreenCoordinatesFrom3DPosition(pos3d); };
 	int x1, y1, x2, y2;
 	if (pcard->controler == 0) {
-		ConvertCoords(pcard->curPos.X, (0.39f + pcard->curPos.Y), &x1, &y1);
-		ConvertCoords((pcard->curPos.X - 0.48f), (pcard->curPos.Y - 0.66f), &x2, &y2);
+		auto coords = getcoords({ pcard->curPos.X, (0.39f + pcard->curPos.Y), pcard->curPos.Z });
+		x1 = coords.X;
+		y1 = coords.Y;
+		coords = getcoords({ (pcard->curPos.X - 0.48f), (pcard->curPos.Y - 0.66f), pcard->curPos.Z });
+		x2 = coords.X;
+		y2 = coords.Y;
 	} else {
-		ConvertCoords(pcard->curPos.X, (pcard->curPos.Y - 0.66f), &x1, &y1);
-		ConvertCoords((pcard->curPos.X - 0.48f), (0.39f + pcard->curPos.Y), &x2, &y2);
+		auto coords = getcoords({ pcard->curPos.X, (pcard->curPos.Y - 0.66f), pcard->curPos.Z });
+		x1 = coords.X;
+		y1 = coords.Y;
+		coords = getcoords({ (pcard->curPos.X - 0.48f), (0.39f + pcard->curPos.Y), pcard->curPos.Z });
+		x2 = coords.X;
+		y2 = coords.Y;
 	}
-	auto tmp = Resize(x1, y1);
-	x1 = tmp.X;
-	y1 = tmp.Y;
-	tmp = Resize(x2, y2);
-	x2 = tmp.X;
-	y2 = tmp.Y;
 	auto atk = adFont->getDimension(pcard->atkstring);
 	auto slash = adFont->getDimension(L"/");
 	if(pcard->type & TYPE_LINK) {
-		DrawShadowText(adFont, pcard->atkstring.c_str(), recti(x1 - std::floor(atk.Width / 2), y1, x1 + std::floor(atk.Width / 2), y1 + 1), Resize(1, 1, 1, 1), 0xffffffff, 0xff000000, true);
+		DrawShadowText(adFont, pcard->atkstring.c_str(), recti(x1 - std::floor(atk.Width / 2), y1, x1 + std::floor(atk.Width / 2), y1 + 1),
+					   Resize(1, 1, 1, 1), pcard->attack > pcard->base_attack ? 0xffffff00 : pcard->attack < pcard->base_attack ? 0xffff2090 : 0xffffffff, 0xff000000, true);
 	} else {
 		DrawShadowText(adFont, L"/", recti(x1 - std::floor(slash.Width / 2), y1, x1 + std::floor(slash.Width / 2), y1 + 1), Resize(1, 1, 1, 1), 0xffffffff, 0xff000000, true);
 		DrawShadowText(adFont, pcard->atkstring.c_str(), recti(x1 - std::floor(slash.Width / 2) - atk.Width - slash.Width, y1, x1 - std::floor(slash.Width / 2), y1 + 1),
@@ -680,7 +688,7 @@ void Game::DrawStatus(ClientCard* pcard) {
 /*Draws the pendulum scale value of a card in the pendulum zone based on its relative position
 */
 void Game::DrawPendScale(ClientCard* pcard) {
-	int x, y, swap = (pcard->sequence > 1 && pcard->sequence != 6) ? 1 : 0;
+	int swap = (pcard->sequence > 1 && pcard->sequence != 6) ? 1 : 0;
 	float x0, y0, reverse = (pcard->controler == 0) ? 1.0f : -1.0f;
 	std::wstring scale;
 	if (swap) {
@@ -695,36 +703,23 @@ void Game::DrawPendScale(ClientCard* pcard) {
 		y0 = pcard->curPos.Y - 0.56f;
 	} else
 		y0 = pcard->curPos.Y + 0.29f;
-	ConvertCoords(x0, y0, &x, &y);
-	DrawShadowText(adFont, scale.c_str(), Resize(x - (12 * swap), y, x + (12 * (1 - swap)), y - 800), Resize(1, 1, 1, 1), 0xffffffff, 0xff000000, true);
+	auto coords = device->getSceneManager()->getSceneCollisionManager()->getScreenCoordinatesFrom3DPosition({ x0, y0, pcard->curPos.Z });
+	DrawShadowText(adFont, scale.c_str(), recti(coords.X - (12 * swap), coords.Y, coords.X + (12 * (1 - swap)), coords.Y - 800), Resize(1, 1, 1, 1), 0xffffffff, 0xff000000, true);
 }
 /*Draws the text in the middle of the bottom side of the zone
 */
 void Game::DrawStackIndicator(const std::wstring& text, S3DVertex* v, bool opponent) {
-	int x, y, width = textFont->getDimension(text).Width / 2, height = textFont->getDimension(text).Height / 2;
+	int width = textFont->getDimension(text).Width / 2, height = textFont->getDimension(text).Height / 2;
 	float x0 = (v[0].Pos.X + v[1].Pos.X) / 2;
 	float y0 = (opponent) ? v[0].Pos.Y : v[2].Pos.Y;
-	ConvertCoords(x0, y0, &x, &y);
-	auto tmp = Resize(x, y);
-	x = tmp.X;
-	y = tmp.Y;
-	DrawShadowText(numFont, text.c_str(), recti(x - width, y - height, x + width, y + height), Resize(0, 1, 0, 1), 0xffffff00, 0xff000000);
-}
-/*Converts the coordinates from the 3d plane to the 2d plane (the window)
-*/
-void Game::ConvertCoords(float x, float y, int* x1, int* y1) {
-	double angle = atan((y - FIELD_Y) / -FIELD_Z);
-	double screeny = tan(FIELD_ANGLE - angle);
-	double vlen = sqrt(1.0 + screeny * screeny);
-	double screenx = (x - FIELD_X) / (FIELD_Z / vlen / cos(angle));
-	*x1 = (screenx - CAMERA_LEFT) * 1024.0 / (CAMERA_RIGHT - CAMERA_LEFT);
-	*y1 = (screeny - CAMERA_BOTTOM) * 640.0 / (CAMERA_TOP - CAMERA_BOTTOM);
+	auto coords = device->getSceneManager()->getSceneCollisionManager()->getScreenCoordinatesFrom3DPosition({ x0, y0, 0 });
+	DrawShadowText(numFont, text.c_str(), recti(coords.X - width, coords.Y - height, coords.X + width, coords.Y + height), Resize(0, 1, 0, 1), 0xffffff00, 0xff000000);
 }
 void Game::DrawGUI() {
 	if(imageLoading.size()) {
 		for(auto mit = imageLoading.begin(); mit != imageLoading.end();) {
 			int check = 0;
-			mit->first->setImage(imageManager.GetTexture(mit->second, false, false, &check));
+			mit->first->setImage(imageManager.GetTextureCard(mit->second, ImageManager::ART, false, false, &check));
 			if(check != 2)
 				mit = imageLoading.erase(mit);
 			else
@@ -823,7 +818,7 @@ void Game::DrawSpec() {
 	if(showcard) {
 		switch(showcard) {
 		case 1: {
-			driver->draw2DImage(imageManager.GetTexture(showcardcode), Resize(574, 150));
+			driver->draw2DImage(imageManager.GetTextureCard(showcardcode, ImageManager::ART), Resize(574, 150));
 			driver->draw2DImage(imageManager.tMask, ResizeElem(574, 150, 574 + (showcarddif > CARD_IMG_WIDTH ? CARD_IMG_WIDTH : showcarddif), 404),
 								mainGame->Scale<s32>(CARD_IMG_HEIGHT - showcarddif, 0, CARD_IMG_HEIGHT - (showcarddif > CARD_IMG_WIDTH ? showcarddif - CARD_IMG_WIDTH : 0), CARD_IMG_HEIGHT), 0, 0, true);
 			showcarddif += (900.0f / 1000.0f) * (float)delta_time;
@@ -834,7 +829,7 @@ void Game::DrawSpec() {
 			break;
 		}
 		case 2: {
-			driver->draw2DImage(imageManager.GetTexture(showcardcode), Resize(574, 150));
+			driver->draw2DImage(imageManager.GetTextureCard(showcardcode, ImageManager::ART), Resize(574, 150));
 			driver->draw2DImage(imageManager.tMask, ResizeElem(574 + showcarddif, 150, 751, 404), mainGame->Scale(0, 0, CARD_IMG_WIDTH - showcarddif, 254), 0, 0, true);
 			showcarddif += (900.0f / 1000.0f) * (float)delta_time;
 			if(showcarddif >= CARD_IMG_WIDTH) {
@@ -843,7 +838,7 @@ void Game::DrawSpec() {
 			break;
 		}
 		case 3: {
-			driver->draw2DImage(imageManager.GetTexture(showcardcode), Resize(574, 150));
+			driver->draw2DImage(imageManager.GetTextureCard(showcardcode, ImageManager::ART), Resize(574, 150));
 			driver->draw2DImage(imageManager.tNegated, ResizeElem(536 + showcarddif, 141 + showcarddif, 793 - showcarddif, 397 - showcarddif), mainGame->Scale(0, 0, 128, 128), 0, 0, true);
 			if(showcarddif < 64)
 				showcarddif += (240.0f / 1000.0f) * (float)delta_time;
@@ -854,7 +849,7 @@ void Game::DrawSpec() {
 			matManager.c2d[1] = ((int)std::round(showcarddif) << 24) | 0xffffff;
 			matManager.c2d[2] = ((int)std::round(showcarddif) << 24) | 0xffffff;
 			matManager.c2d[3] = ((int)std::round(showcarddif) << 24) | 0xffffff;
-			driver->draw2DImage(imageManager.GetTexture(showcardcode), ResizeElem(574, 154, 751, 404),
+			driver->draw2DImage(imageManager.GetTextureCard(showcardcode, ImageManager::ART), ResizeElem(574, 154, 751, 404),
 								mainGame->Scale(0, 0, CARD_IMG_WIDTH, CARD_IMG_HEIGHT), 0, matManager.c2d, true);
 			if(showcarddif < 255)
 				showcarddif += (1020.0f / 1000.0f) * (float)delta_time;
@@ -865,7 +860,7 @@ void Game::DrawSpec() {
 			matManager.c2d[1] = ((int)std::round(showcarddif) << 25) | 0xffffff;
 			matManager.c2d[2] = ((int)std::round(showcarddif) << 25) | 0xffffff;
 			matManager.c2d[3] = ((int)std::round(showcarddif) << 25) | 0xffffff;
-			driver->draw2DImage(imageManager.GetTexture(showcardcode), ResizeElem(662 - showcarddif * 0.69685f, 277 - showcarddif, 662 + showcarddif * 0.69685f, 277 + showcarddif),
+			driver->draw2DImage(imageManager.GetTextureCard(showcardcode, ImageManager::ART), ResizeElem(662 - showcarddif * 0.69685f, 277 - showcarddif, 662 + showcarddif * 0.69685f, 277 + showcarddif),
 			                    mainGame->Scale(0, 0, CARD_IMG_WIDTH, CARD_IMG_HEIGHT), 0, matManager.c2d, true);
 			if(showcarddif < 127) {
 				showcarddif += (540.0f / 1000.0f) * (float)delta_time;
@@ -875,7 +870,7 @@ void Game::DrawSpec() {
 			break;
 		}
 		case 6: {
-			driver->draw2DImage(imageManager.GetTexture(showcardcode), Resize(574, 150));
+			driver->draw2DImage(imageManager.GetTextureCard(showcardcode, ImageManager::ART), Resize(574, 150));
 			driver->draw2DImage(imageManager.tNumber, ResizeElem(536 + showcarddif, 141 + showcarddif, 793 - showcarddif, 397 - showcarddif),
 								mainGame->Scale(((int)std::round(showcardp) % 5) * 64, ((int)std::round(showcardp) / 5) * 64, ((int)std::round(showcardp) % 5 + 1) * 64, ((int)std::round(showcardp) / 5 + 1) * 64), 0, 0, true);
 			if(showcarddif < 64)
@@ -891,7 +886,7 @@ void Game::DrawSpec() {
 			corner[1] = vector2d<s32>{ a.LowerRightCorner.X, a.UpperLeftCorner.Y };
 			corner[2] = vector2d<s32>{ b.UpperLeftCorner.X, b.LowerRightCorner.Y };
 			corner[3] = b.LowerRightCorner;
-			irr::gui::Draw2DImageQuad(driver, imageManager.GetTexture(showcardcode), mainGame->Scale(0, 0, CARD_IMG_WIDTH, CARD_IMG_HEIGHT), corner);
+			irr::gui::Draw2DImageQuad(driver, imageManager.GetTextureCard(showcardcode, ImageManager::ART), mainGame->Scale(0, 0, CARD_IMG_WIDTH, CARD_IMG_HEIGHT), corner);
 			showcardp += (float)delta_time * 60.0f / 1000.0f;
 			showcarddif += (540.0f / 1000.0f) * (float)delta_time;
 			if(showcarddif >= 90)
@@ -1113,7 +1108,7 @@ void Game::DrawThumb(CardDataC* cp, position2di pos, LFList* lflist, bool drag, 
 	int lcode = cp->code;
 	if(!lflist->content.count(lcode) && cp->alias)
 		lcode = cp->alias;
-	irr::video::ITexture* img = load_image ? imageManager.GetTextureThumb(code) : imageManager.tUnknown;
+	irr::video::ITexture* img = load_image ? imageManager.GetTextureCard(code, ImageManager::THUMB) : imageManager.tUnknown;
 	if (img == NULL)
 		return; //NULL->getSize() will cause a crash
 	dimension2d<u32> size = img->getOriginalSize();

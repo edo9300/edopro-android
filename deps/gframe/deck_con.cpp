@@ -5,6 +5,11 @@
 #include "image_manager.h"
 #include "game.h"
 #include "duelclient.h"
+#ifdef _IRR_ANDROID_PLATFORM_
+#include "porting_android.h"
+#include <android/TouchEventTransferAndroid.h>
+#include <android/android_tools.h>
+#endif
 #include <algorithm>
 #include <unordered_map>
 
@@ -79,8 +84,7 @@ void DeckBuilder::Initialize() {
 	mainGame->btnSideShuffle->setVisible(false);
 	mainGame->btnSideSort->setVisible(false);
 	mainGame->btnSideReload->setVisible(false);
-	filterList = &deckManager._lfList[0];
-	mainGame->cbDBLFList->setSelected(0);
+	filterList = &deckManager._lfList[mainGame->cbDBLFList->getSelected()];
 	ClearSearch();
 	mouse_pos.set(0, 0);
 	hovered_code = 0;
@@ -115,13 +119,14 @@ void DeckBuilder::Terminate() {
 	int sel = mainGame->cbDBDecks->getSelected();
 	if(sel >= 0)
 		mainGame->gameConf.lastdeck = mainGame->cbDBDecks->getItem(sel);
+	mainGame->gameConf.lastlflist = deckManager._lfList[mainGame->cbDBLFList->getSelected()].hash;
 	if(exit_on_return)
 		mainGame->device->closeDevice();
 }
 bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 #ifdef _IRR_ANDROID_PLATFORM_
 	irr::SEvent transferEvent;
-	if (irr::android::TouchEventTransferAndroid::OnTransferCommon(event, false)) {
+	if(irr::android::TouchEventTransferAndroid::OnTransferCommon(event, false)) {
 		return true;
 	}
 #endif

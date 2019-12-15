@@ -1,11 +1,12 @@
 #ifndef CLIENT_CARD_H
 #define CLIENT_CARD_H
 
-#include "config.h"
+#include <irrlicht.h>
 #include <vector>
 #include <set>
 #include <map>
 #include <unordered_map>
+#include "core_utils.h"
 
 namespace ygo {
 
@@ -44,12 +45,6 @@ struct CardString {
 	std::wstring text;
 	std::wstring desc[16];
 };
-struct loc_info {
-	u8 controler;
-	u8 location;
-	u32 sequence;
-	u32 position;
-};
 
 class ClientCard {
 public:
@@ -58,10 +53,11 @@ public:
 	irr::core::vector3df curRot;
 	irr::core::vector3df dPos;
 	irr::core::vector3df dRot;
-	f32 curAlpha;
-	f32 dAlpha;
-	s32 aniFrame;
+	irr::f32 curAlpha;
+	irr::f32 dAlpha;
+	irr::s32 aniFrame;
 	bool is_moving;
+	bool refresh_on_stop;
 	bool is_fading;
 	bool is_hovered;
 	bool is_selectable;
@@ -71,35 +67,36 @@ public:
 	bool is_showchaintarget;
 	bool is_highlighting;
 	bool is_reversed;
-	u32 code;
-	u32 chain_code;
-	u32 alias;
-	u32 type;
-	u32 level;
-	u32 rank;
-	u32 link;
-	u32 attribute;
-	u32 race;
-	s32 attack;
-	s32 defense;
-	s32 base_attack;
-	s32 base_defense;
-	u32 lscale;
-	u32 rscale;
-	u32 link_marker;
-	u32 reason;
-	u32 select_seq;
-	u8 owner;
-	u8 controler;
-	u8 location;
-	u32 sequence;
-	u8 position;
-	u32 status;
-	u8 cHint;
-	u32 chValue;
-	u32 opParam;
-	u32 symbol;
-	u32 cmdFlag;
+	irr::u32 code;
+	irr::u32 chain_code;
+	irr::u32 alias;
+	irr::u32 type;
+	irr::u32 level;
+	irr::u32 rank;
+	irr::u32 link;
+	irr::u32 attribute;
+	irr::u32 race;
+	irr::s32 attack;
+	irr::s32 defense;
+	irr::s32 base_attack;
+	irr::s32 base_defense;
+	irr::u32 lscale;
+	irr::u32 rscale;
+	irr::u32 link_marker;
+	irr::u32 reason;
+	irr::u32 select_seq;
+	irr::u8 owner;
+	irr::u8 controler;
+	irr::u8 location;
+	irr::u32 sequence;
+	irr::u8 position;
+	irr::u32 status;
+	irr::u32 cover;
+	irr::u8 cHint;
+	irr::u32 chValue;
+	irr::u32 opParam;
+	irr::u32 symbol;
+	irr::u32 cmdFlag;
 	ClientCard* overlayTarget;
 	std::vector<ClientCard*> overlayed;
 	ClientCard* equipTarget;
@@ -107,7 +104,7 @@ public:
 	std::set<ClientCard*> cardTarget;
 	std::set<ClientCard*> ownerTarget;
 	std::map<int, int> counters;
-	std::map<int, int> desc_hints;
+	std::map<irr::u64, int> desc_hints;
 	std::wstring atkstring;
 	std::wstring defstring;
 	std::wstring lvstring;
@@ -117,10 +114,9 @@ public:
 	std::wstring rscstring;
 
 	ClientCard();
-	void SetCode(int code);
-	void UpdateInfo(char* buf);
+	void SetCode(irr::u32 code);
+	void UpdateInfo(const CoreUtils::Query& query);
 	void ClearTarget();
-	static loc_info read_location_info(char*& p);
 	static bool client_card_sort(ClientCard* c1, ClientCard* c2);
 	static bool deck_sort_lv(CardDataC* l1, CardDataC* l2);
 	static bool deck_sort_atk(CardDataC* l1, CardDataC* l2);

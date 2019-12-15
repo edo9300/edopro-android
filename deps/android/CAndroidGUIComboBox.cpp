@@ -4,7 +4,7 @@
  *  Created on: 2014年3月2日
  *      Author: mabin
  */
-
+#if 0
 #include "CAndroidGUIComboBox.h"
 #include "android_tools.h"
 #include "../gframe/game.h"
@@ -53,4 +53,4 @@ IGUIComboBox* irr::gui::CAndroidGUIComboBox::addAndroidComboBox(
 
 } /* namespace gui */
 } /* namespace irr */
-
+#endif

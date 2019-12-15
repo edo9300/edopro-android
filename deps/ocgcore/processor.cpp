@@ -11,7 +11,6 @@
 #include "group.h"
 #include "effect.h"
 #include "interpreter.h"
-#include "ocgapi.h"
 #include <iterator>
 
 void field::add_process(uint16 type, uint16 step, effect* peffect, group* target, int64 arg1, int64 arg2, int64 arg3, int64 arg4, void* ptr1, void* ptr2) {
@@ -41,25 +40,21 @@ int32 field::process() {
 		else {
 			it->step++;
 		}
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_TURN: {
 		if (process_turn(it->step, it->arg1))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
-	}
-	case PROCESSOR_WAIT: {
-		core.units.pop_front();
-		return PROCESSOR_FLAG_WAITING;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_REFRESH_LOC: {
 		if (refresh_location_info(it->step))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_STARTUP: {
 		if (startup(it->step))
@@ -67,12 +62,12 @@ int32 field::process() {
 		else {
 			it->step++;
 		}
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SELECT_BATTLECMD: {
 		if (select_battle_command(it->step, it->arg1)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -81,7 +76,7 @@ int32 field::process() {
 	case PROCESSOR_SELECT_IDLECMD: {
 		if (select_idle_command(it->step, it->arg1)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -90,7 +85,7 @@ int32 field::process() {
 	case PROCESSOR_SELECT_EFFECTYN: {
 		if (select_effect_yes_no(it->step, it->arg1, it->arg2, (card*)it->ptarget)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -99,7 +94,7 @@ int32 field::process() {
 	case PROCESSOR_SELECT_YESNO: {
 		if (select_yes_no(it->step, it->arg1, it->arg2)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -108,7 +103,7 @@ int32 field::process() {
 	case PROCESSOR_SELECT_OPTION: {
 		if (select_option(it->step, it->arg1)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -117,7 +112,7 @@ int32 field::process() {
 	case PROCESSOR_SELECT_CARD: {
 		if (select_card(it->step, it->arg1 & 0xff, (it->arg1 >> 16) & 0xff, (it->arg2) & 0xff, (it->arg2 >> 16) & 0xff)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -126,7 +121,7 @@ int32 field::process() {
 	case PROCESSOR_SELECT_UNSELECT_CARD: {
 		if (select_unselect_card(it->step, it->arg1 & 0xff, (it->arg1 >> 16) & 0xff, (it->arg2) & 0xff, (it->arg2 >> 16) & 0xff, (it->arg3) & 0xff)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -135,7 +130,7 @@ int32 field::process() {
 	case PROCESSOR_SELECT_CHAIN: {
 		if (select_chain(it->step, it->arg1, (it->arg2 & 0xffff), it->arg2 >> 16)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -145,7 +140,7 @@ int32 field::process() {
 	case PROCESSOR_SELECT_PLACE: {
 		if(select_place(it->step, it->arg1, it->arg2, it->arg3)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -154,7 +149,7 @@ int32 field::process() {
 	case PROCESSOR_SELECT_POSITION: {
 		if (select_position(it->step, it->arg1 & 0xffff, it->arg2, (it->arg1 >> 16) & 0xffff)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -163,7 +158,7 @@ int32 field::process() {
 	case PROCESSOR_SELECT_TRIBUTE_P: {
 		if (select_tribute(it->step, it->arg1 & 0xff, (it->arg1 >> 16) & 0xff, (it->arg2) & 0xff, (it->arg2 >> 16) & 0xff)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -175,12 +170,12 @@ int32 field::process() {
 		} else {
 			it->step++;
 		}
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SELECT_COUNTER: {
 		if (select_counter(it->step, it->arg1, it->arg2, it->arg3, it->arg4 >> 8, it->arg4 & 0xff)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -189,7 +184,7 @@ int32 field::process() {
 	case PROCESSOR_SELECT_SUM: {
 		if (select_with_sum_limit(it->step, it->arg2 & 0xffff, it->arg1, (it->arg2 >> 16) & 0xff, (it->arg2 >> 24) & 0xff)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -198,7 +193,7 @@ int32 field::process() {
 	case PROCESSOR_SORT_CARD: {
 		if (sort_card(it->step, it->arg1, it->arg2)) {
 			core.units.pop_front();
-			return PROCESSOR_FLAG_NONE;
+			return PROCESSOR_FLAG_CONTINUE;
 		} else {
 			it->step = 1;
 			return PROCESSOR_FLAG_WAITING;
@@ -209,84 +204,84 @@ int32 field::process() {
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SELECT_TRIBUTE: {
 		if (select_tribute_cards(it->step, (card*)it->ptarget, it->arg1 & 0xff, (it->arg1 >> 16) & 0xff, (it->arg2) & 0xff, (it->arg2 >> 16) & 0xff, it->arg3, it->arg4))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_POINT_EVENT: {
 		if(process_point_event(it->step, it->arg1 & 0xff, (it->arg1 >> 8) & 0xff, it->arg2))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_QUICK_EFFECT: {
 		if(process_quick_effect(it->step, it->arg1, it->arg2))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_IDLE_COMMAND: {
 		if(process_idle_command(it->step))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_PHASE_EVENT: {
 		if(process_phase_event(it->step, it->arg1))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_BATTLE_COMMAND: {
 		if(process_battle_command(it->step))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_DAMAGE_STEP: {
 		if(process_damage_step(it->step, it->arg2))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_FORCED_BATTLE: {
 		if(process_forced_battle(it->step))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_ADD_CHAIN: {
 		if (add_chain(it->step))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SOLVE_CHAIN: {
 		if (solve_chain(it->step, it->arg1, it->arg2))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SOLVE_CONTINUOUS: {
 		if (solve_continuous(it->step))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_EXECUTE_COST: {
 		if (execute_cost(it->step, it->peffect, it->arg1)) {
@@ -294,7 +289,7 @@ int32 field::process() {
 			core.solving_event.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_EXECUTE_OPERATION: {
 		if (execute_operation(it->step, it->peffect, it->arg1)) {
@@ -302,7 +297,7 @@ int32 field::process() {
 			core.solving_event.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_EXECUTE_TARGET: {
 		if (execute_target(it->step, it->peffect, it->arg1)) {
@@ -310,140 +305,140 @@ int32 field::process() {
 			core.solving_event.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_DESTROY: {
 		if (destroy(it->step, it->ptarget, it->peffect, it->arg1, it->arg2))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_RELEASE: {
 		if (release(it->step, it->ptarget, it->peffect, it->arg1, it->arg2))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SENDTO: {
 		if (send_to(it->step, it->ptarget, it->peffect, it->arg1, it->arg2))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_DESTROY_REPLACE: {
 		if(destroy_replace(it->step, it->ptarget, (card*)it->ptr1, it->arg2))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_RELEASE_REPLACE: {
 		if (release_replace(it->step, it->ptarget, (card*)it->ptr1))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SENDTO_REPLACE: {
 		if (send_replace(it->step, it->ptarget, (card*)it->ptr1))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_MOVETOFIELD: {
 		if (move_to_field(it->step, (card*)it->ptarget, it->arg1, it->arg2 & 0xff, (it->arg2 >> 8) & 0xff, it->arg3 & 0xff, (it->arg3 >> 8) & 0xff, (it->arg3 >> 16) & 0xff, it->arg4))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_CHANGEPOS: {
 		if (change_position(it->step, it->ptarget, it->peffect, it->arg1, it->arg2))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_OPERATION_REPLACE: {
 		if (operation_replace(it->step, it->peffect, it->ptarget, (card*)it->ptr1, it->arg1))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_ACTIVATE_EFFECT: {
 		if (activate_effect(it->step, it->peffect))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SUMMON_RULE: {
 		if (summon(it->step, it->arg1 & 0xff, (card*)it->ptarget, it->peffect, (it->arg1 >> 8) & 0xff, (it->arg1 >> 16) & 0xff, (it->arg1 >> 24) & 0xff))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SPSUMMON_RULE: {
 		if (special_summon_rule(it->step, it->arg1, (card*)it->ptarget, it->arg2))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SPSUMMON: {
 		if (special_summon(it->step, it->peffect, it->arg1, it->ptarget, it->arg2))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_FLIP_SUMMON: {
 		if (flip_summon(it->step, it->arg1, (card*)(it->ptarget)))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_MSET: {
 		if (mset(it->step, it->arg1 & 0xff, (card*)it->ptarget, it->peffect, (it->arg1 >> 8) & 0xff, (it->arg1 >> 16) & 0xff, (it->arg1 >> 24) & 0xff))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SSET: {
 		if (sset(it->step, it->arg1, it->arg2, (card*)(it->ptarget), it->peffect))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SPSUMMON_STEP: {
 		if (special_summon_step(it->step, it->ptarget, (card*)(it->ptr1), it->arg1))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SSET_G: {
 		if (sset_g(it->step, it->arg1, it->arg2, it->ptarget, it->arg3, it->peffect)) {
 			core.units.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_DRAW	: {
 		if (draw(it->step, it->peffect, it->arg1, (it->arg2 >> 28) & 0xf, (it->arg2 >> 24) & 0xf, it->arg2 & 0xffffff))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_DAMAGE: {
 		int32 reason = it->arg1;
@@ -461,7 +456,7 @@ int32 field::process() {
 				core.units.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_RECOVER: {
 		if (recover(it->step, it->peffect, it->arg1, (it->arg2 >> 26) & 0x3, (it->arg2 >> 24) & 0x3, it->arg2 & 0xffffff, (it->arg2 >> 28) & 0x1)) {
@@ -472,56 +467,56 @@ int32 field::process() {
 				core.units.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_EQUIP: {
 		if (equip(it->step, it->arg2 & 0xffff, (card*)it->ptr1, (card*)it->ptarget, (it->arg2 >> 16) & 0xff, (it->arg2 >> 24) & 0xff))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_GET_CONTROL: {
 		if (get_control(it->step, it->peffect, (it->arg2 >> 28) & 0xf, it->ptarget, (it->arg2 >> 24) & 0xf, (it->arg2 >> 8) & 0x3ff, it->arg2 & 0xff, it->arg3)) {
 			core.units.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SWAP_CONTROL: {
 		if (swap_control(it->step, it->peffect, it->arg1, it->ptarget, (group*)it->ptr1, it->arg2, it->arg3)) {
 			core.units.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_CONTROL_ADJUST: {
 		if (control_adjust(it->step)) {
 			core.units.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SELF_DESTROY: {
 		if (self_destroy(it->step, (card*)it->ptr1, it->arg1)) {
 			core.units.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_PAY_LPCOST: {
 		if (pay_lp_cost(it->step, it->arg1, it->arg2))
 			core.units.pop_front();
 		else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_REMOVE_COUNTER: {
 		if (remove_counter(it->step, it->arg4, (card*)it->ptarget, (it->arg1 >> 16) & 0xff, (it->arg1 >> 8) & 0xff, it->arg1 & 0xff, it->arg2, it->arg3)) {
 			core.units.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_ATTACK_DISABLE: {
 		if(it->step == 0) {
@@ -548,7 +543,7 @@ int32 field::process() {
 			returns.at<int32>(0) = 1;
 			core.units.pop_front();
 		}
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_ANNOUNCE_RACE: {
 		if(announce_race(it->step, it->arg1 & 0xffff, it->arg1 >> 16, it->arg2)) {
@@ -588,21 +583,21 @@ int32 field::process() {
 			core.units.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_TOSS_COIN: {
 		if (toss_coin(it->step, it->peffect, (it->arg1 >> 16), it->arg1 & 0xff, it->arg2)) {
 			core.units.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_ROCK_PAPER_SCISSORS: {
 		if (rock_paper_scissors(it->step, it->arg1)) {
 			core.units.pop_front();
 		} else
 			it->step++;
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SELECT_FUSION: {
 		if(it->step == 0) {
@@ -613,7 +608,7 @@ int32 field::process() {
 			core.select_options.clear();
 			if(eset.size() < 1) {
 				core.units.pop_front();
-				return PROCESSOR_FLAG_NONE;
+				return PROCESSOR_FLAG_CONTINUE;
 			}
 			for (effect_set::size_type i = 0; i < eset.size(); ++i) {
 				core.select_effects.push_back(eset[i]);
@@ -632,7 +627,7 @@ int32 field::process() {
 			core.fusion_materials.clear();
 			if(!core.select_effects[returns.at<int32>(0)]) {
 				core.units.pop_front();
-				return PROCESSOR_FLAG_NONE;
+				return PROCESSOR_FLAG_CONTINUE;
 			}
 			core.sub_solving_event.push_back(e);
 			pduel->lua->add_param(it->ptr1, PARAM_TYPE_GROUP);
@@ -642,7 +637,7 @@ int32 field::process() {
 		} else {
 			core.units.pop_front();
 		}
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_DISCARD_HAND: {
 		if(it->step == 0) {
@@ -665,7 +660,7 @@ int32 field::process() {
 		} else {
 			core.units.pop_front();
 		}
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_DISCARD_DECK: {
 		if(discard_deck(it->step, it->arg1 & 0xff, it->arg1 >> 16, it->arg2)) {
@@ -673,7 +668,7 @@ int32 field::process() {
 		} else {
 			it->step++;
 		}
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_SORT_DECK: {
 		uint8 sort_player = it->arg1 & 0xffff;
@@ -706,16 +701,14 @@ int32 field::process() {
 						auto message = pduel->new_message(MSG_DECK_TOP);
 						message->write<uint8>(target_player);
 						message->write<uint8>(0);
-						if(ptop->current.position != POS_FACEUP_DEFENSE)
-							message->write<uint32>(ptop->data.code);
-						else
-							message->write<uint32>(ptop->data.code | 0x80000000);
+						message->write<uint32>(ptop->data.code);
+						message->write<uint32>(ptop->current.position);
 					}
 				}
 			}
 			core.units.pop_front();
 		}
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	case PROCESSOR_REMOVE_OVERLAY: {
 		if(remove_overlay_card(it->step, it->arg3, it->ptarget, it->arg1 >> 16,
@@ -724,10 +717,10 @@ int32 field::process() {
 		} else {
 			it->step++;
 		}
-		return PROCESSOR_FLAG_NONE;
+		return PROCESSOR_FLAG_CONTINUE;
 	}
 	}
-	return PROCESSOR_FLAG_NONE;
+	return PROCESSOR_FLAG_CONTINUE;
 }
 int32 field::execute_cost(uint16 step, effect * triggering_effect, uint8 triggering_player) {
 	if(!triggering_effect->cost) {
@@ -1900,7 +1893,7 @@ int32 field::process_instant_event() {
 			core.new_ochain.push_back(newchain);
 			if(peffect->is_flag(EFFECT_FLAG_FIELD_ONLY)
 				|| !(peffect->range & LOCATION_HAND)
-				|| (peffect->range & phandler->current.location) && act)
+				|| ((peffect->range & phandler->current.location) && act))
 				phandler->create_relation(newchain);
 		}
 		//instant_f
@@ -2498,7 +2491,7 @@ int32 field::process_battle_command(uint16 step) {
 			if(first_attack.size())
 				core.attackable_cards = first_attack;
 		}
-		core.to_m2 = is_flag(SPEED_DUEL) ? FALSE : TRUE;
+		core.to_m2 = is_flag(DUEL_SPEED) ? FALSE : TRUE;
 		core.to_ep = TRUE;
 		if(must_attack.size() || is_player_affected_by_effect(infos.turn_player, EFFECT_CANNOT_M2) || core.force_turn_end)
 			core.to_m2 = FALSE;
@@ -2655,7 +2648,7 @@ int32 field::process_battle_command(uint16 step) {
 		// must attack monster
 		if(atype == 3 || is_player_affected_by_effect(infos.turn_player, EFFECT_PATRICIAN_OF_DARKNESS)) {
 			if(core.select_cards.size() == 1)
-				returns.at<int8>(1) = 0;
+				return_cards.list.push_back(core.select_cards.front());
 			else {
 				auto message = pduel->new_message(MSG_BECOME_TARGET);
 				message->write<uint32>(1);
@@ -2987,15 +2980,11 @@ int32 field::process_battle_command(uint16 step) {
 		uint32 aa = core.attacker->get_attack(), ad = core.attacker->get_defense();
 		uint32 da = 0, dd = 0;
 		uint8 pa = core.attacker->current.controler, pd;
-		core.attacker->q_cache.attack = aa;
-		core.attacker->q_cache.defense = ad;
 		core.attacker->set_status(STATUS_BATTLE_RESULT, FALSE);
 		core.attacker->set_status(STATUS_BATTLE_DESTROYED, FALSE);
 		if(core.attack_target) {
 			da = core.attack_target->get_attack();
 			dd = core.attack_target->get_defense();
-			core.attack_target->q_cache.attack = da;
-			core.attack_target->q_cache.defense = dd;
 			core.attack_target->set_status(STATUS_BATTLE_RESULT, FALSE);
 			core.attack_target->set_status(STATUS_BATTLE_DESTROYED, FALSE);
 			pd = core.attack_target->current.controler;
@@ -3723,7 +3712,7 @@ int32 field::process_turn(uint16 step, uint8 turn_player) {
 		infos.turn_player = turn_player;
 		auto message = pduel->new_message(MSG_NEW_TURN);
 		message->write<uint8>(turn_player);
-		if(!is_flag(DUEL_RELAY_MODE) && infos.turn_id != 1)
+		if(!is_flag(DUEL_RELAY) && infos.turn_id != 1)
 			tag_swap(turn_player);
 		if(is_player_affected_by_effect(infos.turn_player, EFFECT_SKIP_TURN)) {
 			core.units.begin()->step = 17;
@@ -3904,7 +3893,7 @@ int32 field::process_turn(uint16 step, uint8 turn_player) {
 			}
 			return FALSE;
 		}
-		if(is_flag(SPEED_DUEL)) {
+		if(is_flag(DUEL_SPEED)) {
 			core.units.begin()->step = 14;
 			adjust_all();
 			/*if(core.set_forced_attack)
@@ -4120,7 +4109,7 @@ int32 field::add_chain(uint16 step) {
 			peffect->card_type -= TYPE_TRAP;
 		peffect->set_active_type();
 		peffect->active_handler = peffect->handler->overlay_target;
-		clit.chain_count = core.current_chain.size() + 1;
+		clit.chain_count = static_cast<uint8>(core.current_chain.size()) + 1;
 		clit.target_cards = 0;
 		clit.target_player = PLAYER_NONE;
 		clit.target_param = 0;
@@ -4754,7 +4743,7 @@ int32 field::refresh_location_info(uint16 step) {
 	switch(step) {
 	case 0: {
 		effect_set eset;
-		if (is_flag(SPEED_DUEL)) {
+		if (is_flag(DUEL_SPEED)) {
 			player[0].used_location |= 0x1111;
 			player[1].used_location |= 0x1111;
 		}
@@ -4961,7 +4950,7 @@ int32 field::adjust_step(uint16 step) {
 					winp = PLAYER_NONE;
 				rea = 2;
 			}
-			if (is_flag(DUEL_RELAY_MODE)) {
+			if (is_flag(DUEL_RELAY)) {
 				if (winp == PLAYER_NONE) {
 					bool p1 = relay_check(0);
 					bool p2 = relay_check(1);
@@ -5064,7 +5053,14 @@ int32 field::adjust_step(uint16 step) {
 				for(uint8 p = 0; p < 2; ++p) {
 					for(auto& pcard : player[p].list_mzone) {
 						if(pcard && pcard->is_affected_by_effect(EFFECT_REMOVE_BRAINWASHING)) {
-							pcard->reset(EFFECT_SET_CONTROL, RESET_CODE);
+							//the opposite of pcard->check_control_effect()
+							auto pr = pcard->single_effect.equal_range(EFFECT_SET_CONTROL);
+							for(auto eit = pr.first; eit != pr.second;) {
+								effect* peffect = eit->second;
+								++eit;
+								if(!peffect->condition)
+									peffect->handler->remove_effect(peffect);
+							}
 							if(p != pcard->owner && pcard->is_capable_change_control())
 								core.control_adjust_set[p].insert(pcard);
 						}
@@ -5185,20 +5181,16 @@ int32 field::adjust_step(uint16 step) {
 						auto message = pduel->new_message(MSG_DECK_TOP);
 						message->write<uint8>(0);
 						message->write<uint8>(0);
-						if(ptop->current.position != POS_FACEUP_DEFENSE)
-							message->write<uint32>(ptop->data.code);
-						else
-							message->write<uint32>(ptop->data.code | 0x80000000);
+						message->write<uint32>(ptop->data.code);
+						message->write<uint32>(ptop->current.position);
 					}
 					if(player[1].list_main.size()) {
 						card* ptop = player[1].list_main.back();
 						auto message = pduel->new_message(MSG_DECK_TOP);
 						message->write<uint8>(1);
 						message->write<uint8>(0);
-						if(ptop->current.position != POS_FACEUP_DEFENSE)
-							message->write<uint32>(ptop->data.code);
-						else
-							message->write<uint32>(ptop->data.code | 0x80000000);
+						message->write<uint32>(ptop->data.code);
+						message->write<uint32>(ptop->current.position);
 					}
 				}
 			}

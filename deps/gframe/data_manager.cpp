@@ -155,18 +155,27 @@ std::wstring DataManager::GetText(int code) {
 		return unknown_string;
 	return csit->second.text;
 }
-std::wstring DataManager::GetDesc(u64 strCode) {
-	if(strCode < 10000)
-		return GetSysString(strCode);
-	u64 code = strCode >> 4;
-	int offset = strCode & 0xf;
+std::wstring DataManager::GetDesc(u64 strCode, bool compat) {
+	u32 code = 0;
+	u32 stringid = 0;
+	if(compat) {
+		if(strCode < 10000)
+			return GetSysString(strCode);
+		code = strCode >> 4;
+		stringid = strCode & 0xf;
+	} else {
+		code = strCode >> 32;
+		stringid = strCode & 0xffffffff;
+	}
+	if(code == 0)
+		return GetSysString(stringid);
 	auto csit = _strings.find(code);
-	if(csit == _strings.end() || csit->second.desc[offset].empty())
+	if(csit == _strings.end() || csit->second.desc[stringid].empty())
 		return unknown_string;
-	return csit->second.desc[offset];
+	return csit->second.desc[stringid];
 }
-std::wstring DataManager::GetSysString(int code) {
-	if(code < 0 || code >= 2048)
+std::wstring DataManager::GetSysString(u64 code) {
+	if(code >> 32)
 		return unknown_string;
 	auto csit = _sysStrings.find(code);
 	if(csit == _sysStrings.end() || csit->second.empty())
@@ -300,10 +309,9 @@ std::wstring DataManager::FormatLinkMarker(int link_marker) {
 		res += L"[\u2198]";
 	return res;
 }
-int DataManager::CardReader(int code, void* pData) {
-	if(!dataManager.GetData(code, (CardData*)pData))
-		memset(pData, 0, sizeof(CardData));
-	return 0;
+void DataManager::CardReader(void* payload, int code, CardData* data) {
+	if(!static_cast<DataManager*>(payload)->GetData(code, (CardData*)data))
+		memset(data, 0, sizeof(CardData));
 }
 
 }

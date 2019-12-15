@@ -375,7 +375,7 @@ public:
 		}
 
 		for (u32 l = 0; l<len; ++l)
-			array[l] = (T)c[l];
+			array[l] = (T)(size_t)c[l];
 
 		if (oldArray != array)
 			allocator.deallocate(oldArray); // delete [] oldArray;

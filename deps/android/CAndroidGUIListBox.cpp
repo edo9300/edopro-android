@@ -4,7 +4,7 @@
  *  Created on: 2014年3月24日
  *      Author: mabin
  */
-
+#if 0
 #include "CAndroidGUIListBox.h"
 
 #include "IGUISkin.h"
@@ -919,3 +919,4 @@ IGUIScrollBar* CAndroidGUIListBox::getVerticalScrollBar() const
 
 } // end namespace gui
 } // end namespace irr
+#endif

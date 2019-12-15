@@ -204,7 +204,7 @@ void TouchEventTransferAndroid::long_press_handler(sigval_t info) {
 		rupEvent.MouseInput.X = s_current_x;
 		rupEvent.MouseInput.Y = s_current_y;
 		ygo::mainGame->device->postEventFromUser(rupEvent);
-		android::perfromHapticFeedback(ygo::mainGame->appMain);
+		//android::perfromHapticFeedback(ygo::mainGame->appMain);
 	} else if (mode == LONG_CLICK_MODE_AS_LEFTCLICK) {
 		SEvent ldownEvent;
 		ldownEvent.EventType = EET_MOUSE_INPUT_EVENT;
@@ -212,7 +212,7 @@ void TouchEventTransferAndroid::long_press_handler(sigval_t info) {
 		ldownEvent.MouseInput.X = s_current_x;
 		ldownEvent.MouseInput.Y = s_current_y;
 		ygo::mainGame->device->postEventFromUser(ldownEvent);
-		android::perfromHapticFeedback(ygo::mainGame->appMain);
+		//android::perfromHapticFeedback(ygo::mainGame->appMain);
 	}
 	is_timer_set = false;
 	timer_delete(long_press_tid);

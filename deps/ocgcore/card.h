@@ -10,6 +10,7 @@
 
 #include "common.h"
 #include "effectset.h"
+#include "ocgapi.h"
 #include <set>
 #include <map>
 #include <unordered_set>
@@ -28,22 +29,7 @@ struct loc_info {
 	uint32 position;
 };
 
-struct card_data {
-	uint32 code;
-	uint32 alias;
-	uint64 setcode;
-	uint32 type;
-	uint32 level;
-	uint32 attribute;
-	uint32 race;
-	int32 attack;
-	int32 defense;
-	uint32 lscale;
-	uint32 rscale;
-	uint32 link_marker;
-
-	void clear();
-};
+typedef OCG_CardData card_data;
 
 struct card_state {
 	uint32 code;
@@ -72,26 +58,6 @@ struct card_state {
 	uint8 reason_player;
 	effect* reason_effect;
 	bool is_location(int32 loc) const;
-};
-
-struct query_cache {
-	uint32 code;
-	uint32 alias;
-	uint32 type;
-	uint32 level;
-	uint32 rank;
-	uint32 link;
-	uint32 attribute;
-	uint32 race;
-	int32 attack;
-	int32 defense;
-	int32 base_attack;
-	int32 base_defense;
-	uint32 reason;
-	int32 status;
-	uint32 lscale;
-	uint32 rscale;
-	uint32 link_marker;
 };
 
 class card {
@@ -138,11 +104,11 @@ public:
 	card_state previous;
 	card_state temp;
 	card_state current;
-	query_cache q_cache;
 	uint8 owner;
 	uint8 summon_player;
 	uint32 summon_info;
 	uint32 status;
+	uint32 cover;
 	sendto_param_t sendto_param;
 	uint32 release_param;
 	uint32 sum_param;
@@ -195,9 +161,9 @@ public:
 	explicit card(duel* pd);
 	~card() = default;
 	static bool card_operation_sort(card* c1, card* c2);
-	const bool is_extra_deck_monster() { return !!(data.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK)) && !!(data.type & TYPE_MONSTER); };
+	bool is_extra_deck_monster() const { return !!(data.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK)) && !!(data.type & TYPE_MONSTER); }
 
-	uint32 get_infos(int32 query_flag, int32 use_cache = TRUE, int32 ignore_cache = FALSE);
+	void get_infos(int32 query_flag);
 	loc_info get_info_location();
 	uint32 second_code(uint32 code);
 	uint32 get_code();
@@ -228,8 +194,7 @@ public:
 	uint32 get_rscale();
 	uint32 get_link_marker();
 	int32 is_link_marker(uint32 dir, uint32 marker = 0);
-	uint32 get_linked_zone();
-	uint32 get_free_linked_zone();
+	uint32 get_linked_zone(bool free = false);
 	void get_linked_cards(card_set* cset, uint32 zones = 0);
 	uint32 get_mutual_linked_zone();
 	void get_mutual_linked_cards(card_set * cset);
@@ -327,8 +292,8 @@ public:
 	int32 is_destructable_by_battle(card* pcard);
 	effect* check_indestructable_by_effect(effect* peffect, uint8 playerid);
 	int32 is_destructable_by_effect(effect* peffect, uint8 playerid);
-	int32 is_removeable(uint8 playerid, int32 pos = 0x5);
-	int32 is_removeable_as_cost(uint8 playerid, int32 pos = 0x5);
+	int32 is_removeable(uint8 playerid, int32 pos = 0x5/*POS_FACEUP*/, uint32 reason = 0x40/*REASON_EFFECT*/);
+	int32 is_removeable_as_cost(uint8 playerid, int32 pos = 0x5/*POS_FACEUP*/);
 	int32 is_releasable_by_summon(uint8 playerid, card* pcard);
 	int32 is_releasable_by_nonsummon(uint8 playerid);
 	int32 is_releasable_by_effect(uint8 playerid, effect* peffect);
@@ -359,34 +324,34 @@ public:
 };
 
 //Summon Type
-#define SUMMON_TYPE_NORMAL		0x10000000
-#define SUMMON_TYPE_ADVANCE		0x11000000
-#define SUMMON_TYPE_DUAL		0x12000000
-#define SUMMON_TYPE_FLIP		0x20000000
-#define SUMMON_TYPE_SPECIAL		0x40000000
-#define SUMMON_TYPE_FUSION		0x43000000
-#define SUMMON_TYPE_RITUAL		0x45000000
-#define SUMMON_TYPE_SYNCHRO		0x46000000
-#define SUMMON_TYPE_XYZ			0x49000000
-#define SUMMON_TYPE_PENDULUM	0x4a000000
-#define SUMMON_TYPE_LINK		0x4c000000
+#define SUMMON_TYPE_NORMAL   0x10000000
+#define SUMMON_TYPE_ADVANCE  0x11000000
+#define SUMMON_TYPE_GEMINI   0x12000000
+#define SUMMON_TYPE_FLIP     0x20000000
+#define SUMMON_TYPE_SPECIAL  0x40000000
+#define SUMMON_TYPE_FUSION   0x43000000
+#define SUMMON_TYPE_RITUAL   0x45000000
+#define SUMMON_TYPE_SYNCHRO  0x46000000
+#define SUMMON_TYPE_XYZ      0x49000000
+#define SUMMON_TYPE_PENDULUM 0x4a000000
+#define SUMMON_TYPE_LINK     0x4c000000
 //Counter
-#define COUNTER_WITHOUT_PERMIT	0x1000
-#define COUNTER_NEED_ENABLE		0x2000
+#define COUNTER_WITHOUT_PERMIT 0x1000
+#define COUNTER_NEED_ENABLE    0x2000
 
-#define ASSUME_CODE			1
-#define ASSUME_TYPE			2
-#define ASSUME_LEVEL		3
-#define ASSUME_RANK			4
-#define ASSUME_ATTRIBUTE	5
-#define ASSUME_RACE			6
-#define ASSUME_ATTACK		7
-#define ASSUME_DEFENSE		8
-#define ASSUME_LINK         9
-#define ASSUME_LINKMARKER   10
+#define ASSUME_CODE       1
+#define ASSUME_TYPE       2
+#define ASSUME_LEVEL      3
+#define ASSUME_RANK       4
+#define ASSUME_ATTRIBUTE  5
+#define ASSUME_RACE       6
+#define ASSUME_ATTACK     7
+#define ASSUME_DEFENSE    8
+#define ASSUME_LINK       9
+#define ASSUME_LINKMARKER 10
 
 //double-name cards
-#define CARD_MARINE_DOLPHIN	78734254
-#define CARD_TWINKLE_MOSS	13857930
+#define CARD_MARINE_DOLPHIN 78734254
+#define CARD_TWINKLE_MOSS   13857930
 
 #endif /* CARD_H_ */

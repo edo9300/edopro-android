@@ -7,17 +7,13 @@
 #include <dirent.h>
 #endif
 #ifdef _IRR_ANDROID_PLATFORM_
-#include <android/CAndroidGUIEditBox.h>
-#include <android/CAndroidGUIComboBox.h>
-#include <android/CAndroidGUIListBox.h>
-#include <android/CAndroidGUISkin.h>
 #include <COGLES2ExtensionHandler.h>
 #include <COGLESExtensionHandler.h>
 #include <COGLES2Driver.h>
 #include <COGLESDriver.h>
+#include "porting_android.h"
 #endif
 
-#include "porting_android.h"
 #include "config.h"
 #include "game.h"
 #include "sound_manager.h"
@@ -30,112 +26,85 @@
 #include "netserver.h"
 #include "replay_mode.h"
 #include "single_mode.h"
-#include <dlfcn.h>
+#include "CGUICustomCheckBox/CGUICustomCheckBox.h"
+#include "CGUICustomTable/CGUICustomTable.h"
+#ifdef _IRR_ANDROID_PLATFORM_
+#define MATERIAL_GUARD(f) do {mainGame->driver->enableMaterial2D(true); f; mainGame->driver->enableMaterial2D(false);} while(false);
+#else
+#define MATERIAL_GUARD(f) do {f;} while(false);
+#endif
 
 unsigned short PRO_VERSION = 0x1348;
+
+nlohmann::json configs;
 
 namespace ygo {
 
 Game* mainGame;
 
-#ifdef _IRR_ANDROID_PLATFORM_
-bool Game::Initialize(ANDROID_APP app) {
-	appMain = app;
-	working_directory = porting::path_storage + "/ygocore";
- 	/*irr::IrrlichtDevice* nulldevice = createDevice(video::EDT_NULL);
- 	nulldevice->getFileSystem()->changeWorkingDirectoryTo(working_directory.c_str());
- 	ErrorLog("App was here!");*/
-#else
-	bool Game::Initialize() {
-#endif
+bool Game::Initialize() {
 	srand(time(0));
 	LoadConfig();
 	is_fullscreen = false;
 	irr::SIrrlichtCreationParameters params = irr::SIrrlichtCreationParameters();
 	params.AntiAlias = gameConf.antialias;
-	appMain = app;
+#ifndef _IRR_ANDROID_PLATFORM_
+#ifdef _IRR_COMPILE_WITH_DIRECT3D_9_
+	if(gameConf.use_d3d)
+		params.DriverType = irr::video::EDT_DIRECT3D9;
+	else
+#endif
+		params.DriverType = irr::video::EDT_OPENGL;
+	params.WindowSize = irr::core::dimension2d<u32>(Scale(1024), Scale(640));
+#else
+	appMain->onInputEvent = android::handleInput;
 	/*android::InitOptions *options = android::getInitOptions(app);
 	glversion = options->getOpenglVersion();
 	if(glversion == 0) {
 		params.DriverType = irr::video::EDT_OGLES1;
 	} else {*/
-		params.DriverType = irr::video::EDT_OGLES2;
+		params.DriverType = irr::video::EDT_OGLES1;
 	//}
-	params.PrivateData = app;
+	params.PrivateData = appMain;
 	params.Bits = 24;
 	params.ZBufferBits = 16;
 	params.AntiAlias = 0;
 	params.WindowSize = irr::core::dimension2d<u32>(0, 0);
-	params.Vsync = false;
-#ifdef __APPLE__
-	if(gameConf.fullscreen) {
-		irr::IrrlichtDevice* nulldevice = createDevice(video::EDT_NULL);
-		params.WindowSize = nulldevice->getVideoModeList()->getDesktopResolution();
-		nulldevice->drop();
-		params.Fullscreen = true;
-		is_fullscreen = true;
-	}
 #endif
+	params.Vsync = gameConf.use_vsync;
 	device = irr::createDeviceEx(params);
 	if(!device) {
 		ErrorLog("Failed to create Irrlicht Engine device!");
 		return false;
 	}
-	porting::mainDevice = device;
 	filesystem = device->getFileSystem();
-	coreloaded = true;
-	auto logger = device->getLogger();
 #ifdef _IRR_ANDROID_PLATFORM_
-	/*if (!android::perfromTrick(app)) {
-		return false;
-	}*/
-	//android::initJavaBridge(app, device);
-	app->onInputEvent = android::handleInput;
-	logger->log(fmt::format("workingDir= {}", working_directory.c_str()).c_str(), ELL_INFORMATION);
-	std::string old_working_dir = 	filesystem->getWorkingDirectory().c_str();
-	filesystem->changeWorkingDirectoryTo(working_directory.c_str());
-	ErrorLog("app was here");
-	logger->log("app was here", ELL_INFORMATION);
-	ErrorLog(old_working_dir);
-	logger->log(old_working_dir.c_str(), ELL_INFORMATION);
-	logger->log("app was here2", ELL_INFORMATION);
-	logger->log(porting::path_storage.c_str(), ELL_INFORMATION);
-	logger->log("app was here3", ELL_INFORMATION);
-	LoadConfig();
-
-	stringc mediaPath = "media/";
-
-	// The Android assets file-system does not know which sub-directories it has (blame google).
-	// So we have to add all sub-directories in assets manually. Otherwise we could still open the files,
-	// but existFile checks will fail (which are for example needed by getFont).
-	logger->log(fmt::format("archives count = {}", filesystem->getFileArchiveCount()).c_str(), ELL_INFORMATION);
 	for(u32 i = 0; i < filesystem->getFileArchiveCount(); ++i) {
 		IFileArchive* archive = filesystem->getFileArchive(i);
 		if(archive->getType() == EFAT_ANDROID_ASSET) {
-			logger->log("app was here too 4", ELL_INFORMATION);
-			archive->addDirectoryToFileList(mediaPath);
+			archive->addDirectoryToFileList("media/");
 			break;
 		}
 	}
-	////pics.zip, script.zip, ...zip
-	//io::path* zips = options->getArchiveFiles();
-	//int len = options->getArchiveCount();
-	//for(int i = 0; i < len; i++) {
-	//	io::path zip_path = zips[i];
-	//	if(filesystem->addFileArchive(zip_path.c_str(), false, false, EFAT_ZIP)) {
-	//		logger->log("add arrchive ok ", ELL_INFORMATION);
-	//	} else {
-	//		logger->log("add arrchive fail ", ELL_INFORMATION);
-	//	}
-	//}
 #endif
+	coreloaded = true;
 #ifdef YGOPRO_BUILD_DLL
-	if(!(ocgcore = LoadOCGcore("./"))) {
+	if(!(ocgcore = LoadOCGcore(TEXT("./"))) && !(ocgcore = LoadOCGcore(TEXT("./expansions/"))))
 		coreloaded = false;
-		logger->log(std::string(dlerror()).c_str(), ELL_INFORMATION);
-	}
 #endif
-// 	logger->setLogLevel(ELL_NONE);
+	auto logger = device->getLogger();
+	logger->setLogLevel(ELL_NONE);
+	// Apply skin
+	if (gameConf.skin_index >= 0)
+	{
+		skinSystem = new CGUISkinSystem("skin", device);
+		core::array<core::stringw> skins = skinSystem->listSkins();
+		if ((size_t)gameConf.skin_index < skins.size())
+		{
+			int index = skins.size() - gameConf.skin_index - 1; // reverse index
+			skinSystem->applySkin(skins[index].c_str());
+		}
+	}
 	linePatternD3D = 0;
 	linePatternGL = 0x0f0f;
 	waitFrame = 0.0f;
@@ -157,21 +126,13 @@ bool Game::Initialize(ANDROID_APP app) {
 	deckManager.LoadLFList();
 	driver = device->getVideoDriver();
 #ifdef _IRR_ANDROID_PLATFORM_
-	int quality = 1;
 	if(driver->getDriverType() == EDT_OGLES2) {
 		isNPOTSupported = ((COGLES2Driver *)driver)->queryOpenGLFeature(COGLES2ExtensionHandler::IRR_OES_texture_npot);
 	} else {
 		isNPOTSupported = ((COGLES1Driver *)driver)->queryOpenGLFeature(COGLES1ExtensionHandler::IRR_OES_texture_npot);
 	}
-	char log_npot[256];
-	sprintf(log_npot, "isNPOTSupported = %d", isNPOTSupported);
-	//Printer::log(log_npot);
 	if(isNPOTSupported) {
-		if(quality == 1) {
-			driver->setTextureCreationFlag(irr::video::ETCF_CREATE_MIP_MAPS, false);
-		} else {
-			driver->setTextureCreationFlag(irr::video::ETCF_CREATE_MIP_MAPS, true);
-		}
+		driver->setTextureCreationFlag(irr::video::ETCF_CREATE_MIP_MAPS, false);
 	} else {
 		driver->setTextureCreationFlag(irr::video::ETCF_ALLOW_NON_POWER_2, true);
 		driver->setTextureCreationFlag(irr::video::ETCF_CREATE_MIP_MAPS, false);
@@ -191,46 +152,37 @@ bool Game::Initialize(ANDROID_APP app) {
 	LoadExpansionDB();
 	LoadZipArchives();
 	LoadArchivesDB();
-	RefreshAiDecks();
 	if(!dataManager.LoadStrings(TEXT("strings.conf"))) {
 		ErrorLog("Failed to load strings!");
 		return false;
 	}
+	discord.Initialize(filesystem->getWorkingDirectory().c_str());
 	PopulateResourcesDirectories();
 	dataManager.LoadStrings(TEXT("./expansions/strings.conf"));
 	env = device->getGUIEnvironment();
-#if 0
-	bool hasAntialias = options->isFontAntiAliasEnabled();
-#else
-	bool hasAntialias = true;
-#endif
-	numFont = irr::gui::CGUITTFont::createTTFont(env, gameConf.numfont.c_str(), Scale(16), hasAntialias);
-	adFont = irr::gui::CGUITTFont::createTTFont(env, gameConf.numfont.c_str(), Scale(12), hasAntialias);
-	lpcFont = irr::gui::CGUITTFont::createTTFont(env, gameConf.numfont.c_str(), Scale(48), hasAntialias, true);
-	guiFont = irr::gui::CGUITTFont::createTTFont(env, gameConf.textfont.c_str(), Scale(gameConf.textfontsize), hasAntialias, true);
+	numFont = irr::gui::CGUITTFont::createTTFont(env, gameConf.numfont.c_str(), Scale(16));
+	adFont = irr::gui::CGUITTFont::createTTFont(env, gameConf.numfont.c_str(), Scale(12));
+	lpcFont = irr::gui::CGUITTFont::createTTFont(env, gameConf.numfont.c_str(), Scale(48));
+	guiFont = irr::gui::CGUITTFont::createTTFont(env, gameConf.textfont.c_str(), Scale(gameConf.textfontsize));
 	textFont = guiFont;
 	if(!numFont || !textFont) {
 		ErrorLog("Failed to load font(s)!");
 		return false;
 	}
-#ifndef _IRR_ANDROID_PLATFORM_
-	// Apply skin
-	if(gameConf.skin_index >= 0) {
-		skinSystem = new CGUISkinSystem("skin", device);
-		core::array<core::stringw> skins = skinSystem->listSkins();
-		if((size_t)gameConf.skin_index < skins.size()) {
-			int index = skins.size() - gameConf.skin_index - 1; // reverse index
-			skinSystem->applySkin(skins[index].c_str());
-		}
-	}
-#else
-	//auto corner = driver->getViewPort().LowerRightCorner;
-	/*auto size = driver->getScreenSize();
-	gui::IGUISkin* newskin = CAndroidGUISkin::createAndroidSkin(gui::EGST_BURNING_SKIN, driver, env, size.Width / 1024.0, size.Height / 640.0);
-	newskin->setFont(textFont);
-	env->setSkin(newskin);
-	newskin->drop();*/
-#endif
+	auto skin = env->getSkin();
+#define SKIN_SCALE(elem)skin->setSize(elem, Scale(skin->getSize(elem)));
+	skin->setSize(EGDS_SCROLLBAR_SIZE, Scale(20));
+	SKIN_SCALE(EGDS_MENU_HEIGHT)
+	SKIN_SCALE(EGDS_WINDOW_BUTTON_WIDTH)
+	SKIN_SCALE(EGDS_CHECK_BOX_WIDTH)
+	SKIN_SCALE(EGDS_BUTTON_WIDTH)
+	SKIN_SCALE(EGDS_BUTTON_HEIGHT)
+	SKIN_SCALE(EGDS_TITLEBARTEXT_DISTANCE_X)
+	SKIN_SCALE(EGDS_TITLEBARTEXT_DISTANCE_Y)
+	SKIN_SCALE(EGDS_TEXT_DISTANCE_X)
+	SKIN_SCALE(EGDS_TEXT_DISTANCE_Y)
+	SKIN_SCALE(EGDS_MESSAGE_BOX_GAP_SPACE)
+#undef SKIN_SCALE
 	smgr = device->getSceneManager();
 	device->setWindowCaption(L"EDOPro");
 	device->setResizable(true);
@@ -254,37 +206,47 @@ bool Game::Initialize(ANDROID_APP app) {
 	wCommitsLog->getCloseButton()->setVisible(false);
 	stCommitLog = irr::gui::CGUICustomText::addCustomText(L"", false, env, wCommitsLog, -1, Scale(5, 30, 505, 430));
 	stCommitLog->setWordWrap(true);
-	((CGUICustomText*)stCommitLog)->enableScrollBar(0, 0.04f);
+	((CGUICustomText*)stCommitLog)->enableScrollBar();
 	btnCommitLogExit = env->addButton(Scale(215, 435, 285, 460), wCommitsLog, BUTTON_REPO_CHANGELOG_EXIT, L"OK");
 	mTopMenu = irr::gui::CGUICustomMenu::addCustomMenu(env);
 	mRepositoriesInfo = mTopMenu->getSubMenu(mTopMenu->addItem(dataManager.GetSysString(2045).c_str(), 1, true, true));
 	//main menu
 	wMainMenu = env->addWindow(Scale(370, 200, 650, 415), false, fmt::format(L"EDOPro Version:{:X}.0{:X}.{:X}", PRO_VERSION >> 12, (PRO_VERSION >> 4) & 0xff, PRO_VERSION & 0xf).c_str());
 	wMainMenu->getCloseButton()->setVisible(false);
-	btnLanMode = env->addButton(Scale(10, 30, 270, 60), wMainMenu, BUTTON_LAN_MODE, dataManager.GetSysString(1200).c_str());
-	btnSingleMode = env->addButton(Scale(10, 65, 270, 95), wMainMenu, BUTTON_SINGLE_MODE, dataManager.GetSysString(1201).c_str());
-	btnReplayMode = env->addButton(Scale(10, 100, 270, 130), wMainMenu, BUTTON_REPLAY_MODE, dataManager.GetSysString(1202).c_str());
-//	btnTestMode = env->addButton(Scale(10, 135, 270, 165), wMainMenu, BUTTON_TEST_MODE, dataManager.GetSysString(1203).c_str());
-	btnDeckEdit = env->addButton(Scale(10, 135, 270, 165), wMainMenu, BUTTON_DECK_EDIT, dataManager.GetSysString(1204).c_str());
-	btnModeExit = env->addButton(Scale(10, 170, 270, 200), wMainMenu, BUTTON_MODE_EXIT, dataManager.GetSysString(1210).c_str());
+	//wMainMenu->setVisible(!is_from_discord);
+#define OFFSET(x1, y1, x2, y2) Scale(10, 30 + offset, 270, 60 + offset)
+	int offset = 0;
+	btnOnlineMode = env->addButton(OFFSET(10, 30, 270, 60), wMainMenu, BUTTON_ONLINE_MULTIPLAYER, dataManager.GetSysString(2042).c_str());
+	offset += 35;
+	btnLanMode = env->addButton(OFFSET(10, 30, 270, 60), wMainMenu, BUTTON_LAN_MODE, dataManager.GetSysString(1200).c_str());
+	offset += 35;
+	btnSingleMode = env->addButton(OFFSET(10, 65, 270, 95), wMainMenu, BUTTON_SINGLE_MODE, dataManager.GetSysString(1201).c_str());
+	offset += 35;
+	btnReplayMode = env->addButton(OFFSET(10, 100, 270, 130), wMainMenu, BUTTON_REPLAY_MODE, dataManager.GetSysString(1202).c_str());
+	offset += 35;
+	btnDeckEdit = env->addButton(OFFSET(10, 135, 270, 165), wMainMenu, BUTTON_DECK_EDIT, dataManager.GetSysString(1204).c_str());
+	offset += 35;
+	btnModeExit = env->addButton(OFFSET(10, 170, 270, 200), wMainMenu, BUTTON_MODE_EXIT, dataManager.GetSysString(1210).c_str());
+	offset += 35;
+#undef OFFSET
 	btnSingleMode->setEnabled(coreloaded);
 	//lan mode
 	wLanWindow = env->addWindow(Scale(220, 100, 800, 520), false, dataManager.GetSysString(1200).c_str());
 	wLanWindow->getCloseButton()->setVisible(false);
 	wLanWindow->setVisible(false);
 	env->addStaticText(dataManager.GetSysString(1220).c_str(), Scale(10, 30, 220, 50), false, false, wLanWindow);
-	ebNickName = addEditBox(env, gameConf.nickname.c_str(), Scale(110, 25, 450, 50), true, wLanWindow);
+	ebNickName = env->addEditBox(gameConf.nickname.c_str(), Scale(110, 25, 450, 50), true, wLanWindow, EDITBOX_NICKNAME);
 	ebNickName->setTextAlignment(irr::gui::EGUIA_UPPERLEFT, irr::gui::EGUIA_CENTER);
 	lstHostList = env->addListBox(Scale(10, 60, 570, 320), wLanWindow, LISTBOX_LAN_HOST, true);
-	lstHostList->setItemHeight(18);
+	lstHostList->setItemHeight(Scale(18));
 	btnLanRefresh = env->addButton(Scale(240, 325, 340, 350), wLanWindow, BUTTON_LAN_REFRESH, dataManager.GetSysString(1217).c_str());
 	env->addStaticText(dataManager.GetSysString(1221).c_str(), Scale(10, 360, 220, 380), false, false, wLanWindow);
-	ebJoinHost = addEditBox(env, L"192.168.1.6", Scale(110, 355, 350, 380), true, wLanWindow);
+	ebJoinHost = env->addEditBox(gameConf.lasthost.c_str(), Scale(110, 355, 350, 380), true, wLanWindow);
 	ebJoinHost->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
-	ebJoinPort = addEditBox(env, gameConf.lastport.c_str(), Scale(360, 355, 420, 380), true, wLanWindow, EDITBOX_PORT_BOX);
+	ebJoinPort = env->addEditBox(gameConf.lastport.c_str(), Scale(360, 355, 420, 380), true, wLanWindow, EDITBOX_PORT_BOX);
 	ebJoinPort->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	env->addStaticText(dataManager.GetSysString(1222).c_str(), Scale(10, 390, 220, 410), false, false, wLanWindow);
-	ebJoinPass = addEditBox(env, gameConf.roompass.c_str(), Scale(110, 385, 420, 410), true, wLanWindow);
+	ebJoinPass = env->addEditBox(gameConf.roompass.c_str(), Scale(110, 385, 420, 410), true, wLanWindow);
 	ebJoinPass->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	btnJoinHost = env->addButton(Scale(460, 355, 570, 380), wLanWindow, BUTTON_JOIN_HOST, dataManager.GetSysString(1223).c_str());
 	btnJoinCancel = env->addButton(Scale(460, 385, 570, 410), wLanWindow, BUTTON_JOIN_CANCEL, dataManager.GetSysString(1212).c_str());
@@ -295,30 +257,30 @@ bool Game::Initialize(ANDROID_APP app) {
 	wCreateHost->getCloseButton()->setVisible(false);
 	wCreateHost->setVisible(false);
 	env->addStaticText(dataManager.GetSysString(1226).c_str(), Scale(20, 30, 220, 50), false, false, wCreateHost);
-	cbLFlist = addComboBox(env, Scale(140, 25, 300, 50), wCreateHost);
+	cbLFlist = env->addComboBox(Scale(140, 25, 300, 50), wCreateHost);
 	for(unsigned int i = 0; i < deckManager._lfList.size(); ++i)
 		cbLFlist->addItem(deckManager._lfList[i].listName.c_str(), deckManager._lfList[i].hash);
 	env->addStaticText(dataManager.GetSysString(1225).c_str(), Scale(20, 60, 220, 80), false, false, wCreateHost);
-	cbRule = addComboBox(env, Scale(140, 55, 300, 80), wCreateHost);
+	cbRule = env->addComboBox(Scale(140, 55, 300, 80), wCreateHost);
 	cbRule->addItem(dataManager.GetSysString(1240).c_str());
 	cbRule->addItem(dataManager.GetSysString(1241).c_str());
 	cbRule->addItem(dataManager.GetSysString(1242).c_str());
 	cbRule->addItem(dataManager.GetSysString(1243).c_str());
 	env->addStaticText(dataManager.GetSysString(1227).c_str(), Scale(20, 90, 220, 110), false, false, wCreateHost);
-	cbMatchMode = addComboBox(env, Scale(140, 85, 300, 110), wCreateHost, COMBOBOX_MATCH_MODE);
-	cbMatchMode->addItem(dataManager.GetSysString(1244).c_str());
-	cbMatchMode->addItem(dataManager.GetSysString(1245).c_str());
-	cbMatchMode->addItem(dataManager.GetSysString(1246).c_str());
-	cbMatchMode->addItem(dataManager.GetSysString(1247).c_str());
-	cbMatchMode->addItem(dataManager.GetSysString(1248).c_str());
-	ebTeam1 = addEditBox(env, L"1", Scale(305, 85, 335, 110), true, wCreateHost, EDITBOX_TEAM_COUNT);
+	ebTeam1 = env->addEditBox(L"1", Scale(140, 85, 170, 110), true, wCreateHost, EDITBOX_TEAM_COUNT);
 	ebTeam1->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
-	ebTeam1->setVisible(false);
-	ebTeam2 = addEditBox(env, L"1", Scale(340, 85, 370, 110), true, wCreateHost, EDITBOX_TEAM_COUNT);
+	auto vsstring = env->addStaticText(L"vs.", Scale(175, 85, 195, 110), false, false, wCreateHost);
+	vsstring->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
+	ebTeam2 = env->addEditBox(L"1", Scale(200, 85, 230, 110), true, wCreateHost, EDITBOX_TEAM_COUNT);
 	ebTeam2->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
-	ebTeam2->setVisible(false);
+	vsstring = env->addStaticText(L"Best of", Scale(235, 85, 280, 110), false, false, wCreateHost);
+	vsstring->setTextAlignment(irr::gui::EGUIA_UPPERLEFT, irr::gui::EGUIA_CENTER);
+	ebBestOf = env->addEditBox(L"1", Scale(285, 85, 315, 110), true, wCreateHost);
+	ebBestOf->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
+	btnRelayMode = env->addButton(Scale(325, 85, 370, 110), wCreateHost, -1, L"Relay");
+	btnRelayMode->setIsPushButton(true);
 	env->addStaticText(dataManager.GetSysString(1237).c_str(), Scale(20, 120, 320, 140), false, false, wCreateHost);
-	ebTimeLimit = addEditBox(env, L"180", Scale(140, 115, 220, 140), true, wCreateHost);
+	ebTimeLimit = env->addEditBox(L"180", Scale(140, 115, 220, 140), true, wCreateHost);
 	ebTimeLimit->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	env->addStaticText(dataManager.GetSysString(1228).c_str(), Scale(20, 150, 320, 170), false, false, wCreateHost);
 	btnRuleCards = env->addButton(Scale(260, 325, 370, 350), wCreateHost, BUTTON_RULE_CARDS, dataManager.GetSysString(1625).c_str());
@@ -332,7 +294,7 @@ bool Game::Initialize(ANDROID_APP app) {
 		chkRules[i] = env->addCheckBox(false, Scale(10 + (i % 2) * 150, 10 + (i / 2) * 20, 200 + (i % 2) * 120, 30 + (i / 2) * 20), wRules, CHECKBOX_EXTRA_RULE, dataManager.GetSysString(1132 + i).c_str());
 	extra_rules = 0;
 	env->addStaticText(dataManager.GetSysString(1236).c_str(), Scale(20, 180, 220, 200), false, false, wCreateHost);
-	cbDuelRule = addComboBox(env, Scale(140, 175, 300, 200), wCreateHost, COMBOBOX_DUEL_RULE);
+	cbDuelRule = env->addComboBox(Scale(140, 175, 300, 200), wCreateHost, COMBOBOX_DUEL_RULE);
 	cbDuelRule->addItem(dataManager.GetSysString(1260).c_str());
 	cbDuelRule->addItem(dataManager.GetSysString(1261).c_str());
 	cbDuelRule->addItem(dataManager.GetSysString(1262).c_str());
@@ -361,30 +323,35 @@ bool Game::Initialize(ANDROID_APP app) {
 	spacing++;
 	chkTypeLimit[4] = env->addCheckBox(false, Scale(10, 10 + spacing * 20, 200, 30 + spacing * 20), wCustomRules, 353 + spacing, fmt::sprintf(dataManager.GetSysString(1627), dataManager.GetSysString(1076)).c_str());
 	btnCustomRulesOK = env->addButton(Scale(55, 270, 155, 295), wCustomRules, BUTTON_CUSTOM_RULE_OK, dataManager.GetSysString(1211).c_str());
-	forbiddentypes = MASTER_RULE_4_FORB;
-	duel_param = MASTER_RULE_4;
+	forbiddentypes = DUEL_MODE_MR4_FORB;
+	duel_param = DUEL_MODE_MR4;
 	chkNoCheckDeck = env->addCheckBox(false, Scale(20, 210, 170, 230), wCreateHost, -1, dataManager.GetSysString(1229).c_str());
 	chkNoShuffleDeck = env->addCheckBox(false, Scale(180, 210, 360, 230), wCreateHost, -1, dataManager.GetSysString(1230).c_str());
 	env->addStaticText(dataManager.GetSysString(1231).c_str(), Scale(20, 240, 320, 260), false, false, wCreateHost);
-	ebStartLP = addEditBox(env, L"8000", Scale(140, 235, 220, 260), true, wCreateHost);
+	ebStartLP = env->addEditBox(L"8000", Scale(140, 235, 220, 260), true, wCreateHost);
 	ebStartLP->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	env->addStaticText(dataManager.GetSysString(1232).c_str(), Scale(20, 270, 320, 290), false, false, wCreateHost);
-	ebStartHand = addEditBox(env, L"5", Scale(140, 265, 220, 290), true, wCreateHost);
+	ebStartHand = env->addEditBox(L"5", Scale(140, 265, 220, 290), true, wCreateHost);
 	ebStartHand->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	env->addStaticText(dataManager.GetSysString(1233).c_str(), Scale(20, 300, 320, 320), false, false, wCreateHost);
-	ebDrawCount = addEditBox(env, L"1", Scale(140, 295, 220, 320), true, wCreateHost);
+	ebDrawCount = env->addEditBox(L"1", Scale(140, 295, 220, 320), true, wCreateHost);
 	ebDrawCount->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	env->addStaticText(dataManager.GetSysString(1234).c_str(), Scale(10, 330, 220, 350), false, false, wCreateHost);
-	ebServerName = addEditBox(env, gameConf.gamename.c_str(), Scale(110, 325, 250, 350), true, wCreateHost);
+	ebServerName = env->addEditBox(gameConf.gamename.c_str(), Scale(110, 325, 250, 350), true, wCreateHost);
 	ebServerName->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	env->addStaticText(dataManager.GetSysString(1235).c_str(), Scale(10, 360, 220, 380), false, false, wCreateHost);
-	ebServerPass = addEditBox(env, L"", Scale(110, 355, 250, 380), true, wCreateHost);
+	ebServerPass = env->addEditBox(L"", Scale(110, 355, 250, 380), true, wCreateHost);
 	ebServerPass->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	btnHostConfirm = env->addButton(Scale(260, 355, 370, 380), wCreateHost, BUTTON_HOST_CONFIRM, dataManager.GetSysString(1211).c_str());
 	btnHostCancel = env->addButton(Scale(260, 385, 370, 410), wCreateHost, BUTTON_HOST_CANCEL, dataManager.GetSysString(1212).c_str());
-	env->addStaticText(dataManager.GetSysString(1238).c_str(), Scale(10, 390, 220, 410), false, false, wCreateHost);
-	ebHostPort = addEditBox(env, gameConf.serverport.c_str(), Scale(110, 385, 250, 410), true, wCreateHost, EDITBOX_PORT_BOX);
+	stHostPort = env->addStaticText(dataManager.GetSysString(1238).c_str(), Scale(10, 390, 220, 410), false, false, wCreateHost);
+	ebHostPort = env->addEditBox(gameConf.serverport.c_str(), Scale(110, 385, 250, 410), true, wCreateHost, EDITBOX_PORT_BOX);
 	ebHostPort->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
+	stHostNotes = env->addStaticText(dataManager.GetSysString(2024).c_str(), Scale(10, 390, 220, 410), false, false, wCreateHost);
+	stHostNotes->setVisible(false);
+	ebHostNotes = env->addEditBox(L"", Scale(110, 385, 250, 410), true, wCreateHost);
+	ebHostNotes->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
+	ebHostNotes->setVisible(false);
 	//host(single)
 	wHostPrepare = env->addWindow(Scale(270, 120, 750, 440), false, dataManager.GetSysString(1250).c_str());
 	wHostPrepare->getCloseButton()->setVisible(false);
@@ -397,27 +364,18 @@ bool Game::Initialize(ANDROID_APP app) {
 	btnHostPrepDuelist = env->addButton(Scale(10, 30, 110, 55), wHostPrepare, BUTTON_HP_DUELIST, dataManager.GetSysString(1251).c_str());
 	for(int i = 0; i < 6; ++i) {
 		stHostPrepDuelist[i] = env->addStaticText(L"", Scale(40, 65 + i * 25, 240, 85 + i * 25), true, false, wHostPrepare);
-		btnHostPrepKick[i] = env->addButton(Scale(10, 65 + i * 25, 30, 85 + i * 25), wHostPrepare, BUTTON_BOT_ADD, L"X");
+		btnHostPrepKick[i] = env->addButton(Scale(10, 65 + i * 25, 30, 85 + i * 25), wHostPrepare, BUTTON_HP_KICK, L"X");
 		chkHostPrepReady[i] = env->addCheckBox(false, Scale(250, 65 + i * 25, 270, 85 + i * 25), wHostPrepare, CHECKBOX_HP_READY, L"");
 		chkHostPrepReady[i]->setEnabled(false);
-		//btnHostPrepWindbot[i] = env->addButton(Scale(10, 65 + i * 25, 30, 85 + i * 25), wHostPrepare, BUTTON_BOT_ADD, L"X");
 	}
-	gBot.window = env->addWindow(Scale(630, 100, 840, 310), false, L"Bot preferences");
-	gBot.window->getCloseButton()->setVisible(false);
-	gBot.window->setVisible(false);
-	gBot.deckBox = addComboBox(env, Scale(10, 165, 200, 190), gBot.window, COMBOBOX_BOT_DECK);
-	//box->addItem(L"Decks");
-	gBot.deckProperties = env->addStaticText(L"This is where the deck info will go",Scale(10, 25, 200, 160), true, true, gBot.window);
-	//env->addStaticText(L"This is where the deck description will go",Scale(205, 25, 365, 190), true, true, gBot.window);
-	gBot.RefreshDecks(&bots);
 	btnHostPrepOB = env->addButton(Scale(10, 180, 110, 205), wHostPrepare, BUTTON_HP_OBSERVER, dataManager.GetSysString(1252).c_str());
 	stHostPrepOB = env->addStaticText(fmt::format(L"{} 0", dataManager.GetSysString(1253)).c_str(), Scale(10, 210, 270, 230), false, false, wHostPrepare);
 	stHostPrepRule = irr::gui::CGUICustomText::addCustomText(L"", false, env, wHostPrepare, -1, Scale(280, 30, 460, 230));
 	stHostPrepRule->setWordWrap(true);
 	stDeckSelect = env->addStaticText(dataManager.GetSysString(1254).c_str(), Scale(10, 235, 110, 255), false, false, wHostPrepare);
-	cbDeckSelect = addComboBox(env, Scale(120, 230, 270, 255), wHostPrepare);
+	cbDeckSelect = env->addComboBox(Scale(120, 230, 270, 255), wHostPrepare);
 	cbDeckSelect->setMaxSelectionRows(10);
-	cbDeckSelect2 = addComboBox(env, Scale(280, 230, 430, 255), wHostPrepare);
+	cbDeckSelect2 = env->addComboBox(Scale(280, 230, 430, 255), wHostPrepare);
 	cbDeckSelect2->setMaxSelectionRows(10);
 	btnHostPrepReady = env->addButton(Scale(170, 180, 270, 205), wHostPrepare, BUTTON_HP_READY, dataManager.GetSysString(1218).c_str());
 	btnHostPrepNotReady = env->addButton(Scale(170, 180, 270, 205), wHostPrepare, BUTTON_HP_NOTREADY, dataManager.GetSysString(1219).c_str());
@@ -472,18 +430,18 @@ bool Game::Initialize(ANDROID_APP app) {
 	stSetName->setWordWrap(true);
 	stSetName->setOverrideColor(SColor(255, 0, 0, 255));
 	stText = irr::gui::CGUICustomText::addCustomText(L"", false, env, tabInfo, -1, Scale(15, 106, 287, 324));
-	((CGUICustomText*)stText)->enableScrollBar(0, 0.07f);
+	((CGUICustomText*)stText)->enableScrollBar();
 	stText->setWordWrap(true);
 	//log
 	tabLog =  wInfos->addTab(dataManager.GetSysString(1271).c_str());
 	lstLog = env->addListBox(Scale(10, 10, 290, 290), tabLog, LISTBOX_LOG, false);
-	lstLog->setItemHeight(18);
+	lstLog->setItemHeight(Scale(18));
 	btnClearLog = env->addButton(Scale(160, 300, 260, 325), tabLog, BUTTON_CLEAR_LOG, dataManager.GetSysString(1272).c_str());
-	btnExpandLog = env->addButton(Scale(40, 300, 140, 325), tabLog, BUTTON_EXPAND_INFOBOX, dataManager.GetSysString(2045).c_str());
+	btnExpandLog = env->addButton(Scale(40, 300, 140, 325), tabLog, BUTTON_EXPAND_INFOBOX, dataManager.GetSysString(2043).c_str());
 	//chat
 	tabChat = wInfos->addTab(dataManager.GetSysString(1279).c_str());
 	lstChat = env->addListBox(Scale(10, 10, 290, 290), tabChat, -1, false);
-	lstChat->setItemHeight(18);
+	lstChat->setItemHeight(Scale(18));
 	btnClearChat = env->addButton(Scale(160, 300, 260, 325), tabChat, BUTTON_CLEAR_CHAT, dataManager.GetSysString(1282).c_str());
 	btnExpandChat = env->addButton(Scale(40, 300, 140, 325), tabChat, BUTTON_EXPAND_INFOBOX, dataManager.GetSysString(2043).c_str());
 	//system
@@ -507,18 +465,25 @@ bool Game::Initialize(ANDROID_APP app) {
 	chkIgnore1->setChecked(gameConf.chkIgnore1 != 0);
 	chkIgnore2 = env->addCheckBox(false, Scale(20, 230, 280, 255), tabPanel, -1, dataManager.GetSysString(1291).c_str());
 	chkIgnore2->setChecked(gameConf.chkIgnore2 != 0);
-	chkEnableMusic = env->addCheckBox(gameConf.enablemusic, Scale(20, 260, 280, 285), tabPanel, CHECKBOX_ENABLE_MUSIC, dataManager.GetSysString(2047).c_str());
+	chkEnableMusic = env->addCheckBox(gameConf.enablemusic, Scale(20, 260, 280, 285), tabPanel, CHECKBOX_ENABLE_MUSIC, dataManager.GetSysString(2046).c_str());
 	chkEnableMusic->setChecked(gameConf.enablemusic);
-	chkEnableSound = env->addCheckBox(gameConf.enablesound, Scale(20, 290, 280, 315), tabPanel, -1, dataManager.GetSysString(2046).c_str());
+	chkEnableSound = env->addCheckBox(gameConf.enablesound, Scale(20, 290, 280, 315), tabPanel, CHECKBOX_ENABLE_SOUND, dataManager.GetSysString(2047).c_str());
 	chkEnableSound->setChecked(gameConf.enablesound);
-	stVolume = env->addStaticText(L"Volume", Scale(20, 320, 80, 345), false, true, tabPanel, -1, false);
-	scrVolume = env->addScrollBar(true, Scale(85, 325, 280, 340), tabPanel, SCROLL_VOLUME);
-	scrVolume->setMax(100);
-	scrVolume->setMin(0);
-	scrVolume->setPos(gameConf.volume * 100);
-	scrVolume->setLargeStep(1);
-	scrVolume->setSmallStep(1);
-	chkQuickAnimation = env->addCheckBox(false, Scale(20, 345, 280, 370), tabPanel, CHECKBOX_QUICK_ANIMATION, dataManager.GetSysString(1299).c_str());
+	stMusicVolume = env->addStaticText(dataManager.GetSysString(2048).c_str(), Scale(20, 320, 80, 345), false, true, tabPanel, -1, false);
+	scrMusicVolume = env->addScrollBar(true, Scale(85, 325, 280, 340), tabPanel, SCROLL_MUSIC_VOLUME);
+	scrMusicVolume->setMax(100);
+	scrMusicVolume->setMin(0);
+	scrMusicVolume->setPos(gameConf.musicVolume * 100);
+	scrMusicVolume->setLargeStep(1);
+	scrMusicVolume->setSmallStep(1);
+	stSoundVolume = env->addStaticText(dataManager.GetSysString(2049).c_str(), Scale(20, 350, 80, 375), false, true, tabPanel, -1, false);
+	scrSoundVolume = env->addScrollBar(true, Scale(85, 355, 280, 370), tabPanel, SCROLL_SOUND_VOLUME);
+	scrSoundVolume->setMax(100);
+	scrSoundVolume->setMin(0);
+	scrSoundVolume->setPos(gameConf.soundVolume * 100);
+	scrSoundVolume->setLargeStep(1);
+	scrSoundVolume->setSmallStep(1);
+	chkQuickAnimation = env->addCheckBox(false, Scale(20, 380, 280, 405), tabPanel, CHECKBOX_QUICK_ANIMATION, dataManager.GetSysString(1299).c_str());
 	chkQuickAnimation->setChecked(gameConf.quick_animation != 0);
 	//log
 	tabRepositories = wInfos->addTab(dataManager.GetSysString(2045).c_str());
@@ -534,7 +499,7 @@ bool Game::Initialize(ANDROID_APP app) {
 		btnHand[i] = irr::gui::CGUIImageButton::addImageButton(env, Scale(10 + 105 * i, 10, 105 + 105 * i, 144), wHand, BUTTON_HAND1 + i);
 		auto a = Scale<s32>(10 + 105 * i, 10, 105 + 105 * i, 144).getSize();
 		btnHand[i]->setImageSize(a);
-		((CGUIButton*)btnHand[i])->setImage(imageManager.tHand[i]);
+		btnHand[i]->setImage(imageManager.tHand[i]);
 	}
 	//
 	wFTSelect = env->addWindow(Scale(550, 240, 780, 340), false, L"");
@@ -594,14 +559,14 @@ bool Game::Initialize(ANDROID_APP app) {
 	btnPSAU->setImageSize(imgsize);
 	btnPSAD = irr::gui::CGUIImageButton::addImageButton(env, Scale(155, 45, 295, 185), wPosSelect, BUTTON_POS_AD);
 	btnPSAD->setImageSize(imgsize);
-	((CGUIButton*)btnPSAD)->setImage(imageManager.tCover[0]);
+	btnPSAD->setImage(imageManager.tCover[0]);
 	btnPSDU = irr::gui::CGUIImageButton::addImageButton(env, Scale(300, 45, 440, 185), wPosSelect, BUTTON_POS_DU);
 	btnPSDU->setImageSize(imgsize);
 	btnPSDU->setImageRotation(270);
 	btnPSDD = irr::gui::CGUIImageButton::addImageButton(env, Scale(445, 45, 585, 185), wPosSelect, BUTTON_POS_DD);
 	btnPSDD->setImageSize(imgsize);
 	btnPSDD->setImageRotation(270);
-	((CGUIButton*)btnPSDD)->setImage(imageManager.tCover[0]);
+	btnPSDD->setImage(imageManager.tCover[0]);
 	//card select
 	imgsize = { Scale<s32>(CARD_IMG_WIDTH * 0.6f), Scale<s32>(CARD_IMG_HEIGHT * 0.6f) };
 	wCardSelect = env->addWindow(Scale(320, 100, 1000, 400), false, L"");
@@ -633,14 +598,14 @@ bool Game::Initialize(ANDROID_APP app) {
 	wANNumber = env->addWindow(Scale(550, 200, 780, 295), false, L"");
 	wANNumber->getCloseButton()->setVisible(false);
 	wANNumber->setVisible(false);
-	cbANNumber =  addComboBox(env, Scale(40, 30, 190, 50), wANNumber, -1);
+	cbANNumber =  env->addComboBox(Scale(40, 30, 190, 50), wANNumber, -1);
 	cbANNumber->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	btnANNumberOK = env->addButton(Scale(80, 60, 150, 85), wANNumber, BUTTON_ANNUMBER_OK, dataManager.GetSysString(1211).c_str());
 	//announce card
 	wANCard = env->addWindow(Scale(430, 170, 840, 370), false, L"");
 	wANCard->getCloseButton()->setVisible(false);
 	wANCard->setVisible(false);
-	ebANCard = addEditBox(env, L"", Scale(20, 25, 390, 45), true, wANCard, EDITBOX_ANCARD);
+	ebANCard = env->addEditBox(L"", Scale(20, 25, 390, 45), true, wANCard, EDITBOX_ANCARD);
 	ebANCard->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	lstANCard = env->addListBox(Scale(20, 50, 390, 160), wANCard, LISTBOX_ANCARD, true);
 	btnANCardOK = env->addButton(Scale(60, 165, 350, 190), wANCard, BUTTON_ANCARD_OK, dataManager.GetSysString(1211).c_str());
@@ -682,15 +647,14 @@ bool Game::Initialize(ANDROID_APP app) {
 	wDeckEdit = env->addStaticText(L"", Scale(309, 5, 605, 130), true, false, 0, -1, true);
 	wDeckEdit->setVisible(false);
 	stBanlist = env->addStaticText(dataManager.GetSysString(1300).c_str(), Scale(10, 9, 100, 29), false, false, wDeckEdit);
-	cbDBLFList = addComboBox(env, Scale(80, 5, 220, 30), wDeckEdit, COMBOBOX_DBLFLIST);
+	cbDBLFList = env->addComboBox(Scale(80, 5, 220, 30), wDeckEdit, COMBOBOX_DBLFLIST);
 	cbDBLFList->setMaxSelectionRows(10);
 	stDeck = env->addStaticText(dataManager.GetSysString(1301).c_str(), Scale(10, 39, 100, 59), false, false, wDeckEdit);
-	cbDBDecks = addComboBox(env, Scale(80, 35, 220, 60), wDeckEdit, COMBOBOX_DBDECKS);
+	cbDBDecks = env->addComboBox(Scale(80, 35, 220, 60), wDeckEdit, COMBOBOX_DBDECKS);
 	cbDBDecks->setMaxSelectionRows(15);
-	for(unsigned int i = 0; i < deckManager._lfList.size(); ++i)
-		cbDBLFList->addItem(deckManager._lfList[i].listName.c_str());
+	RefreshLFLists();
 	btnSaveDeck = env->addButton(Scale(225, 35, 290, 60), wDeckEdit, BUTTON_SAVE_DECK, dataManager.GetSysString(1302).c_str());
-	ebDeckname = addEditBox(env, L"", Scale(80, 65, 220, 90), true, wDeckEdit, EDITBOX_DECK_NAME);
+	ebDeckname = env->addEditBox(L"", Scale(80, 65, 220, 90), true, wDeckEdit, EDITBOX_DECK_NAME);
 	ebDeckname->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	btnSaveDeckAs = env->addButton(Scale(225, 65, 290, 90), wDeckEdit, BUTTON_SAVE_DECK_AS, dataManager.GetSysString(1303).c_str());
 	btnDeleteDeck = env->addButton(Scale(225, 95, 290, 120), wDeckEdit, BUTTON_DELETE_DECK, dataManager.GetSysString(1308).c_str());
@@ -712,7 +676,7 @@ bool Game::Initialize(ANDROID_APP app) {
 	scrFilter->setVisible(false);
 	//sort type
 	wSort = env->addStaticText(L"", Scale(930, 132, 1020, 156), true, false, 0, -1, true);
-	cbSortType = addComboBox(env, Scale(10, 2, 85, 22), wSort, COMBOBOX_SORTTYPE);
+	cbSortType = env->addComboBox(Scale(10, 2, 85, 22), wSort, COMBOBOX_SORTTYPE);
 	cbSortType->setMaxSelectionRows(10);
 	for(int i = 1370; i <= 1373; i++)
 		cbSortType->addItem(dataManager.GetSysString(i).c_str());
@@ -721,18 +685,18 @@ bool Game::Initialize(ANDROID_APP app) {
 	wFilter = env->addStaticText(L"", Scale(610, 5, 1020, 130), true, false, 0, -1, true);
 	wFilter->setVisible(false);
 	stCategory = env->addStaticText(dataManager.GetSysString(1311).c_str(), Scale(10, 5, 70, 25), false, false, wFilter);
-	cbCardType = addComboBox(env, Scale(60, 3, 120, 23), wFilter, COMBOBOX_MAINTYPE);
+	cbCardType = env->addComboBox(Scale(60, 3, 120, 23), wFilter, COMBOBOX_MAINTYPE);
 	cbCardType->addItem(dataManager.GetSysString(1310).c_str());
 	cbCardType->addItem(dataManager.GetSysString(1312).c_str());
 	cbCardType->addItem(dataManager.GetSysString(1313).c_str());
 	cbCardType->addItem(dataManager.GetSysString(1314).c_str());
-	cbCardType2 = addComboBox(env, Scale(130, 3, 190, 23), wFilter, COMBOBOX_SECONDTYPE);
+	cbCardType2 = env->addComboBox(Scale(130, 3, 190, 23), wFilter, COMBOBOX_SECONDTYPE);
 	cbCardType2->setMaxSelectionRows(20);
 	cbCardType2->addItem(dataManager.GetSysString(1310).c_str(), 0);
 	chkAnime = env->addCheckBox(false, Scale(10, 96, 150, 118), wFilter, CHECKBOX_SHOW_ANIME, dataManager.GetSysString(1999).c_str());
 	chkAnime->setChecked(gameConf.chkAnime != 0);
 	stLimit = env->addStaticText(dataManager.GetSysString(1315).c_str(), Scale(205, 5, 280, 25), false, false, wFilter);
-	cbLimit = addComboBox(env, Scale(260, 3, 390, 23), wFilter, COMBOBOX_OTHER_FILT);
+	cbLimit = env->addComboBox(Scale(260, 3, 390, 23), wFilter, COMBOBOX_OTHER_FILT);
 	cbLimit->setMaxSelectionRows(10);
 	cbLimit->addItem(dataManager.GetSysString(1310).c_str());
 	cbLimit->addItem(dataManager.GetSysString(1316).c_str());
@@ -749,31 +713,31 @@ bool Game::Initialize(ANDROID_APP app) {
 		cbLimit->addItem(dataManager.GetSysString(1267).c_str());
 	}
 	stAttribute = env->addStaticText(dataManager.GetSysString(1319).c_str(), Scale(10, 28, 70, 48), false, false, wFilter);
-	cbAttribute = addComboBox(env, Scale(60, 26, 190, 46), wFilter, COMBOBOX_OTHER_FILT);
+	cbAttribute = env->addComboBox(Scale(60, 26, 190, 46), wFilter, COMBOBOX_OTHER_FILT);
 	cbAttribute->setMaxSelectionRows(10);
 	cbAttribute->addItem(dataManager.GetSysString(1310).c_str(), 0);
 	for(int filter = 0x1; filter != 0x80; filter <<= 1)
 		cbAttribute->addItem(dataManager.FormatAttribute(filter).c_str(), filter);
 	stRace = env->addStaticText(dataManager.GetSysString(1321).c_str(), Scale(10, 51, 70, 71), false, false, wFilter);
-	cbRace = addComboBox(env, Scale(60, 49, 190, 69), wFilter, COMBOBOX_OTHER_FILT);
+	cbRace = env->addComboBox(Scale(60, 49, 190, 69), wFilter, COMBOBOX_OTHER_FILT);
 	cbRace->setMaxSelectionRows(10);
 	cbRace->addItem(dataManager.GetSysString(1310).c_str(), 0);
 	for(int filter = 0x1; filter != 0x2000000; filter <<= 1)
 		cbRace->addItem(dataManager.FormatRace(filter).c_str(), filter);
 	stAttack = env->addStaticText(dataManager.GetSysString(1322).c_str(), Scale(205, 28, 280, 48), false, false, wFilter);
-	ebAttack = addEditBox(env, L"", Scale(260, 26, 340, 46), true, wFilter);
+	ebAttack = env->addEditBox(L"", Scale(260, 26, 340, 46), true, wFilter);
 	ebAttack->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	stDefense = env->addStaticText(dataManager.GetSysString(1323).c_str(), Scale(205, 51, 280, 71), false, false, wFilter);
-	ebDefense = addEditBox(env, L"", Scale(260, 49, 340, 69), true, wFilter);
+	ebDefense = env->addEditBox(L"", Scale(260, 49, 340, 69), true, wFilter);
 	ebDefense->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	stStar = env->addStaticText(dataManager.GetSysString(1324).c_str(), Scale(10, 74, 80, 94), false, false, wFilter);
-	ebStar = addEditBox(env, L"", Scale(60, 72, 100, 92), true, wFilter);
+	ebStar = env->addEditBox(L"", Scale(60, 72, 100, 92), true, wFilter);
 	ebStar->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	stScale = env->addStaticText(dataManager.GetSysString(1336).c_str(), Scale(110, 74, 150, 94), false, false, wFilter);
-	ebScale = addEditBox(env, L"", Scale(150, 72, 190, 92), true, wFilter);
+	ebScale = env->addEditBox(L"", Scale(150, 72, 190, 92), true, wFilter);
 	ebScale->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	stSearch = env->addStaticText(dataManager.GetSysString(1325).c_str(), Scale(205, 74, 280, 94), false, false, wFilter);
-	ebCardName = addEditBox(env, L"", Scale(260, 72, 390, 92), true, wFilter, EDITBOX_KEYWORD);
+	ebCardName = env->addEditBox(L"", Scale(260, 72, 390, 92), true, wFilter, EDITBOX_KEYWORD);
 	ebCardName->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	btnEffectFilter = env->addButton(Scale(345, 28, 390, 69), wFilter, BUTTON_EFFECT_FILTER, dataManager.GetSysString(1326).c_str());
 	btnStartFilter = env->addButton(Scale(260, 96, 390, 118), wFilter, BUTTON_START_FILTER, dataManager.GetSysString(1327).c_str());
@@ -810,7 +774,7 @@ bool Game::Initialize(ANDROID_APP app) {
 	lstReplayList = irr::gui::CGUIFileSelectListBox::addFileSelectListBox(env, wReplay, LISTBOX_REPLAY_LIST, Scale(10, 30, 350, 400), filesystem, true, true, false);
 	lstReplayList->setWorkingPath(L"./replay", true);
 	lstReplayList->addFilteredExtensions(coreloaded ? std::vector<std::wstring>{L"yrp", L"yrpx"} : std::vector<std::wstring>{ L"yrpx" });
-	lstReplayList->setItemHeight(18);
+	lstReplayList->setItemHeight(Scale(18));
 	btnLoadReplay = env->addButton(Scale(470, 355, 570, 380), wReplay, BUTTON_LOAD_REPLAY, dataManager.GetSysString(1348).c_str());
 	btnLoadReplay->setEnabled(false);
 	btnDeleteReplay = env->addButton(Scale(360, 355, 460, 380), wReplay, BUTTON_DELETE_REPLAY, dataManager.GetSysString(1361).c_str());
@@ -825,14 +789,14 @@ bool Game::Initialize(ANDROID_APP app) {
 	btnExportDeck->setEnabled(false);
 	chkYrp = env->addCheckBox(false, Scale(360, 250, 560, 270), wReplay, -1, dataManager.GetSysString(1356).c_str());
 	env->addStaticText(dataManager.GetSysString(1353).c_str(), Scale(360, 275, 570, 295), false, true, wReplay);
-	ebRepStartTurn = addEditBox(env, L"", Scale(360, 300, 460, 320), true, wReplay, -1);
+	ebRepStartTurn = env->addEditBox(L"", Scale(360, 300, 460, 320), true, wReplay, -1);
 	ebRepStartTurn->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	//single play window
 	wSinglePlay = env->addWindow(Scale(220, 100, 800, 520), false, dataManager.GetSysString(1201).c_str());
 	wSinglePlay->getCloseButton()->setVisible(false);
 	wSinglePlay->setVisible(false);
 	lstSinglePlayList = irr::gui::CGUIFileSelectListBox::addFileSelectListBox(env, wSinglePlay, LISTBOX_SINGLEPLAY_LIST, Scale(10, 30, 350, 400), filesystem, true, true, false);
-	lstSinglePlayList->setItemHeight(18);
+	lstSinglePlayList->setItemHeight(Scale(18));
 	lstSinglePlayList->setWorkingPath(L"./puzzles", true);
 	lstSinglePlayList->addFilteredExtensions({L"lua"});
 	btnLoadSinglePlay = env->addButton(Scale(460, 355, 570, 380), wSinglePlay, BUTTON_LOAD_SINGLEPLAY, dataManager.GetSysString(1357).c_str());
@@ -840,14 +804,14 @@ bool Game::Initialize(ANDROID_APP app) {
 	btnSinglePlayCancel = env->addButton(Scale(460, 385, 570, 410), wSinglePlay, BUTTON_CANCEL_SINGLEPLAY, dataManager.GetSysString(1210).c_str());
 	env->addStaticText(dataManager.GetSysString(1352).c_str(), Scale(360, 30, 570, 50), false, true, wSinglePlay);
 	stSinglePlayInfo = irr::gui::CGUICustomText::addCustomText(L"", false, env, wSinglePlay, -1, Scale(360, 60, 570, 350));
-	((CGUICustomText*)stSinglePlayInfo)->enableScrollBar(0, 0.07f);
+	((CGUICustomText*)stSinglePlayInfo)->enableScrollBar();
 	stSinglePlayInfo->setWordWrap(true);
 	//replay save
 	wReplaySave = env->addWindow(Scale(510, 200, 820, 320), false, dataManager.GetSysString(1340).c_str());
 	wReplaySave->getCloseButton()->setVisible(false);
 	wReplaySave->setVisible(false);
 	env->addStaticText(dataManager.GetSysString(1342).c_str(), Scale(20, 25, 290, 45), false, false, wReplaySave);
-	ebRSName =  addEditBox(env, L"", Scale(20, 50, 290, 70), true, wReplaySave, EDITBOX_REPLAY_NAME);
+	ebRSName =  env->addEditBox(L"", Scale(20, 50, 290, 70), true, wReplaySave, EDITBOX_REPLAY_NAME);
 	ebRSName->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	btnRSYes = env->addButton(Scale(70, 80, 140, 105), wReplaySave, BUTTON_REPLAY_SAVE, dataManager.GetSysString(1341).c_str());
 	btnRSNo = env->addButton(Scale(170, 80, 240, 105), wReplaySave, BUTTON_REPLAY_CANCEL, dataManager.GetSysString(1212).c_str());
@@ -866,7 +830,7 @@ bool Game::Initialize(ANDROID_APP app) {
 	wChat->setDraggable(false);
 	wChat->setDrawTitlebar(false);
 	wChat->setVisible(false);
-	ebChatInput = addEditBox(env, L"", Scale(3, 2, 710, 22), true, wChat, EDITBOX_CHAT);
+	ebChatInput = env->addEditBox(L"", Scale(3, 2, 710, 22), true, wChat, EDITBOX_CHAT);
 	//swap
 	btnSpectatorSwap = env->addButton(Scale(205, 100, 295, 135), 0, BUTTON_REPLAY_SWAP, dataManager.GetSysString(1346).c_str());
 	btnSpectatorSwap->setVisible(false);
@@ -900,20 +864,156 @@ bool Game::Initialize(ANDROID_APP app) {
 	stCardListTip->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	stCardListTip->setVisible(false);
 	device->setEventReceiver(&menuHandler);
-#ifdef _IRR_ANDROID_PLATFORM_
-	void* payload = static_cast<void*>(&working_directory);
-#else
-	void* payload = nullptr;
-#endif
-	if(!soundManager.Init(payload)) {
+	soundManager = std::unique_ptr<SoundManager>(new SoundManager());
+	if(!soundManager->Init(gameConf.soundVolume, gameConf.musicVolume, gameConf.enablesound, gameConf.enablemusic, working_directory)) {
 		chkEnableSound->setChecked(false);
 		chkEnableSound->setEnabled(false);
 		chkEnableSound->setVisible(false);
 		chkEnableMusic->setChecked(false);
 		chkEnableMusic->setEnabled(false);
 		chkEnableMusic->setVisible(false);
-		scrVolume->setVisible(false);
+		scrMusicVolume->setVisible(false);
+		stMusicVolume->setVisible(false);
+		scrSoundVolume->setVisible(false);
+		stSoundVolume->setVisible(false);
+		chkQuickAnimation->setRelativePosition(Scale(20, 260, 280, 285));
 	}
+
+	//server lobby
+	wRoomListPlaceholder = env->addStaticText(L"", Scale(1, 1, 1024 - 1, 640), false, false, 0, -1, false);
+	wRoomListPlaceholder->setAlignment(EGUIA_UPPERLEFT, EGUIA_LOWERRIGHT, EGUIA_UPPERLEFT, EGUIA_LOWERRIGHT);
+	wRoomListPlaceholder->setVisible(false);
+
+	//server choice dropdownlist
+	irr::gui::IGUIStaticText* statictext = env->addStaticText(dataManager.GetSysString(2041).c_str(), Scale(10, 30, 110, 50), false, false, wRoomListPlaceholder, -1, false); // 2041 = Server:
+	statictext->setOverrideColor(SColor(255, 255, 255, 255));
+	serverChoice = env->addComboBox(Scale(90, 25, 385, 50), wRoomListPlaceholder, SERVER_CHOICE);
+
+	//online nickname
+	statictext = env->addStaticText(dataManager.GetSysString(1220).c_str(), Scale(10, 60, 110, 80), false, false, wRoomListPlaceholder, -1, false); // 1220 = Nickname:
+	statictext->setOverrideColor(SColor(255, 255, 255, 255));
+	ebNickNameOnline = env->addEditBox(gameConf.nickname.c_str(), Scale(90, 55, 275, 80), true, wRoomListPlaceholder, EDITBOX_NICKNAME);
+
+	//top right host online game button
+	btnCreateHost2 = env->addButton(Scale(904, 25, 1014, 50), wRoomListPlaceholder, BUTTON_CREATE_HOST2, dataManager.GetSysString(1224).c_str());
+	btnCreateHost2->setAlignment(EGUIA_LOWERRIGHT, EGUIA_LOWERRIGHT, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+
+	//filter dropdowns
+	cbFilterRule = env->addComboBox(Scale(392, 25, 532, 50), wRoomListPlaceholder, CB_FILTER_ALLOWED_CARDS);
+	//cbFilterMatchMode = env->addComboBox(Scale(392, 55, 532, 80), wRoomListPlaceholder, CB_FILTER_MATCH_MODE);
+	cbFilterBanlist = env->addComboBox(Scale(392, 85, 532, 110), wRoomListPlaceholder, CB_FILTER_BANLIST);
+	cbFilterRule->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+	//cbFilterMatchMode->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+	cbFilterBanlist->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+
+	cbFilterRule->addItem(fmt::format(L"[{}]", dataManager.GetSysString(1225)).c_str());
+	cbFilterRule->addItem(dataManager.GetSysString(1240).c_str());
+	cbFilterRule->addItem(dataManager.GetSysString(1241).c_str());
+	cbFilterRule->addItem(dataManager.GetSysString(1242).c_str());
+	cbFilterRule->addItem(dataManager.GetSysString(1243).c_str());
+
+	cbFilterBanlist->addItem(fmt::format(L"[{}]", dataManager.GetSysString(1226)).c_str());
+	for(unsigned int i = 0; i < deckManager._lfList.size(); ++i)
+		cbFilterBanlist->addItem(deckManager._lfList[i].listName.c_str(), deckManager._lfList[i].hash);
+
+	/*cbFilterMatchMode->addItem(fmt::format(L"[{}]", dataManager.GetSysString(1227)).c_str());
+	cbFilterMatchMode->addItem(dataManager.GetSysString(1244).c_str());
+	cbFilterMatchMode->addItem(dataManager.GetSysString(1245).c_str());
+	cbFilterMatchMode->addItem(dataManager.GetSysString(1246).c_str());*/
+	//Scale(392, 55, 532, 80)
+	ebOnlineTeam1 = env->addEditBox(L"0", Scale(140 + (392 - 140), 55, 170 + (392 - 140), 80), true, wRoomListPlaceholder, EDITBOX_TEAM_COUNT);
+	ebOnlineTeam1->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
+	ebOnlineTeam1->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+	vsstring = env->addStaticText(L"vs.", Scale(175 + (392 - 140), 55, 195 + (392 - 140), 80), true, false, wRoomListPlaceholder);
+	vsstring->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
+	vsstring->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+	vsstring->setOverrideColor(SColor(255, 255, 255, 255));
+	ebOnlineTeam2 = env->addEditBox(L"0", Scale(200 + (392 - 140), 55, 230 + (392 - 140), 80), true, wRoomListPlaceholder, EDITBOX_TEAM_COUNT);
+	ebOnlineTeam2->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
+	ebOnlineTeam2->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+	vsstring = env->addStaticText(L"Best of", Scale(235 + (392 - 140), 55, 280 + (392 - 140), 80), true, false, wRoomListPlaceholder);
+	vsstring->setTextAlignment(irr::gui::EGUIA_UPPERLEFT, irr::gui::EGUIA_CENTER);
+	vsstring->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+	vsstring->setOverrideColor(SColor(255, 255, 255, 255));
+	ebOnlineBestOf = env->addEditBox(L"0", Scale(285 + (392 - 140), 55, 315 + (392 - 140), 80), true, wRoomListPlaceholder);
+	ebOnlineBestOf->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
+	ebOnlineBestOf->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+	btnFilterRelayMode = env->addButton(Scale(325 + (392 - 140), 55, 370 + (392 - 140), 80), wRoomListPlaceholder, -1, L"Relay");
+	btnFilterRelayMode->setIsPushButton(true);
+	btnFilterRelayMode->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+
+	//filter rooms textbox
+	ebRoomNameText = env->addStaticText(dataManager.GetSysString(2021).c_str(), Scale(572, 30, 682, 50), false, false, wRoomListPlaceholder); //2021 = Filter: 
+	ebRoomNameText->setOverrideColor(SColor(255, 255, 255, 255));
+	ebRoomName = env->addEditBox(L"", Scale(642, 25, 782, 50), true, wRoomListPlaceholder, EDIT_ONLINE_ROOM_NAME); //filter textbox
+	ebRoomName->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
+	ebRoomNameText->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+	ebRoomName->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+
+	//show locked rooms checkbox
+    chkShowPassword = CGUICustomCheckBox::addCustomCheckBox(false, env, Scale(642, 55, 800, 80), wRoomListPlaceholder, CHECK_SHOW_LOCKED_ROOMS, dataManager.GetSysString(1994).c_str());
+	chkShowPassword->setName(L"White");
+	chkShowPassword->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+
+	//show active rooms checkbox
+	chkShowActiveRooms = CGUICustomCheckBox::addCustomCheckBox(false, env, Scale(642, 85, 800, 110), wRoomListPlaceholder, CHECK_SHOW_ACTIVE_ROOMS, dataManager.GetSysString(1985).c_str());
+	chkShowActiveRooms->setName(L"White");
+	chkShowActiveRooms->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_UPPERLEFT, EGUIA_UPPERLEFT);
+
+	//show all rooms in a table
+	roomListTable = CGUICustomTable::addCustomTable(env, Resize(1, 118, 1022, 550), wRoomListPlaceholder, TABLE_ROOMLIST, true);
+	roomListTable->setResizableColumns(true);
+	//roomListTable->setAlignment(EGUIA_UPPERLEFT, EGUIA_LOWERRIGHT, EGUIA_UPPERLEFT, EGUIA_LOWERRIGHT);
+	roomListTable->addColumn(L" ");//lock
+	roomListTable->addColumn(dataManager.GetSysString(1225).c_str());//Allowed Cards:
+	roomListTable->addColumn(dataManager.GetSysString(1227).c_str());//Duel Mode:
+	roomListTable->addColumn(dataManager.GetSysString(1236).c_str());//master rule
+	roomListTable->addColumn(dataManager.GetSysString(1226).c_str());//Forbidden List:
+	roomListTable->addColumn(dataManager.GetSysString(2030).c_str());//Players:
+	roomListTable->addColumn(dataManager.GetSysString(2024).c_str());//Notes:
+	roomListTable->addColumn(dataManager.GetSysString(1988).c_str());//Status
+	roomListTable->setColumnWidth(0, 30); //lock
+	roomListTable->setColumnWidth(1, 110);//Allowed Cards:
+	roomListTable->setColumnWidth(2, 100);//Duel Mode:
+	roomListTable->setColumnWidth(3, 50);//master rule
+	roomListTable->setColumnWidth(4, 135);//Forbidden List:
+	roomListTable->setColumnWidth(5, 115);//Players:
+	roomListTable->setColumnWidth(6, 405);//Notes:
+	roomListTable->setColumnWidth(7, 140);//Status
+	roomListTable->setColumnOrdering(0, EGCO_FLIP_ASCENDING_DESCENDING);
+	roomListTable->setColumnOrdering(1, EGCO_FLIP_ASCENDING_DESCENDING);
+	roomListTable->setColumnOrdering(2, EGCO_FLIP_ASCENDING_DESCENDING);
+	roomListTable->setColumnOrdering(3, EGCO_FLIP_ASCENDING_DESCENDING);
+	roomListTable->setColumnOrdering(4, EGCO_FLIP_ASCENDING_DESCENDING);
+	roomListTable->setColumnOrdering(5, EGCO_FLIP_ASCENDING_DESCENDING);
+	roomListTable->setColumnOrdering(6, EGCO_FLIP_ASCENDING_DESCENDING);
+	roomListTable->setColumnOrdering(7, EGCO_FLIP_ASCENDING_DESCENDING);
+
+	//refresh button center bottom
+	btnLanRefresh2 = env->addButton(Scale(462, 640 - 10 - 25 - 25 - 5, 562, 640 - 10 - 25 - 5), wRoomListPlaceholder, BUTTON_LAN_REFRESH2, dataManager.GetSysString(1217).c_str());
+	btnLanRefresh2->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_LOWERRIGHT, EGUIA_LOWERRIGHT);
+
+	//server room password
+	wRoomPassword = env->addWindow(Scale(357, 200, 667, 320), false, L"");
+	wRoomPassword->getCloseButton()->setVisible(false);
+	wRoomPassword->setVisible(false);
+	wRoomPassword->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_CENTER, EGUIA_CENTER);
+	env->addStaticText(dataManager.GetSysString(2042).c_str(), Scale(20, 25, 290, 45), false, false, wRoomPassword);
+	ebRPName = env->addEditBox(L"", Scale(20, 50, 290, 70), true, wRoomPassword, -1);
+	ebRPName->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
+	btnRPYes = env->addButton(Scale(70, 80, 140, 105), wRoomPassword, BUTTON_ROOMPASSWORD_OK, dataManager.GetSysString(1211).c_str());
+	btnRPNo = env->addButton(Scale(170, 80, 240, 105), wRoomPassword, BUTTON_ROOMPASSWORD_CANCEL, dataManager.GetSysString(1212).c_str());
+
+	//join cancel buttons
+	btnJoinHost2 = env->addButton(Scale(1024 - 10 - 110, 640 - 10 - 25 - 25 - 5, 1024 - 10, 640 - 10 - 25 - 5), wRoomListPlaceholder, BUTTON_JOIN_HOST2, dataManager.GetSysString(1223).c_str());
+	btnJoinCancel2 = env->addButton(Scale(1024 - 10 - 110, 640 - 10 - 25, 1024 - 10, 640 - 10), wRoomListPlaceholder, BUTTON_JOIN_CANCEL2, dataManager.GetSysString(1212).c_str());
+	btnJoinHost2->setAlignment(EGUIA_LOWERRIGHT, EGUIA_LOWERRIGHT, EGUIA_LOWERRIGHT, EGUIA_LOWERRIGHT);
+	btnJoinCancel2->setAlignment(EGUIA_LOWERRIGHT, EGUIA_LOWERRIGHT, EGUIA_LOWERRIGHT, EGUIA_LOWERRIGHT);
+
+
+	//load server(s)
+	LoadServers();
+
 	env->getSkin()->setFont(guiFont);
 	env->setFocus(wMainMenu);
 #ifdef YGOPRO_BUILD_DLL
@@ -922,14 +1022,15 @@ bool Game::Initialize(ANDROID_APP app) {
 		PopupElement(wMessage);
 	}
 #endif
+#ifdef _IRR_ANDROID_PLATFORM_
+	fpsCounter = env->addStaticText(L"", Scale(15, 15, 100, 60));
+	fpsCounter->setOverrideColor();
+#endif
 	for (u32 i = 0; i < EGDC_COUNT; ++i) {
 		SColor col = env->getSkin()->getColor((EGUI_DEFAULT_COLOR)i);
 		col.setAlpha(224);
 		env->getSkin()->setColor((EGUI_DEFAULT_COLOR)i, col);
 	}
-#ifdef _IRR_ANDROID_PLATFORM_
-	fpsCounter = env->addStaticText(L"", Scale(15, 15, 100, 60));
-#endif
 	hideChat = false;
 	hideChatTimer = 0;
 	delta_time = 0;
@@ -937,22 +1038,7 @@ bool Game::Initialize(ANDROID_APP app) {
 	Utils::CreateResourceFolders();
 
 	LoadGithubRepositories();
-
 	return true;
-}
-IGUIEditBox* Game::addEditBox(IGUIEnvironment* env, const wchar_t* text, const core::rect<s32>& rectangle, bool border, IGUIElement* parent, s32 id) {
-#if 1
-	return env->addEditBox(text, rectangle, border, parent, id);
-#else
-	return CAndroidGUIEditBox::addAndroidEditBox(text, border, env, rectangle, parent, id);
-#endif
-}
-IGUIComboBox * Game::addComboBox(IGUIEnvironment* env, const core::rect<s32>& rectangle, IGUIElement* parent, s32 id) {
-#if 1
-	return env->addComboBox(rectangle, parent, id);
-#else
-	return CAndroidGUIComboBox::addAndroidComboBox(env, rectangle, parent, id);
-#endif
 }
 void Game::MainLoop() {
 	camera = smgr->addCameraSceneNode(0);
@@ -969,11 +1055,8 @@ void Game::MainLoop() {
 	uint32 prev_time = timer->getRealTime();
 	float frame_counter = 0.0f;
 	int fps = 0;
+	bool discord_message_shown = false;
 	std::wstring corename;
-#ifndef __APPLE__
-	if(gameConf.fullscreen)
-		Utils::ToggleFullscreen();
-#endif
 #ifdef _IRR_ANDROID_PLATFORM_
 	ogles2Solid = 0;
 	ogles2TrasparentAlpha = 0;
@@ -1049,6 +1132,8 @@ void Game::MainLoop() {
 		matManager.mATK.TextureLayer[0].TextureWrapV = ETC_CLAMP_TO_EDGE;
 	}
 #endif
+	if(gameConf.fullscreen)
+		Utils::ToggleFullscreen();
 	while(device->run()) {
 		auto repos = repoManager.GetReadyRepos();
 		if(!repos.empty()) {
@@ -1068,13 +1153,10 @@ void Game::MainLoop() {
 				dataManager.LoadStrings(data_path + TEXT("strings.conf"));
 				if(deckManager.LoadLFListSingle(data_path + TEXT("lflist.conf")) || deckManager.LoadLFListFolder(data_path + TEXT("lflists/"))) {
 					deckManager.RefreshLFList();
-					cbDBLFList->clear();
-					for(auto& list : deckManager._lfList)
-						cbDBLFList->addItem(list.listName.c_str());
-					deckBuilder.filterList = &deckManager._lfList[mainGame->cbDBLFList->getSelected()];
+					RefreshLFLists();
 				}
 				if(repo.has_core) {
-					cores_to_load.insert(cores_to_load.begin(), BufferIO::DecodeUTF8s(repo.core_path));
+					cores_to_load.insert(cores_to_load.begin(), Utils::ParseFilename(repo.core_path));
 				}
 				std::string text;
 				std::for_each(repo.commit_history_full.begin(), repo.commit_history_full.end(), [&text](const std::string& n) { text += n + "\n\n"; });
@@ -1104,7 +1186,7 @@ void Game::MainLoop() {
 			for(auto& path : cores_to_load) {
 				void* ncore = nullptr;
 				if((ncore = ChangeOCGcore(path, ocgcore))) {
-					corename = path;
+					corename = Utils::ToUnicodeIfNeeded(path);
 					ocgcore = ncore;
 					if(!coreloaded) {
 						coreloaded = true;
@@ -1127,17 +1209,13 @@ void Game::MainLoop() {
 			repoInfoGui[repo.first].progress1->setProgress(repo.second);
 			repoInfoGui[repo.first].progress2->setProgress(repo.second);
 		}
+		soundManager->Tick();
 		fps++;
 		auto now = timer->getRealTime();
 		delta_time = now - prev_time;
 		prev_time = now;
 		cur_time += delta_time;
-// #ifndef _IRR_ANDROID_PLATFORM_
 		dimension2du size = driver->getScreenSize();
-// #else
-// 		dimension2du size = { driver->getViewPort().LowerRightCorner.X, driver->getViewPort().LowerRightCorner.Y };
-		//dimension2du size = { android::getScreenHeight(appMain), android::getScreenWidth(appMain) };
-// #endif
 		if(window_size != size) {
 			window_size = size;
 			window_scale.X = (window_size.Width / 1024.0) / gameConf.dpi_scale;
@@ -1156,55 +1234,53 @@ void Game::MainLoop() {
 		atkframe += 0.1f * (float)delta_time * 60.0f / 1000.0f;
 		atkdy = (float)sin(atkframe);
 		driver->beginScene(true, true, SColor(0, 0, 0, 0));
-
-#ifndef _IRR_ANDROID_PLATFORM_
-		driver->getMaterial2D().MaterialType = (video::E_MATERIAL_TYPE)ogles2Solid;
-		if(!isNPOTSupported) {
-			driver->getMaterial2D().TextureLayer[0].TextureWrapU = ETC_CLAMP_TO_EDGE;
-			driver->getMaterial2D().TextureLayer[0].TextureWrapV = ETC_CLAMP_TO_EDGE;
-		}
-		MATERIAL_GUARD(
-		driver->getMaterial2D().ZBuffer = ECFN_NEVER;
-		if(imageManager.tBackGround) {
-			driver->draw2DImage(imageManager.tBackGround, recti(0 * window_scale.X, 0 * window_scale.Y, 1280 * window_scale.X, 720 * window_scale.Y), recti(0, 0, imageManager.tBackGround->getOriginalSize().Width, imageManager.tBackGround->getOriginalSize().Height));
-		}
-		if(imageManager.tBackGround_menu) {
-			driver->draw2DImage(imageManager.tBackGround_menu, recti(0 * window_scale.X, 0 * window_scale.Y, 1280 * window_scale.X, 720 * window_scale.Y), recti(0, 0, imageManager.tBackGround->getOriginalSize().Width, imageManager.tBackGround->getOriginalSize().Height));
-		}
-		if(imageManager.tBackGround_deck) {
-			driver->draw2DImage(imageManager.tBackGround_deck, recti(0 * window_scale.X, 0 * window_scale.Y, 1280 * window_scale.X, 720 * window_scale.Y), recti(0, 0, imageManager.tBackGround->getOriginalSize().Width, imageManager.tBackGround->getOriginalSize().Height));
-		})
-#endif
 		gMutex.lock();
 		if(dInfo.isInDuel) {
+			if(dInfo.isReplay)
+				discord.UpdatePresence(DiscordWrapper::REPLAY);
+			else if(dInfo.isSingleMode)
+				discord.UpdatePresence(DiscordWrapper::PUZZLE);
+			else {
+				if(dInfo.isStarted)
+					discord.UpdatePresence(DiscordWrapper::DUEL_STARTED);
+				else
+					discord.UpdatePresence(DiscordWrapper::DUEL);
+			}
 			if (showcardcode == 1 || showcardcode == 3)
-				soundManager.PlayBGM(BGM_WIN);
+				soundManager->PlayBGM(SoundManager::BGM::WIN);
 			else if (showcardcode == 2)
-				soundManager.PlayBGM(BGM_LOSE);
+				soundManager->PlayBGM(SoundManager::BGM::LOSE);
 			else if (dInfo.lp[0] > 0 && dInfo.lp[LocalPlayer(0)] <= dInfo.lp[LocalPlayer(1)] / 2)
-				soundManager.PlayBGM(BGM_DISADVANTAGE);
+				soundManager->PlayBGM(SoundManager::BGM::DISADVANTAGE);
 			else if (dInfo.lp[0] > 0 && dInfo.lp[LocalPlayer(0)] >= dInfo.lp[LocalPlayer(1)] * 2)
-				soundManager.PlayBGM(BGM_ADVANTAGE);
+				soundManager->PlayBGM(SoundManager::BGM::ADVANTAGE);
 			else
-				soundManager.PlayBGM(BGM_DUEL);
-			driver->enableMaterial2D(true);
+				soundManager->PlayBGM(SoundManager::BGM::DUEL);
+			MATERIAL_GUARD(
 			DrawBackImage(imageManager.tBackGround);
 			DrawBackGround();
 			DrawCards();
 			DrawMisc();
 			smgr->drawAll();
-			driver->enableMaterial2D(false);
 			driver->setMaterial(irr::video::IdentityMaterial);
-			driver->clearZBuffer();
+			driver->clearZBuffer();)
 		} else if(is_building) {
-			soundManager.PlayBGM(BGM_DECK);
+			if(is_siding)
+				discord.UpdatePresence(DiscordWrapper::DECK_SIDING);
+			else
+				discord.UpdatePresence(DiscordWrapper::DECK);
+			soundManager->PlayBGM(SoundManager::BGM::DECK);
 			DrawBackImage(imageManager.tBackGround_deck);
 			MATERIAL_GUARD(DrawDeckBd());
 		} else {
-			soundManager.PlayBGM(BGM_MENU);
+			if(dInfo.isInLobby)
+				discord.UpdatePresence(DiscordWrapper::IN_LOBBY);
+			else
+				discord.UpdatePresence(DiscordWrapper::MENU);
+			soundManager->PlayBGM(SoundManager::BGM::MENU);
 			DrawBackImage(imageManager.tBackGround_menu);
 		}
-		MATERIAL_GUARD(	DrawGUI();	DrawSpec(););
+		MATERIAL_GUARD(DrawGUI();	DrawSpec(););
 		if(cardimagetextureloading) {
 			ShowCardInfo(showingcard, false);
 		}
@@ -1250,14 +1326,22 @@ void Game::MainLoop() {
 		}
 		if (DuelClient::try_needed) {
 			DuelClient::try_needed = false;
-			DuelClient::StartClient(DuelClient::temp_ip, DuelClient::temp_port, false);
+			DuelClient::StartClient(DuelClient::temp_ip, DuelClient::temp_port, dInfo.secret.game_id, false);
 		}
 		popupCheck.lock();
 		if(queued_msg.size()){
-			env->addMessageBox(L"",queued_msg.c_str());
+			env->addMessageBox(queued_caption.c_str(),queued_msg.c_str());
 			queued_msg.clear();
+			queued_caption.clear();
 		}
 		popupCheck.unlock();
+		discord.Check();
+		if(discord.connected && !discord_message_shown) {
+			discord_message_shown = true;
+			env->setFocus(stACMessage);
+			stACMessage->setText(L"Connected to Discord");
+			PopupElement(wACMessage, 30);
+		}
 #ifdef _IRR_ANDROID_PLATFORM_
 		device->yield(); // probably nicer to the battery
 #endif
@@ -1330,50 +1414,17 @@ void Game::RefreshDeck(irr::gui::IGUIComboBox* cbDeck) {
 		}
 	}
 }
-void Game::RefreshAiDecks() {
-	try {
-		std::ifstream bot_file("bot.json", std::ifstream::in);
-		if(bot_file.is_open()) {
-			nlohmann::json j;
-			bot_file >> j;
-			bot_file.close();
-			if(j.size()) {
-				for(auto& obj : j["windbots"].get<std::vector<nlohmann::json>>()) {
-					if(!obj["name"].is_string() || !obj["deck"].is_string() || !obj["flags"].is_array())
-						continue;
-					BotInfo tmp = {};
-					tmp.name = BufferIO::DecodeUTF8s(obj["name"].get<std::string>());
-					tmp.deck = BufferIO::DecodeUTF8s(obj["deck"].get<std::string>());
-					for(auto& flag : obj["flags"].get<std::vector<nlohmann::json>>()) {
-#define CHECK_AND_SET_FLAG(flag) if(strflag == #flag)tmp.flags |= static_cast<int>(BotInfo::bot_params::flag)
-						auto strflag = flag.get<std::string>();
-						CHECK_AND_SET_FLAG(AI_LV1);
-						CHECK_AND_SET_FLAG(AI_LV2);
-						CHECK_AND_SET_FLAG(AI_LV3);
-						CHECK_AND_SET_FLAG(AI_ANTI_META);
-						CHECK_AND_SET_FLAG(SUPPORT_MASTER_RULE_3);
-						CHECK_AND_SET_FLAG(SUPPORT_NEW_MASTER_RULE);
-#undef CHECK_AND_SET_FLAG
-					}
-					bots.push_back(tmp);
-				}
-			}
+void Game::RefreshLFLists() {
+	cbDBLFList->clear();
+	cbDBLFList->setSelected(0);
+	for (auto &list : deckManager._lfList) {
+		auto i = cbDBLFList->addItem(list.listName.c_str());
+		if (gameConf.lastlflist == list.hash) {
+			cbDBLFList->setSelected(i);
 		}
 	}
-	catch(std::exception& e) {
-		ErrorLog(std::string("Exception ocurred: ") + e.what());
-	}
+	deckBuilder.filterList = &deckManager._lfList[mainGame->cbDBLFList->getSelected()];
 }
-#ifdef _WIN32
-path_string Game::GetAiParameter(BotInfo bot, int port) {
-	return fmt::format(TEXT("./Windbot/Windbot.exe Deck=\"a{}\" Port={} Version={}"),bot.deck.c_str(),port, PRO_VERSION);
-}
-#else
-Game::BotParams Game::GetAiParameter(BotInfo bot, int port) {
-	return { fmt::format("Deck=\"{}\"", BufferIO::EncodeUTF8s(bot.deck).c_str()), fmt::format("Port={}", port), fmt::format("Version={}", PRO_VERSION) };
-}
-
-#endif
 void Game::RefreshReplay() {
 	lstReplayList->resetPath();
 }
@@ -1392,6 +1443,7 @@ void Game::LoadConfig() {
 	gameConf.nickname = L"";
 	gameConf.gamename = L"";
 	gameConf.lastdeck = L"";
+	gameConf.lastlflist = 0;
 	gameConf.numfont = L"";
 	gameConf.textfont = L"";
 	gameConf.lasthost = L"";
@@ -1408,16 +1460,14 @@ void Game::LoadConfig() {
 	gameConf.chkHideSetname = 0;
 	gameConf.chkHideHintButton = 0;
 	gameConf.skin_index = -1;
-	gameConf.enablesound = true;
-	gameConf.volume = 1.0;
 	gameConf.enablemusic = true;
+	gameConf.enablesound = true;
+	gameConf.musicVolume = 1.0;
+	gameConf.soundVolume = 1.0;
 	gameConf.draw_field_spell = 1;
 	gameConf.quick_animation = 0;
 	gameConf.chkAnime = 0;
-	gameConf.dpi_scale = 1.5f;
-	//std::wstring font = BufferIO::DecodeUTF8s(android::getFontPath(appMain).c_str());
-	/*gameConf.numfont = font;
-	gameConf.textfont = font;*/
+	gameConf.dpi_scale = 1.0f;
 	std::ifstream conf_file("system.conf", std::ifstream::in);
 	if(!conf_file.is_open())
 		return;
@@ -1454,7 +1504,10 @@ void Game::LoadConfig() {
 			gameConf.gamename = BufferIO::DecodeUTF8s(str);
 		else if(type == "lastdeck")
 			gameConf.lastdeck = BufferIO::DecodeUTF8s(str);
-		else if(type == "textfont") {
+		else if(type == "lastlflist") {
+			auto val = std::stoi(str);
+			gameConf.lastlflist = val >= 0 ? val : 0;
+		} else if(type == "textfont") {
 			pos = str.find(L' ');
 			if(pos == std::wstring::npos) {
 				gameConf.textfont = BufferIO::DecodeUTF8s(str);
@@ -1505,19 +1558,31 @@ void Game::LoadConfig() {
 			gameConf.chkAnime = std::stoi(str);
 		else if(type == "dpi_scale")
 			gameConf.dpi_scale = std::stof(str);
-		else if(type == "enable_sound")
-			gameConf.enablesound = !!std::stoi(str);
 		else if(type == "skin_index")
 			gameConf.skin_index = std::stoi(str);
-		else if(type == "volume")
-			gameConf.volume = std::stof(str)/100.0f;
 		else if(type == "enable_music")
 			gameConf.enablemusic = !!std::stoi(str);
+		else if(type == "enable_sound")
+			gameConf.enablesound = !!std::stoi(str);
+		else if(type == "music_volume")
+			gameConf.musicVolume = std::stof(str)/100.0f;
+		else if(type == "sound_volume")
+			gameConf.soundVolume = std::stof(str)/100.0f;
 	}
 	conf_file.close();
+	if(configs.empty()) {
+		conf_file.open(TEXT("configs.json"), std::ifstream::in);
+		try {
+			conf_file >> configs;
+		}
+		catch(std::exception& e) {
+			ErrorLog(std::string("Exception ocurred: ") + e.what());
+		}
+		conf_file.close();
+	}
 }
 void Game::SaveConfig() {
-	std::ofstream conf_file("./system.conf", std::ofstream::out);
+	std::ofstream conf_file("system.conf", std::ofstream::out);
 	if(!conf_file.is_open())
 		return;
 	conf_file << "#Configuration file\n";
@@ -1535,6 +1600,7 @@ void Game::SaveConfig() {
 	conf_file << "nickname = "			<< BufferIO::EncodeUTF8s(ebNickName->getText()) << "\n";
 	conf_file << "gamename = "			<< BufferIO::EncodeUTF8s(gameConf.gamename) << "\n";
 	conf_file << "lastdeck = "			<< BufferIO::EncodeUTF8s(gameConf.lastdeck) << "\n";
+	conf_file << "lastlflist = "		<< std::to_string(gameConf.lastlflist) << "\n";
 	conf_file << "textfont = "			<< BufferIO::EncodeUTF8s(gameConf.textfont) << " " << std::to_string(gameConf.textfontsize) << "\n";
 	conf_file << "numfont = "			<< BufferIO::EncodeUTF8s(gameConf.numfont) << "\n";
 	conf_file << "serverport = "		<< BufferIO::EncodeUTF8s(gameConf.serverport) << "\n";
@@ -1557,40 +1623,37 @@ void Game::SaveConfig() {
 	conf_file << "dpi_scale = "			<< std::to_string(gameConf.dpi_scale) << "\n";
 	conf_file << "#if skins from the skin folder are in use\n";
 	conf_file << "skin_index = "		<< std::to_string(gameConf.skin_index) << "\n";
-	conf_file << "enable_sound = "		<< std::to_string(chkEnableSound->isChecked() ? 1 : 0) << "\n";
 	conf_file << "enable_music = "		<< std::to_string(chkEnableMusic->isChecked() ? 1 : 0) << "\n";
-	conf_file << "#Volume of sounds and musics, integer between 0 and 100\n";
-	int vol = gameConf.volume * 100;
+	conf_file << "enable_sound = "		<< std::to_string(chkEnableSound->isChecked() ? 1 : 0) << "\n";
+	conf_file << "#integers between 0 and 100\n";
+	int vol = gameConf.musicVolume * 100;
 	if(vol < 0) vol = 0; else if(vol > 100) vol = 100;
-	conf_file << "volume = "			<< std::to_string(vol) << "\n";
+	conf_file << "music_volume = "		<< std::to_string(vol) << "\n";
+	vol = gameConf.soundVolume * 100;if(vol < 0) vol = 0; else if(vol > 100) vol = 100;
+	conf_file << "sound_volume = "		<< std::to_string(vol) << "\n";
 	conf_file.close();
 }
 void Game::LoadPicUrls() {
 	try {
-		std::ifstream f("pic_urls.json");
-		if(f.is_open()) {
-			nlohmann::json j;
-			f >> j;
-			f.close();
-			if(j.size()) {
-				for(auto& obj : j["urls"].get<std::vector<nlohmann::json>>()) {
-					if(obj["url"].get<std::string>() == "default") {
-						if(obj["type"].get<std::string>() == "pic") {
+		if(configs.size() && configs["urls"].is_array()) {
+			for(auto& obj : configs["urls"].get<std::vector<nlohmann::json>>()) {
+				if(obj["url"].get<std::string>() == "default") {
+					if(obj["type"].get<std::string>() == "pic") {
 #ifdef DEFAULT_PIC_URL
-							imageManager.AddDownloadResource({ DEFAULT_PIC_URL, "pic" });
+						imageManager.AddDownloadResource({ DEFAULT_PIC_URL, ImageManager::ART });
 #else
-							continue;
+						continue;
 #endif
-						} else {
-#ifdef DEFAULT_FIELD_URL
-							imageManager.AddDownloadResource({ DEFAULT_FIELD_URL, "field" });
-#else
-							continue;
-#endif
-						}
 					} else {
-						imageManager.AddDownloadResource({ obj["url"].get<std::string>(),obj["type"].get<std::string>() });
+#ifdef DEFAULT_FIELD_URL
+						imageManager.AddDownloadResource({ DEFAULT_FIELD_URL, ImageManager::FIELD });
+#else
+						continue;
+#endif
 					}
+				} else {
+					auto type = obj["type"].get<std::string>();
+					imageManager.AddDownloadResource({ obj["url"].get<std::string>(), type == "field" ? ImageManager::FIELD : (type == "pic") ? ImageManager::ART : ImageManager::COVER });
 				}
 			}
 		}
@@ -1629,48 +1692,42 @@ void Game::AddGithubRepositoryStatusWindow(const RepoManager::GitRepo& repo) {
 													tmp_repo.field = obj[#field].get<cpptype>();
 void Game::LoadGithubRepositories() {
 	try {
-		std::ifstream f("git_repo.json");
-		if(f.is_open()) {
-			nlohmann::json j;
-			f >> j;
-			f.close();
-			if(j.size()) {
-				for(auto& obj : j["repos"].get<std::vector<nlohmann::json>>()) {
-					if(obj["should_read"].is_boolean() && !obj["should_read"].get<bool>())
-						continue;
-					RepoManager::GitRepo tmp_repo;
-					JSON_SET_IF_VALID(url, string, std::string);
-					JSON_SET_IF_VALID(should_update, boolean, bool);
-					if(tmp_repo.url == "default") {
+		if(configs.size() && configs["repos"].is_array()) {
+			for(auto& obj : configs["repos"].get<std::vector<nlohmann::json>>()) {
+				if(obj["should_read"].is_boolean() && !obj["should_read"].get<bool>())
+					continue;
+				RepoManager::GitRepo tmp_repo;
+				JSON_SET_IF_VALID(url, string, std::string);
+				JSON_SET_IF_VALID(should_update, boolean, bool);
+				if(tmp_repo.url == "default") {
 #ifdef DEFAULT_LIVE_URL
-						tmp_repo.url = DEFAULT_LIVE_URL;
+					tmp_repo.url = DEFAULT_LIVE_URL;
 #ifdef YGOPRO_BUILD_DLL
-						tmp_repo.has_core = true;
+					tmp_repo.has_core = true;
 #endif
 #else
-						continue;
+					continue;
 #endif //DEFAULT_LIVE_URL
-					} else if(tmp_repo.url == "default_anime") {
+				} else if(tmp_repo.url == "default_anime") {
 #ifdef DEFAULT_LIVEANIME_URL
-						tmp_repo.url = DEFAULT_LIVEANIME_URL;
+					tmp_repo.url = DEFAULT_LIVEANIME_URL;
 #else
-						continue;
+					continue;
 #endif //DEFAULT_LIVEANIME_URL
-					} else {
-						JSON_SET_IF_VALID(repo_path, string, std::string);
-						JSON_SET_IF_VALID(repo_name, string, std::string);
-						JSON_SET_IF_VALID(data_path, string, std::string);
-						JSON_SET_IF_VALID(script_path, string, std::string);
-						JSON_SET_IF_VALID(pics_path, string, std::string);
+				} else {
+					JSON_SET_IF_VALID(repo_path, string, std::string);
+					JSON_SET_IF_VALID(repo_name, string, std::string);
+					JSON_SET_IF_VALID(data_path, string, std::string);
+					JSON_SET_IF_VALID(script_path, string, std::string);
+					JSON_SET_IF_VALID(pics_path, string, std::string);
 #ifdef YGOPRO_BUILD_DLL
-						JSON_SET_IF_VALID(core_path, string, std::string);
-						JSON_SET_IF_VALID(has_core, boolean, bool);
+					JSON_SET_IF_VALID(core_path, string, std::string);
+					JSON_SET_IF_VALID(has_core, boolean, bool);
 #endif
-					}
-					if(tmp_repo.Sanitize()) {
-						repoManager.AddRepo(tmp_repo);
-						AddGithubRepositoryStatusWindow(tmp_repo);
-					}
+				}
+				if(tmp_repo.Sanitize()) {
+					repoManager.AddRepo(tmp_repo);
+					AddGithubRepositoryStatusWindow(tmp_repo);
 				}
 			}
 		}
@@ -1680,12 +1737,31 @@ void Game::LoadGithubRepositories() {
 	}
 }
 #undef JSON_SET_IF_VALID
+void Game::LoadServers() {
+	try {
+		if(configs.size() && configs["servers"].is_array()) {
+			for(auto& obj : configs["servers"].get<std::vector<nlohmann::json>>()) {
+				ServerInfo tmp_server;
+				tmp_server.name = BufferIO::DecodeUTF8s(obj["name"].get<std::string>());
+				tmp_server.address = BufferIO::DecodeUTF8s(obj["address"].get<std::string>());
+				tmp_server.roomaddress = BufferIO::DecodeUTF8s(obj["roomaddress"].get<std::string>());
+				tmp_server.roomlistport = obj["roomlistport"].get<int>();
+				tmp_server.duelport = obj["duelport"].get<int>();
+				mainGame->serverChoice->addItem(tmp_server.name.c_str());
+				serversVector.push_back(std::move(tmp_server));
+			}
+		}
+	}
+	catch(std::exception& e) {
+		ErrorLog(std::string("Exception ocurred: ") + e.what());
+	}
+}
 void Game::ShowCardInfo(int code, bool resize) {
 	if (showingcard == code && !resize && !cardimagetextureloading)
 		return;
 	showingcard = code;
 	int shouldrefresh = -1;
-	auto img = imageManager.GetTexture(code, false, true, &shouldrefresh);
+	auto img = imageManager.GetTextureCard(code, ImageManager::ART, false, true, &shouldrefresh);
 	cardimagetextureloading = false;
 	if(shouldrefresh == 2)
 		cardimagetextureloading = true;
@@ -1775,10 +1851,10 @@ void Game::AddChatMsg(const std::wstring& msg, int player, int type) {
 	chatTiming[0] = 1200.0f;
 	chatType[0] = player;
 	if(type == 0) {
-		soundManager.PlaySoundEffect(SoundManager::Sounds::CHAT);
+		soundManager->PlaySoundEffect(SoundManager::SFX::CHAT);
 		chatMsg[0].append(dInfo.hostname[player]);
 	} else if(type == 1) {
-		soundManager.PlaySoundEffect(SoundManager::Sounds::CHAT);
+		soundManager->PlaySoundEffect(SoundManager::SFX::CHAT);
 		chatMsg[0].append(dInfo.clientname[player]);
 	} else if(type == 2) {
 		switch(player) {
@@ -1786,7 +1862,7 @@ void Game::AddChatMsg(const std::wstring& msg, int player, int type) {
 			chatMsg[0].append(ebNickName->getText());
 			break;
 		case 8: //system custom message, no prefix.
-			soundManager.PlaySoundEffect(SoundManager::Sounds::CHAT);
+			soundManager->PlaySoundEffect(SoundManager::SFX::CHAT);
 			chatMsg[0].append(L"[System]");
 			break;
 		case 9: //error message
@@ -1893,12 +1969,13 @@ void Game::CloseDuelWindow() {
 	showingcard = 0;
 	closeDoneSignal.Set();
 }
-void Game::PopupMessage(const std::wstring& text) {
+void Game::PopupMessage(const std::wstring& text,const std::wstring& caption) {
 	popupCheck.lock();
 	queued_msg = text;
+	queued_caption = caption;
 	popupCheck.unlock();
 }
-int Game::LocalPlayer(int player) {
+uint8 Game::LocalPlayer(uint8 player) {
 	return dInfo.isFirst ? player : 1 - player;
 }
 std::wstring Game::LocalName(int local_player) {
@@ -1922,24 +1999,24 @@ void Game::UpdateDuelParam() {
 	cbDuelRule->addItem(dataManager.GetSysString(1262).c_str());
 	cbDuelRule->addItem(dataManager.GetSysString(1263).c_str());
 	switch (flag) {
-	case MASTER_RULE_1: {
+	case DUEL_MODE_MR1: {
 		cbDuelRule->setSelected(0);
-		if (flag2 == MASTER_RULE_1_FORB)
+		if (flag2 == DUEL_MODE_MR1_FORB)
 			break;
 	}
-	case MASTER_RULE_2: {
+	case DUEL_MODE_MR2: {
 		cbDuelRule->setSelected(1);
-		if (flag2 == MASTER_RULE_2_FORB)
+		if (flag2 == DUEL_MODE_MR2_FORB)
 			break;
 	}
-	case MASTER_RULE_3: {
+	case DUEL_MODE_MR3: {
 		cbDuelRule->setSelected(2);
-		if (flag2 == MASTER_RULE_3_FORB)
+		if (flag2 == DUEL_MODE_MR3_FORB)
 			break;
 	}
-	case MASTER_RULE_4: {
+	case DUEL_MODE_MR4: {
 		cbDuelRule->setSelected(3);
-		if (flag2 == MASTER_RULE_4_FORB)
+		if (flag2 == DUEL_MODE_MR4_FORB)
 			break;
 	}
 	default: {
@@ -1985,33 +2062,35 @@ void Game::UpdateExtraRules() {
 	}
 }
 int Game::GetMasterRule(uint32 param, uint32 forbiddentypes, int* truerule) {
+	if(truerule)
+		*truerule = 0;
 	switch(param) {
-	case MASTER_RULE_1: {
+	case DUEL_MODE_MR1: {
 		if (truerule)
 			*truerule = 1;
-		if (forbiddentypes == MASTER_RULE_1_FORB)
+		if (forbiddentypes == DUEL_MODE_MR1_FORB)
 			return 1;
 	}
-	case MASTER_RULE_2: {
+	case DUEL_MODE_MR2: {
 		if (truerule)
 			*truerule = 2;
-		if (forbiddentypes == MASTER_RULE_2_FORB)
+		if (forbiddentypes == DUEL_MODE_MR2_FORB)
 			return 2;
 	}
-	case MASTER_RULE_3: {
+	case DUEL_MODE_MR3: {
 		if (truerule)
 			*truerule = 3;
-		if (forbiddentypes == MASTER_RULE_3_FORB)
+		if (forbiddentypes == DUEL_MODE_MR3_FORB)
 			return 3;
 	}
-	case MASTER_RULE_4: {
+	case DUEL_MODE_MR4: {
 		if (truerule)
 			*truerule = 4;
-		if (forbiddentypes == MASTER_RULE_4_FORB)
+		if (forbiddentypes == DUEL_MODE_MR4_FORB)
 			return 4;
 	}
 	default: {
-		if (truerule)
+		if (truerule && !*truerule)
 			*truerule = 5;
 		if ((param & DUEL_PZONE) && (param & DUEL_SEPARATE_PZONE) && (param & DUEL_EMZONE))
 			return 5;
@@ -2064,14 +2143,18 @@ void Game::SetPhaseButtons() {
 	}
 }
 void Game::SetMesageWindow() {
-	if(is_building || dInfo.isInDuel)
+	if(is_building || dInfo.isInDuel) {
 		wMessage->setRelativePosition(ResizeWin(490, 200, 840, 340));
-	else {
-		wMessage->setRelativePosition(ResizeWin(510 - 175, 200, 510 + 175, 340));
+		wACMessage->setRelativePosition(ResizeWin(490, 240, 840, 300));
+	} else {
+		SetCentered(wMessage);
+		SetCentered(wACMessage);
+		/*wMessage->setRelativePosition(ResizeWin(510 - 175, 200, 510 + 175, 340));
+		wACMessage->setRelativePosition(ResizeWin(510 - 175, 240, 510 + 175, 300));*/
 	}
 }
 void Game::OnResize() {
-	wMainMenu->setRelativePosition(ResizeWin(370, 200, 650, 415));
+	wMainMenu->setRelativePosition(ResizeWin(370, 200, 650, 450));
 	SetCentered(wCommitsLog);
 	wDeckEdit->setRelativePosition(Resize(309, 8, 605, 130));
 	cbDBLFList->setRelativePosition(Resize(80, 5, 220, 30));
@@ -2139,7 +2222,7 @@ void Game::OnResize() {
 	wHand->setRelativePosition(ResizeWin(500, 450, 825, 605));
 	wFTSelect->setRelativePosition(ResizeWin(550, 240, 780, 340));
 	SetMesageWindow();
-	wACMessage->setRelativePosition(ResizeWin(490, 240, 840, 300));
+	//wACMessage->setRelativePosition(ResizeWin(490, 240, 840, 300));
 	wQuery->setRelativePosition(ResizeWin(490, 200, 840, 340));
 	auto pos = wOptions->getRelativePosition();
 	wOptions->setRelativePosition(ResizeWin(490, 200, 490 + (pos.LowerRightCorner.X - pos.UpperLeftCorner.X), 200 + (pos.LowerRightCorner.Y - pos.UpperLeftCorner.Y)));
@@ -2172,7 +2255,8 @@ void Game::OnResize() {
 	btnExpandChat->setRelativePosition(Resize(40, 300, 140, 325));
 	tabSystem->setRelativePosition(Resize(0, 0, 300, 364));
 	//rect<s32>(0, 0, wInfos->getRelativePosition().getWidth(), wInfos->getRelativePosition().getHeight()));
-	scrVolume->setRelativePosition(rect<s32>(Scale(85), Scale(325), std::min(tabSystem->getSubpanel()->getRelativePosition().getWidth() - 21, Scale(300)), Scale(340)));
+	scrMusicVolume->setRelativePosition(rect<s32>(Scale(85), Scale(325), std::min(tabSystem->getSubpanel()->getRelativePosition().getWidth() - 21, Scale(300)), Scale(340)));
+	scrSoundVolume->setRelativePosition(rect<s32>(Scale(85), Scale(355), std::min(tabSystem->getSubpanel()->getRelativePosition().getWidth() - 21, Scale(300)), Scale(370)));
 
 	wChat->setRelativePosition(ResizeWin(301 * window_scale.X + 6, 615, 1020, 640, true));
 	ebChatInput->setRelativePosition(recti(Scale(3), Scale(2), window_size.Width - wChat->getRelativePosition().UpperLeftCorner.X - 6, Scale(22)));
@@ -2192,6 +2276,12 @@ void Game::OnResize() {
 	btnChainIgnore->setRelativePosition(Resize(205, 100, 295, 135));
 	btnChainWhenAvail->setRelativePosition(Resize(205, 180, 295, 215));
 	btnCancelOrFinish->setRelativePosition(Resize(205, 230, 295, 265));
+
+	roomListTable->setRelativePosition(Resize(1, 118, 1024 - 2, 550));
+	roomListTable->setColumnWidth(0, roomListTable->getColumnWidth(0));
+	roomListTable->addRow(roomListTable->getRowCount());
+	roomListTable->removeRow(roomListTable->getRowCount() - 1);
+	roomListTable->setSelected(-1);
 }
 recti Game::Resize(s32 x, s32 y, s32 x2, s32 y2) {
 	x = x * window_scale.X;
@@ -2245,11 +2335,9 @@ recti Game::ResizeElem(s32 x, s32 y, s32 x2, s32 y2, bool scale) {
 	return scale ? Scale(x, y, x2, y2) : recti{x, y, x2, y2};
 }
 recti Game::ResizePhaseHint(s32 x, s32 y, s32 x2, s32 y2, s32 width) {
-	x = x * window_scale.X - width / 2;
-	y = y * window_scale.Y;
-	x2 = x2 * window_scale.X;
-	y2 = y2 * window_scale.Y;
-	return Scale(x, y, x2, y2);
+	auto res = Resize(x, y, x2, y2);
+	res.UpperLeftCorner.X -= width / 2;
+	return res;
 }
 recti Game::ResizeWinFromCenter(s32 x, s32 y, s32 x2, s32 y2) {
 	auto size = driver->getScreenSize();
@@ -2257,7 +2345,7 @@ recti Game::ResizeWinFromCenter(s32 x, s32 y, s32 x2, s32 y2) {
 	auto center = rect.getCenter();
 	core::dimension2d<u32> sizes((x + x2) / 2, (y + y2) / 2);
 	recti rect2(x, y, x2, y2);
-	return Scale<s32>((center.X - sizes.Width), center.Y - sizes.Height, center.X + sizes.Width, center.Y + sizes.Height);
+	return recti((center.X - sizes.Width), center.Y - sizes.Height, center.X + sizes.Width, center.Y + sizes.Height);
 }
 void Game::ValidateName(irr::gui::IGUIElement* obj) {
 	std::wstring text = obj->getText();
@@ -2352,8 +2440,8 @@ std::wstring Game::ReadPuzzleMessage(const std::wstring& script_name) {
 	}
 	return BufferIO::DecodeUTF8s(res);
 }
-std::vector<unsigned char> Game::LoadScript(const std::string& _name) {
-	std::vector<unsigned char> buffer;
+std::vector<char> Game::LoadScript(const std::string& _name) {
+	std::vector<char> buffer;
 	std::ifstream script;
 	path_string name = Utils::ParseFilename(_name);
 	for(auto& path : script_dirs) {
@@ -2380,40 +2468,28 @@ std::vector<unsigned char> Game::LoadScript(const std::string& _name) {
 	buffer.insert(buffer.begin(), std::istreambuf_iterator<char>(script), std::istreambuf_iterator<char>());
 	return buffer;
 }
-std::vector<unsigned char> Game::PreLoadScript(void* pduel, const std::string& script_name) {
-	int len = 0;
-	std::vector<unsigned char> buf = LoadScript(script_name);
-	preload_script(pduel, (char*)script_name.c_str(), 0, buf.size(), (char*)buf.data());
-	return buf;
+bool Game::LoadScript(OCG_Duel pduel, const std::string& script_name) {
+	auto buf = LoadScript(script_name);
+	return buf.size() && OCG_LoadScript(pduel, buf.data(), buf.size(), script_name.c_str());
 }
-void* Game::SetupDuel(uint32 seed) {
-// #ifdef _IRR_ANDROID_PLATFORM_
-// 	set_script_reader(irr::android::android_script_reader);
-// #else
-	set_script_reader((script_reader)ScriptReader);
-// #endif
-	set_card_reader((card_reader)DataManager::CardReader);
-	set_message_handler((message_handler)MessageHandler);
-	void* pduel = create_duel(seed);
-	PreLoadScript(pduel, "constant.lua");
-	PreLoadScript(pduel, "utility.lua");
+OCG_Duel Game::SetupDuel(OCG_DuelOptions opts) {
+	opts.cardReader = (OCG_DataReader)&DataManager::CardReader;
+	opts.payload1 = &dataManager;
+	opts.scriptReader = (OCG_ScriptReader)&ScriptReader;
+	opts.payload2 = this;
+	opts.logHandler = (OCG_LogHandler)&MessageHandler;
+	opts.payload3 = this;
+	OCG_Duel pduel = nullptr;
+	OCG_CreateDuel(&pduel, opts);
+	LoadScript(pduel, "constant.lua");
+	LoadScript(pduel, "utility.lua");
 	return pduel;
 }
-byte* Game::ScriptReader(const char* script_name, int* slen) {
-	static std::vector<unsigned char> buffer;
-	buffer = mainGame->LoadScript(script_name);
-    *slen = buffer.size();
-    if(buffer.empty())
-        return 0;
-	return buffer.data();
+int Game::ScriptReader(void* payload, OCG_Duel duel, const char* name) {
+	return static_cast<Game*>(payload)->LoadScript(duel, name);
 }
-int Game::MessageHandler(void* fduel, int type) {
-	if(!enable_log)
-		return 0;
-	char msgbuf[1024];
-	get_log_message(fduel, (byte*)msgbuf);
-	mainGame->AddDebugMsg(msgbuf);
-	return 0;
+void Game::MessageHandler(void* payload, const char* string, int type) {
+	static_cast<Game*>(payload)->AddDebugMsg(string);
 }
 void Game::PopulateResourcesDirectories() {
 	script_dirs.push_back(TEXT("./expansions/script/"));
@@ -2422,54 +2498,13 @@ void Game::PopulateResourcesDirectories() {
 	pic_dirs.push_back(TEXT("./expansions/pics/"));
 	pic_dirs.push_back(TEXT("archives"));
 	pic_dirs.push_back(TEXT("./pics/"));
+	cover_dirs.push_back(TEXT("./expansions/pics/cover/"));
+	cover_dirs.push_back(TEXT("archives"));
+	cover_dirs.push_back(TEXT("./pics/cover/"));
 	field_dirs.push_back(TEXT("./expansions/pics/field/"));
 	field_dirs.push_back(TEXT("archives"));
 	field_dirs.push_back(TEXT("./pics/field/"));
 }
 
-
-void Game::BotGui::RefreshDecks(std::vector<BotInfo>* _bots) {
-	bots = _bots;
-	deckBox->clear();
-	for(auto& bot : *bots)
-		deckBox->addItem(bot.name.c_str());
-	UpdateDeckDescription();
-}
-
-void Game::BotGui::UpdateDeckDescription() {
-	int sel = deckBox->getSelected();
-	if(sel < 0 || sel >= (*bots).size())
-		return;
-	auto& bot = (*bots)[sel];
-	int level = bot.GetAiLevel();
-	std::wstring params;
-	if(level > 0)
-		params.append(fmt::format(L"AI Level: {}\n", level));
-	else if(level == 0)
-		params.append(L"Anti Meta AI\n");
-	std::wstring mr;
-	if(bot.flags & static_cast<int>(BotInfo::SUPPORT_MASTER_RULE_3))
-		mr.append(L"3");
-	if(bot.flags & static_cast<int>(BotInfo::SUPPORT_NEW_MASTER_RULE)) {
-		if(mr.size())
-			mr.append(L",");
-		mr.append(L"4");
-	}
-	if(mr.size())
-		params.append(fmt::format(L"Master Rule supported: {}\n", mr.c_str()));
-	deckProperties->setText(params.c_str());
-}
-
-int BotInfo::GetAiLevel() {
-	if(flags & static_cast<int>(AI_LV1))
-		return 1;
-	if(flags & static_cast<int>(AI_LV2))
-		return 2;
-	if(flags & static_cast<int>(AI_LV3))
-		return 3;
-	if(flags & static_cast<int>(AI_ANTI_META))
-		return 0;
-	return -1;
-}
 
 }

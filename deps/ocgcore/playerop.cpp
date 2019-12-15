@@ -9,7 +9,6 @@
 #include "duel.h"
 #include "effect.h"
 #include "card.h"
-#include "ocgapi.h"
 
 #include <algorithm>
 #include <stack>
@@ -25,14 +24,12 @@ int32 field::select_battle_command(uint16 step, uint8 playerid) {
 		for(const auto& ch : core.select_chains) {
 			effect* peffect = ch.triggering_effect;
 			card* pcard = peffect->get_handler();
-			if(!peffect->is_flag(EFFECT_FLAG_FIELD_ONLY))
-				message->write<uint32>(pcard->data.code);
-			else
-				message->write<uint32>(pcard->data.code | 0x80000000);
+			message->write<uint32>(pcard->data.code);
 			message->write<uint8>(pcard->current.controler);
 			message->write<uint8>(pcard->current.location);
 			message->write<uint32>(pcard->current.sequence);
 			message->write<uint64>(peffect->description);
+			message->write<uint8>(peffect->get_client_mode());
 		}
 		//Attackable
 		message->write<uint32>(core.attackable_cards.size());
@@ -117,14 +114,12 @@ int32 field::select_idle_command(uint16 step, uint8 playerid) {
 		for(const auto& ch : core.select_chains) {
 			effect* peffect = ch.triggering_effect;
 			card* pcard = peffect->get_handler();
-			if(!peffect->is_flag(EFFECT_FLAG_FIELD_ONLY))
-				message->write<uint32>(pcard->data.code);
-			else
-				message->write<uint32>(pcard->data.code | 0x80000000);
+			message->write<uint32>(pcard->data.code);
 			message->write<uint8>(pcard->current.controler);
 			message->write<uint8>(pcard->current.location);
 			message->write<uint32>(pcard->current.sequence);
 			message->write<uint64>(peffect->description);
+			message->write<uint8>(peffect->get_client_mode());
 		}
 		//To BP
 		if(infos.phase == PHASE_MAIN1 && core.to_bp)
@@ -210,7 +205,7 @@ int32 field::select_option(uint16 step, uint8 playerid) {
 		}
 		auto message = pduel->new_message(MSG_SELECT_OPTION);
 		message->write<uint8>(playerid);
-		message->write<uint8>(core.select_options.size());
+		message->write<uint8>(static_cast<uint8>(core.select_options.size()));
 		for(auto& option : core.select_options)
 			message->write<uint64>(option);
 		return FALSE;
@@ -261,7 +256,7 @@ int32 field::select_card(uint16 step, uint8 playerid, uint8 cancelable, uint8 mi
 		if(max == 0 || core.select_cards.empty())
 			return TRUE;
 		if(max > core.select_cards.size())
-			max = core.select_cards.size();
+			max = static_cast<uint8>(core.select_cards.size());
 		if(min > max)
 			min = max;
 		if((playerid == 1) && is_flag(DUEL_SIMPLE_AI)) {
@@ -377,24 +372,19 @@ int32 field::select_chain(uint16 step, uint8 playerid, uint8 spe_count, uint8 fo
 		}
 		auto message = pduel->new_message(MSG_SELECT_CHAIN);
 		message->write<uint8>(playerid);
-		message->write<uint32>(core.select_chains.size());
 		message->write<uint8>(spe_count);
 		message->write<uint8>(forced);
 		message->write<uint32>(pduel->game_field->core.hint_timing[playerid]);
 		message->write<uint32>(pduel->game_field->core.hint_timing[1 - playerid]);
 		std::sort(core.select_chains.begin(), core.select_chains.end(), chain::chain_operation_sort);
+		message->write<uint32>(core.select_chains.size());
 		for(const auto& ch : core.select_chains) {
 			effect* peffect = ch.triggering_effect;
 			card* pcard = peffect->get_handler();
-			if(peffect->is_flag(EFFECT_FLAG_FIELD_ONLY))
-				message->write<uint8>(EDESC_OPERATION);
-			else if(!(peffect->type & EFFECT_TYPE_ACTIONS))
-				message->write<uint8>(EDESC_RESET);
-			else
-				message->write<uint8>(0);
 			message->write<uint32>(pcard->data.code);
 			message->write(pcard->get_info_location());
 			message->write<uint64>(peffect->description);
+			message->write<uint8>(peffect->get_client_mode());
 		}
 		return FALSE;
 	} else {
@@ -746,7 +736,7 @@ int32 field::sort_card(int16 step, uint8 playerid, uint8 is_chain) {
 		if(returns.at<int8>(0) == -1)
 			return TRUE;
 		byte c[64] = {};
-		uint8 m = core.select_cards.size();
+		uint8 m = static_cast<uint8>(core.select_cards.size());
 		for(uint8 i = 0; i < m; ++i) {
 			int8 v = returns.at<int8>(i);
 			if(v < 0 || v >= m || c[v]) {
@@ -923,28 +913,17 @@ int32 field::announce_card(int16 step, uint8 playerid) {
 	if(step == 0) {
 		auto message = pduel->new_message(MSG_ANNOUNCE_CARD);
 		message->write<uint8>(playerid);
-		message->write<uint8>(core.select_options.size());
+		message->write<uint8>(static_cast<uint8>(core.select_options.size()));
 		for(auto& option : core.select_options)
 			message->write<uint64>(option);
 		return FALSE;
 	} else {
 		int32 code = returns.at<int32>(0);
-		bool retry = false;
 		card_data data;
-		read_card(code, &data);
-		if(!data.code) {
-			retry = true;
-		} else {
-			if(!is_declarable(data, core.select_options)) {
-				retry = true;
-			}
-		}
-		if(retry) {
-			auto message = pduel->new_message(MSG_HINT);
-			message->write<uint8>(HINT_MESSAGE);
-			message->write<uint8>(playerid);
-			message->write<uint64>(1421);
-			return announce_card(0, playerid);
+		pduel->read_card(pduel->read_card_payload, code, &data);
+		if(!data.code || !is_declarable(data, core.select_options)) {
+			/*auto message = */pduel->new_message(MSG_RETRY);
+			return FALSE;
 		}
 		auto message = pduel->new_message(MSG_HINT);
 		message->write<uint8>(HINT_CODE);
@@ -958,13 +937,13 @@ int32 field::announce_number(int16 step, uint8 playerid) {
 	if(step == 0) {
 		auto message = pduel->new_message(MSG_ANNOUNCE_NUMBER);
 		message->write<uint8>(playerid);
-		message->write<uint8>(core.select_options.size());
+		message->write<uint8>(static_cast<uint8>(core.select_options.size()));
 		for(auto& option : core.select_options)
 			message->write<uint64>(option);
 		return FALSE;
 	} else {
 		int32 ret = returns.at<int32>(0);
-		if(ret < 0 || ret >= (int32)core.select_options.size() || ret >= 63) {
+		if(ret < 0 || ret >= (int32)core.select_options.size()) {
 			pduel->new_message(MSG_RETRY);
 			return FALSE;
 		}

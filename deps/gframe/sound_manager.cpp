@@ -1,41 +1,40 @@
+#define WIN32_LEAN_AND_MEAN
 #include "sound_manager.h"
-#include "utils.h"
+#include "config.h"
 #if defined(YGOPRO_USE_IRRKLANG)
 #include "sound_irrklang.h"
 #define BACKEND SoundIrrklang
-#else
+#elif defined(YGOPRO_USE_SDL_MIXER)
 #include "sound_sdlmixer.h"
 #define BACKEND SoundMixer
 #endif
-#include <android/log.h>
 
-#define printff(...) __android_log_print(ANDROID_LOG_DEBUG, "LOG_TAG", __VA_ARGS__);
 namespace ygo {
-std::string wd;
-SoundManager soundManager;
 
-bool SoundManager::Init(void* payload) {
-	wd = *(std::string*)payload;
-	#ifdef BACKEND
+bool SoundManager::Init(double sounds_volume, double music_volume, bool sounds_enabled, bool music_enabled, const std::string& working_directory) {
+#ifdef BACKEND
+	working_dir = working_directory;
+	soundsEnabled = sounds_enabled;
+	musicEnabled = music_enabled;
 	try {
 		mixer = std::unique_ptr<SoundBackend>(new BACKEND());
-		/*mixer->SetMusicVolume(50);
-		mixer->SetSoundVolume(50);*/
+		mixer->SetMusicVolume(music_volume);
+		mixer->SetSoundVolume(sounds_volume);
 	}
-	catch(const std::exception & e) {
-		printff("something's wrong: %s", e.what());
-		return true;
+	catch(...) {
+		return soundsEnabled = musicEnabled = false;
 	}
 	rnd.seed(time(0));
 	bgm_scene = -1;
 	RefreshBGMList();
 	RefreshChantsList();
 	return true;
-	#else
-	return false;
-	#endif // BACKEND
+#else
+	return soundsEnabled = musicEnabled = false;
+#endif // BACKEND
 }
 void SoundManager::RefreshBGMList() {
+#ifdef BACKEND
 	Utils::Makedirectory(TEXT("./sound/BGM/"));
 	Utils::Makedirectory(TEXT("./sound/BGM/duel"));
 	Utils::Makedirectory(TEXT("./sound/BGM/menu"));
@@ -45,171 +44,147 @@ void SoundManager::RefreshBGMList() {
 	Utils::Makedirectory(TEXT("./sound/BGM/win"));
 	Utils::Makedirectory(TEXT("./sound/BGM/lose"));
 	Utils::Makedirectory(TEXT("./sound/chants"));
-	RefershBGMDir(TEXT(""), BGM_DUEL);
-	RefershBGMDir(TEXT("duel"), BGM_DUEL);
-	RefershBGMDir(TEXT("menu"), BGM_MENU);
-	RefershBGMDir(TEXT("deck"), BGM_DECK);
-	RefershBGMDir(TEXT("advantage"), BGM_ADVANTAGE);
-	RefershBGMDir(TEXT("disadvantage"), BGM_DISADVANTAGE);
-	RefershBGMDir(TEXT("win"), BGM_WIN);
-	RefershBGMDir(TEXT("lose"), BGM_LOSE);
+	RefreshBGMDir(TEXT(""), BGM::DUEL);
+	RefreshBGMDir(TEXT("duel"), BGM::DUEL);
+	RefreshBGMDir(TEXT("menu"), BGM::MENU);
+	RefreshBGMDir(TEXT("deck"), BGM::DECK);
+	RefreshBGMDir(TEXT("advantage"), BGM::ADVANTAGE);
+	RefreshBGMDir(TEXT("disadvantage"), BGM::DISADVANTAGE);
+	RefreshBGMDir(TEXT("win"), BGM::WIN);
+	RefreshBGMDir(TEXT("lose"), BGM::LOSE);
+#endif
 }
-void SoundManager::RefershBGMDir(path_string path, int scene) {
-	for(auto& file : Utils::FindfolderFiles(TEXT("./sound/BGM/") + path, { TEXT("mp3"), TEXT("ogg"), TEXT("wav") })) {
+void SoundManager::RefreshBGMDir(path_string path, BGM scene) {
+#ifdef BACKEND
+	for(auto& file : Utils::FindfolderFiles(TEXT("./sound/BGM/") + path, { TEXT("mp3"), TEXT("ogg"), TEXT("wav"), TEXT("flac") })) {
 		auto conv = Utils::ToUTF8IfNeeded(path + TEXT("/") + file);
-		BGMList[BGM_ALL].push_back(conv);
+		BGMList[BGM::ALL].push_back(conv);
 		BGMList[scene].push_back(conv);
 	}
+#endif
 }
 void SoundManager::RefreshChantsList() {
-	for(auto& file : Utils::FindfolderFiles(TEXT("./sound/chants"), { TEXT("ogg"), TEXT("wav") })) {
+#ifdef BACKEND
+	for(auto& file : Utils::FindfolderFiles(TEXT("./sound/chants"), { TEXT("mp3"), TEXT("wav") })) {
 		auto scode = Utils::GetFileName(TEXT("./sound/chants/") + file);
 		unsigned int code = std::stoi(scode);
 		if(code && !ChantsList.count(code))
 			ChantsList[code] = Utils::ToUTF8IfNeeded(file);
 	}
+#endif
 }
-#define playsound(c) mixer->PlaySound(c);
-void SoundManager::PlaySoundEffect(Sounds sound) {
-	if(!mainGame->chkEnableSound->isChecked())
-		return;
-	switch(sound) {
-		case SUMMON: {
-			playsound(wd+"/sound/summon.wav");
-			break;
-		}
-		case SPECIAL_SUMMON: {
-			playsound(wd+"/sound/specialsummon.wav");
-			break;
-		}
-		case ACTIVATE: {
-			playsound(wd+"/sound/activate.wav");
-			break;
-		}
-		case SET: {
-			playsound(wd+"/sound/set.wav");
-			break;
-		}
-		case FLIP: {
-			playsound(wd+"/sound/flip.wav");
-			break;
-		}
-		case REVEAL: {
-			playsound(wd+"/sound/reveal.wav");
-			break;
-		}
-		case EQUIP: {
-			playsound(wd+"/sound/equip.wav");
-			break;
-		}
-		case DESTROYED: {
-			playsound(wd+"/sound/destroyed.wav");
-			break;
-		}
-		case BANISHED: {
-			playsound(wd+"/sound/banished.wav");
-			break;
-		}
-		case TOKEN: {
-			playsound(wd+"/sound/token.wav");
-			break;
-		}
-		case ATTACK: {
-			playsound(wd+"/sound/attack.wav");
-			break;
-		}
-		case DIRECT_ATTACK: {
-			playsound(wd+"/sound/directattack.wav");
-			break;
-		}
-		case DRAW: {
-			playsound(wd+"/sound/draw.wav");
-			break;
-		}
-		case SHUFFLE: {
-			playsound(wd+"/sound/shuffle.wav");
-			break;
-		}
-		case DAMAGE: {
-			playsound(wd+"/sound/damage.wav");
-			break;
-		}
-		case RECOVER: {
-			playsound(wd+"/sound/gainlp.wav");
-			break;
-		}
-		case COUNTER_ADD: {
-			playsound(wd+"/sound/addcounter.wav");
-			break;
-		}
-		case COUNTER_REMOVE: {
-			playsound(wd+"/sound/removecounter.wav");
-			break;
-		}
-		case COIN: {
-			playsound(wd+"/sound/coinflip.wav");
-			break;
-		}
-		case DICE: {
-			playsound(wd+"/sound/diceroll.wav");
-			break;
-		}
-		case NEXT_TURN: {
-			playsound(wd+"/sound/nextturn.wav");
-			break;
-		}
-		case PHASE: {
-			playsound(wd+"/sound/phase.wav");
-			break;
-		}
-		case PLAYER_ENTER: {
-			playsound(wd+"/sound/playerenter.wav");
-			break;
-		}
-		case CHAT: {
-			playsound(wd+"/sound/chatmessage.wav");
-			break;
-		}
-		default:
-			break;
-	}
+void SoundManager::PlaySoundEffect(SFX sound) {
+#ifdef BACKEND
+	static const std::map<SFX, const char*> fx = {
+		{SUMMON, "./sound/summon.wav"},
+		{SPECIAL_SUMMON, "./sound/specialsummon.wav"},
+		{ACTIVATE, "./sound/activate.wav"},
+		{SET, "./sound/set.wav"},
+		{FLIP, "./sound/flip.wav"},
+		{REVEAL, "./sound/reveal.wav"},
+		{EQUIP, "./sound/equip.wav"},
+		{DESTROYED, "./sound/destroyed.wav"},
+		{BANISHED, "./sound/banished.wav"},
+		{TOKEN, "./sound/token.wav"},
+		{ATTACK, "./sound/attack.wav"},
+		{DIRECT_ATTACK, "./sound/directattack.wav"},
+		{DRAW, "./sound/draw.wav"},
+		{SHUFFLE, "./sound/shuffle.wav"},
+		{DAMAGE, "./sound/damage.wav"},
+		{RECOVER, "./sound/gainlp.wav"},
+		{COUNTER_ADD, "./sound/addcounter.wav"},
+		{COUNTER_REMOVE, "./sound/removecounter.wav"},
+		{COIN, "./sound/coinflip.wav"},
+		{DICE, "./sound/diceroll.wav"},
+		{NEXT_TURN, "./sound/nextturn.wav"},
+		{PHASE, "./sound/phase.wav"},
+		{PLAYER_ENTER, "./sound/playerenter.wav"},
+		{CHAT, "./sound/chatmessage.wav"}
+	};
+	if (!soundsEnabled) return;
+	mixer->PlaySound(working_dir + "/" + fx.at(sound));
+#endif
 }
-void SoundManager::PlayBGM(int scene) {
+void SoundManager::PlayBGM(BGM scene) {
 #ifdef BACKEND
 	auto& list = BGMList[scene];
 	int count = list.size();
-	if((scene != bgm_scene || !mixer->MusicPlaying()) && count > 0) {
+	if(musicEnabled && (scene != bgm_scene || !mixer->MusicPlaying()) && count > 0) {
 		bgm_scene = scene;
 		int bgm = (std::uniform_int_distribution<>(0, count - 1))(rnd);
-		std::string BGMName = wd+"/sound/BGM/" + BGMList[scene][bgm];
+		std::string BGMName = working_dir + "/./sound/BGM/" + list[bgm];
 		mixer->PlayMusic(BGMName, true);
 	}
 #endif
 }
-void SoundManager::StopBGM() {
-#ifdef YGOPRO_USE_IRRKLANG
-	soundEngine->stopAllSounds();
-#endif
-}
 bool SoundManager::PlayChant(unsigned int code) {
-	#ifdef BACKEND
+#ifdef BACKEND
+	if(!soundsEnabled) return false;
 	if(ChantsList.count(code)) {
-		mixer->PlaySound(wd+"/sound/chants/" + ChantsList[code]);
+		mixer->PlaySound(working_dir + "/./sound/chants/" + ChantsList[code]);
 		return true;
 	}
-	#endif
+#endif
 	return false;
 }
 void SoundManager::SetSoundVolume(double volume) {
+#ifdef BACKEND
 	if(!mixer)
 		return;
 	mixer->SetSoundVolume(volume);
+#endif
 }
 void SoundManager::SetMusicVolume(double volume) {
-	#ifdef BACKEND
+#ifdef BACKEND
 	if(!mixer)
 		return;
 	mixer->SetMusicVolume(volume);
-	#endif
+#endif
 }
+void SoundManager::EnableSounds(bool enable) {
+#ifdef BACKEND
+	if(!mixer)
+		return;
+	soundsEnabled = enable;
+	if(!musicEnabled) {
+		mixer->StopSounds();
+	}
+#endif
 }
+void SoundManager::EnableMusic(bool enable) {
+#ifdef BACKEND
+	if(!mixer)
+		return;
+	musicEnabled = enable;
+	if(!musicEnabled) {
+		mixer->StopMusic();
+	}
+#endif
+}
+void SoundManager::StopSounds() {
+#ifdef BACKEND
+	if(mixer)
+		mixer->StopSounds();
+#endif
+}
+void SoundManager::StopMusic() {
+#ifdef BACKEND
+	if(mixer)
+		mixer->StopMusic();
+#endif
+}
+void SoundManager::PauseMusic(bool pause) {
+#ifdef BACKEND
+	if(mixer)
+		mixer->PauseMusic(pause);
+#endif
+}
+
+void SoundManager::Tick() {
+#ifdef BACKEND
+	if(mixer)
+		mixer->Tick();
+#endif
+}
+
+} // namespace ygo
