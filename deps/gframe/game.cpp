@@ -79,6 +79,7 @@ bool Game::Initialize() {
 	}
 	filesystem = device->getFileSystem();
 #ifdef _IRR_ANDROID_PLATFORM_
+	porting::mainDevice = device;
 	for(u32 i = 0; i < filesystem->getFileArchiveCount(); ++i) {
 		IFileArchive* archive = filesystem->getFileArchive(i);
 		if(archive->getType() == EFAT_ANDROID_ASSET) {
@@ -1024,7 +1025,6 @@ bool Game::Initialize() {
 #endif
 #ifdef _IRR_ANDROID_PLATFORM_
 	fpsCounter = env->addStaticText(L"", Scale(15, 15, 100, 60));
-	fpsCounter->setOverrideColor();
 #endif
 	for (u32 i = 0; i < EGDC_COUNT; ++i) {
 		SColor col = env->getSkin()->getColor((EGUI_DEFAULT_COLOR)i);
