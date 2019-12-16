@@ -642,7 +642,7 @@ public:
 	irr::gui::IGUIButton* btnJoinHost2;
 	irr::gui::IGUIButton* btnJoinCancel2;
 
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	ANDROID_APP appMain;
 	int glversion;
 	bool isPSEnabled;

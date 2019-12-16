@@ -10,7 +10,7 @@
 #include "single_mode.h"
 #include "materials.h"
 #include "progressivebuffer.h"
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 #include "porting_android.h"
 #include <android/TouchEventTransferAndroid.h>
 #include <android/android_tools.h>
@@ -20,7 +20,7 @@
 namespace ygo {
 
 bool ClientField::OnEvent(const irr::SEvent& event) {
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	irr::SEvent transferEvent;
 	if(irr::android::TouchEventTransferAndroid::OnTransferCommon(event, false)) {
 		return true;
@@ -1709,7 +1709,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 	return false;
 }
 bool ClientField::OnCommonEvent(const irr::SEvent& event) {
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	if(event.EventType == EET_MOUSE_INPUT_EVENT &&
 	   event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN) {
 		gui::IGUIElement *hovered =

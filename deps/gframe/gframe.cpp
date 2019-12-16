@@ -7,7 +7,7 @@
 #import <CoreFoundation/CoreFoundation.h>
 #include "osx_menu.h"
 #endif
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 #include "porting_android.h"
 #endif
 
@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
 	setlocale(LC_CTYPE, "UTF-8");
 #endif
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	porting::initAndroid();
 	porting::initializePathsAndroid();
 	chdir((porting::path_storage + "/ygocore").c_str());
@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
 #endif //_WIN32
 	ygo::Game _game;
 	ygo::mainGame = &_game;
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	ygo::mainGame->appMain = porting::app_global;
 	ygo::mainGame->working_directory = porting::path_storage + "/ygocore";
 #else

@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #endif
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 #include <COGLES2ExtensionHandler.h>
 #include <COGLESExtensionHandler.h>
 #include <COGLES2Driver.h>
@@ -28,7 +28,7 @@
 #include "single_mode.h"
 #include "CGUICustomCheckBox/CGUICustomCheckBox.h"
 #include "CGUICustomTable/CGUICustomTable.h"
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 #define MATERIAL_GUARD(f) do {mainGame->driver->enableMaterial2D(true); f; mainGame->driver->enableMaterial2D(false);} while(false);
 #else
 #define MATERIAL_GUARD(f) do {f;} while(false);
@@ -48,7 +48,7 @@ bool Game::Initialize() {
 	is_fullscreen = false;
 	irr::SIrrlichtCreationParameters params = irr::SIrrlichtCreationParameters();
 	params.AntiAlias = gameConf.antialias;
-#ifndef _IRR_ANDROID_PLATFORM_
+#ifndef __ANDROID__
 #ifdef _IRR_COMPILE_WITH_DIRECT3D_9_
 	if(gameConf.use_d3d)
 		params.DriverType = irr::video::EDT_DIRECT3D9;
@@ -78,7 +78,7 @@ bool Game::Initialize() {
 		return false;
 	}
 	filesystem = device->getFileSystem();
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	porting::mainDevice = device;
 	for(u32 i = 0; i < filesystem->getFileArchiveCount(); ++i) {
 		IFileArchive* archive = filesystem->getFileArchive(i);
@@ -126,7 +126,7 @@ bool Game::Initialize() {
 	memset(chatTiming, 0, sizeof(chatTiming));
 	deckManager.LoadLFList();
 	driver = device->getVideoDriver();
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	if(driver->getDriverType() == EDT_OGLES2) {
 		isNPOTSupported = ((COGLES2Driver *)driver)->queryOpenGLFeature(COGLES2ExtensionHandler::IRR_OES_texture_npot);
 	} else {
@@ -1023,7 +1023,7 @@ bool Game::Initialize() {
 		PopupElement(wMessage);
 	}
 #endif
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	fpsCounter = env->addStaticText(L"", Scale(15, 15, 100, 60));
 #endif
 	for (u32 i = 0; i < EGDC_COUNT; ++i) {
@@ -1057,7 +1057,7 @@ void Game::MainLoop() {
 	int fps = 0;
 	bool discord_message_shown = false;
 	std::wstring corename;
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	ogles2Solid = 0;
 	ogles2TrasparentAlpha = 0;
 	ogles2BlendTexture = 0;
@@ -1306,14 +1306,14 @@ void Game::MainLoop() {
 			CloseDuelWindow();
 		else
 			closeSignal.unlock();
-#ifndef _IRR_ANDROID_PLATFORM_
+#ifndef __ANDROID__
 		if(gameConf.max_fps && !gameConf.use_vsync) {
 			if(cur_time < fps * std::round(1000.0f / (float)gameConf.max_fps) - 20)
 				std::this_thread::sleep_for(std::chrono::milliseconds(20));
 		}
 #endif
 		while(cur_time >= 1000) {
-#ifndef _IRR_ANDROID_PLATFORM_
+#ifndef __ANDROID__
 			device->setWindowCaption(fmt::format(L"EDOPro FPS: {}", fps).c_str());
 #else
 			fpsCounter->setText(fmt::format(L"FPS: {}", fps).c_str());
@@ -1342,7 +1342,7 @@ void Game::MainLoop() {
 			stACMessage->setText(L"Connected to Discord");
 			PopupElement(wACMessage, 30);
 		}
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 		device->yield(); // probably nicer to the battery
 #endif
 	}

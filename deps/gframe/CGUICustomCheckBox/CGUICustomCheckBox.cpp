@@ -10,8 +10,8 @@
 #include "IGUIEnvironment.h"
 #include "IVideoDriver.h"
 #include "IGUIFont.h"
-#ifdef _IRR_ANDROID_PLATFORM_
-#include "../IrrlichtCommonIncludesAndroid/os.h"
+#if IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
+#include "../IrrlichtCommonIncludes1.9/os.h"
 #else
 #include "../IrrlichtCommonIncludes/os.h"
 #endif
@@ -145,7 +145,7 @@ void CGUICustomCheckBox::draw()
 	IGUISkin* skin = Environment->getSkin();
 	if (skin)
 	{
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 		video::IVideoDriver* driver = Environment->getVideoDriver();
 		core::rect<s32> frameRect(AbsoluteRect);
 
@@ -218,7 +218,7 @@ bool CGUICustomCheckBox::isChecked() const
 	return Checked;
 }
 
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 //! Sets whether to draw the background
 void CGUICustomCheckBox::setDrawBackground(bool draw) {
 	Background = draw;
@@ -245,7 +245,7 @@ void CGUICustomCheckBox::serializeAttributes(io::IAttributes* out, io::SAttribut
 {
 	IGUICheckBox::serializeAttributes(out,options);
 	out->addBool("Checked",	Checked);
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	out->addBool("Border", Border);
 	out->addBool("Background", Background);
 #endif
@@ -256,7 +256,7 @@ void CGUICustomCheckBox::serializeAttributes(io::IAttributes* out, io::SAttribut
 void CGUICustomCheckBox::deserializeAttributes(io::IAttributes* in, io::SAttributeReadWriteOptions* options=0)
 {
 	Checked = in->getAttributeAsBool ("Checked");
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	Border = in->getAttributeAsBool("Border", Border);
 	Background = in->getAttributeAsBool("Background", Background);
 #endif

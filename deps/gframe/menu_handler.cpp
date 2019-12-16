@@ -7,7 +7,7 @@
 #include "single_mode.h"
 #include "image_manager.h"
 #include "game.h"
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 #include "porting_android.h"
 #include <android/TouchEventTransferAndroid.h>
 #include <android/android_tools.h>
@@ -70,7 +70,7 @@ void LoadReplay() {
 	ReplayMode::StartReplay(start_turn, mainGame->chkYrp->isChecked());
 }
 bool MenuHandler::OnEvent(const irr::SEvent& event) {
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	irr::SEvent transferEvent;
 	if(irr::android::TouchEventTransferAndroid::OnTransferCommon(event, false)) {
 		return true;

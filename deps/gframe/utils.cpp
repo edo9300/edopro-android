@@ -4,7 +4,7 @@
 #include "bufferio.h"
 #ifdef _WIN32
 #include "../irrlicht/src/CIrrDeviceWin32.h"
-#elif defined(__linux__) && !defined(_IRR_ANDROID_PLATFORM_)
+#elif defined(__linux__) && !defined(__ANDROID__)
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #elif defined(__APPLE__)
@@ -177,7 +177,7 @@ namespace ygo {
 
 		SetWindowPos(hWnd, HWND_TOP, clientSize.left, clientSize.top, width, height, SWP_FRAMECHANGED | SWP_SHOWWINDOW);
 		static_cast<irr::CIrrDeviceWin32::CCursorControl*>(mainGame->device->getCursorControl())->updateBorderSize(mainGame->is_fullscreen, true);
-#elif defined(__linux__) && !defined(_IRR_ANDROID_PLATFORM_)
+#elif defined(__linux__) && !defined(__ANDROID__)
 		struct {
 			unsigned long   flags;
 			unsigned long   functions;
@@ -249,7 +249,7 @@ namespace ygo {
 	}
 
 	void Utils::changeCursor(irr::gui::ECURSOR_ICON icon) {
-#ifndef _IRR_ANDROID_PLATFORM_
+#ifndef __ANDROID__
 		irr::gui::ICursorControl* cursor = mainGame->device->getCursorControl();
 		if (cursor->getActiveIcon() != icon) {
 			cursor->setActiveIcon(icon);

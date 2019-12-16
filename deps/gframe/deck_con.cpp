@@ -5,7 +5,7 @@
 #include "image_manager.h"
 #include "game.h"
 #include "duelclient.h"
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 #include "porting_android.h"
 #include <android/TouchEventTransferAndroid.h>
 #include <android/android_tools.h>
@@ -124,7 +124,7 @@ void DeckBuilder::Terminate() {
 		mainGame->device->closeDevice();
 }
 bool DeckBuilder::OnEvent(const irr::SEvent& event) {
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	irr::SEvent transferEvent;
 	if(irr::android::TouchEventTransferAndroid::OnTransferCommon(event, false)) {
 		return true;

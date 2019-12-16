@@ -282,7 +282,7 @@ void ImageManager::DownloadPic() {
 					curl_easy_setopt(curl, CURLOPT_URL, fmt::format(src.url, code).c_str());
 					curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
 					curl_easy_setopt(curl, CURLOPT_WRITEDATA, &payload);
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 					curl_easy_setopt(curl, CURLOPT_CAINFO, "./cacert.cer");
 #endif
 					res = curl_easy_perform(curl);

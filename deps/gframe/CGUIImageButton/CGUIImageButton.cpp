@@ -10,7 +10,7 @@
 #include "IVideoDriver.h"
 #include "IGUIFont.h"
 #include "os.h"
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 #include "../game.h"
 #endif
 
@@ -57,7 +57,7 @@ void Draw2DImageRotation(video::IVideoDriver* driver, video::ITexture* image, co
 	material.Lighting = false;
 	material.ZWriteEnable = false;
 	material.TextureLayer[0].Texture = image;
-#if defined(_IRR_ANDROID_PLATFORM_)
+#if defined(__ANDROID__)
 	if(!ygo::mainGame->isNPOTSupported) {
 		material.TextureLayer[0].TextureWrapU = ETC_CLAMP_TO_EDGE;
 		material.TextureLayer[0].TextureWrapV = ETC_CLAMP_TO_EDGE;
@@ -107,7 +107,7 @@ void Draw2DImageQuad(video::IVideoDriver* driver, video::ITexture* image, core::
 	material.Lighting = false;
 	material.ZWriteEnable = false;
 	material.TextureLayer[0].Texture = image;
-#if defined(_IRR_ANDROID_PLATFORM_)
+#if defined(__ANDROID__)
 	if(!ygo::mainGame->isNPOTSupported) {
 		material.TextureLayer[0].TextureWrapU = ETC_CLAMP_TO_EDGE;
 		material.TextureLayer[0].TextureWrapV = ETC_CLAMP_TO_EDGE;

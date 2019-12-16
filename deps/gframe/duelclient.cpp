@@ -7,7 +7,7 @@
 #include "replay.h"
 #include "replay_mode.h"
 #include <algorithm>
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 #include "porting_android.h"
 #endif
 
@@ -3973,7 +3973,7 @@ void DuelClient::BeginRefreshHost() {
 	remotes.clear();
 	hosts.clear();
 	event_base* broadev = event_base_new();
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	int ipaddr = porting::getLocalIP();
 	if(ipaddr == -1) {
 		return;
@@ -4009,7 +4009,7 @@ void DuelClient::BeginRefreshHost() {
 	sockTo.sin_port = htons(7920);
 	HostRequest hReq;
 	hReq.identifier = NETWORK_CLIENT_ID;
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	local.sin_addr.s_addr = ipaddr;
 	SOCKET sSend = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if(sSend == INVALID_SOCKET)

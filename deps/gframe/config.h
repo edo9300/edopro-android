@@ -19,7 +19,7 @@
 
 #else //_WIN32
 
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 #include <android_native_app_glue.h>
 #include <android/android_tools.h>
 #endif
@@ -59,7 +59,7 @@ inline int _wtoi(const wchar_t * s) {
 #endif
 
 #include <irrlicht.h>
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 #include <GLES/gl.h>
 #include <GLES/glext.h>
 #include <GLES/glplatform.h>
@@ -94,7 +94,7 @@ inline int _wtoi(const wchar_t * s) {
 #else
 #include "dllinterface.h"
 #endif
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 #include <android/CustomShaderConstantSetCallBack.h>
 #endif
 

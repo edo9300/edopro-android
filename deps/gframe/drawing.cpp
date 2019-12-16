@@ -9,7 +9,7 @@ namespace ygo {
 #define CONVERT_ALPHA(col) (int)std::round((col + 1.0f) * 2.0f)
 void Game::DrawSelectionLine(irr::video::S3DVertex* vec, bool strip, int width, float* cv) {
 	if(false) {
-#ifndef _IRR_ANDROID_PLATFORM_
+#ifndef __ANDROID__
 		float origin[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 		glLineWidth(width);
 		glLineStipple(1, linePatternGL);
@@ -29,7 +29,7 @@ void Game::DrawSelectionLine(irr::video::S3DVertex* vec, bool strip, int width, 
 #endif
 	} else {
 		irr::video::SColor color(CONVERT_ALPHA(cv[3]), CONVERT_COLOR(cv[0]), CONVERT_COLOR(cv[1]), CONVERT_COLOR(cv[2]));
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 		glLineWidth(width + 2);
 #endif
 		driver->setMaterial(matManager.mOutLine);

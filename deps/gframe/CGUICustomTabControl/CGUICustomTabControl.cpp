@@ -5,9 +5,9 @@
 #include "CGUICustomTabControl.h"
 #ifdef _IRR_COMPILE_WITH_GUI_
 
-#ifdef _IRR_ANDROID_PLATFORM_
-#include "../IrrlichtCommonIncludesAndroid/CGUIButton.h"
-#include "../IrrlichtCommonIncludesAndroid/os.h"
+#if IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
+#include "../IrrlichtCommonIncludes1.9/CGUIButton.h"
+#include "../IrrlichtCommonIncludes1.9/os.h"
 #else
 #include "../IrrlichtCommonIncludes/CGUIButton.h"
 #include "../IrrlichtCommonIncludes/os.h"

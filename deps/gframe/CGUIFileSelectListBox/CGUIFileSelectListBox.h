@@ -139,7 +139,7 @@ public:
 	//! Sets whether to draw the background
 	virtual void setDrawBackground(bool draw) _IRR_OVERRIDE_;
 	
-#ifdef _IRR_ANDROID_PLATFORM_
+#if IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
 	virtual IGUIScrollBar* getVerticalScrollBar() const _IRR_OVERRIDE_;
 #endif
 

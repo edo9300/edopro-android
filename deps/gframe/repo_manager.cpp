@@ -235,7 +235,7 @@ std::vector<std::string> GetCommitsInfo(git_repository* repo, git_oid id) {
 
 std::pair<std::vector<std::string>, std::vector<std::string>> RepoManager::CloneorUpdateThreaded(GitRepo _repo) {
 	git_libgit2_init();
-#ifdef _IRR_ANDROID_PLATFORM_
+#ifdef __ANDROID__
 	git_libgit2_opts(GIT_OPT_SET_SSL_CERT_LOCATIONS, "./cacert.cer", "/system/etc/security/cacerts");
 #endif
 	git_repository* repo = nullptr;

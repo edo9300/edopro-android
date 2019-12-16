@@ -146,7 +146,7 @@ namespace gui
 		//! Get the flags, as defined in EGUI_TABLE_DRAW_FLAGS, which influence the layout
 		virtual s32 getDrawFlags() const;
 
-#ifdef _IRR_ANDROID_PLATFORM_
+#if IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
 		//! Sets another skin independent font.
 		virtual void setOverrideFont(IGUIFont* font = 0);
 
