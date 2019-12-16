@@ -244,37 +244,6 @@ void showInputDialog(const std::string& acceptButton, const  std::string& hint,
 			jacceptButton, jhint, jcurrent, jeditType);
 }
 
-int getInputDialogState()
-{
-	jmethodID dialogstate = jnienv->GetMethodID(nativeActivity,
-			"getDialogState", "()I");
-
-	if (dialogstate == 0) {
-		assert("porting::getInputDialogState unable to find java dialog state method" == 0);
-	}
-
-	return jnienv->CallIntMethod(app_global->activity->clazz, dialogstate);
-}
-
-std::string getInputDialogValue()
-{
-	jmethodID dialogvalue = jnienv->GetMethodID(nativeActivity,
-			"getDialogValue", "()Ljava/lang/String;");
-
-	if (dialogvalue == 0) {
-		assert("porting::getInputDialogValue unable to find java dialog value method" == 0);
-	}
-
-	jobject result = jnienv->CallObjectMethod(app_global->activity->clazz,
-			dialogvalue);
-
-	const char* javachars = jnienv->GetStringUTFChars((jstring) result,0);
-	std::string text(javachars);
-	jnienv->ReleaseStringUTFChars((jstring) result, javachars);
-
-	return text;
-}
-
 float getDisplayDensity()
 {
 	static bool firstrun = true;
@@ -324,30 +293,16 @@ std::pair<int,int> getDisplaySize()
 	}
 	return retval;
 }
-int downloadFile(const char* url, const char* path) {
-	JNIEnv* jni = 0;
-	JavaVM *jvm = app_global->activity->vm;
-	jvm->AttachCurrentThread(&jni,nullptr);
-// 	jclass nativeactivity = findClass("io/github/edo9300/edopro/EpNativeActivity", jni);
-	jobject lNativeActivity = app_global->activity->clazz;
-	jclass ClassNativeActivity = jni->GetObjectClass(lNativeActivity);
-	jmethodID downloadFileMethod = jni->GetMethodID(ClassNativeActivity,
-													"downloadFile", "(Ljava/lang/String;Ljava/lang/String;)I");
-// 	jobject application = jni->CallObjectMethod(lNativeActivity, MethodGetApp);
-// 	jclass classApp = jni->GetObjectClass(application);
-// 	jmethodID downloadFileMethod = jni->GetMethodID(classApp, "downloadFile", "(Ljava/lang/String;Ljava/lang/String;)I");
-	jstring urlstring = jni->NewStringUTF(url);
-	jstring pathstring = jni->NewStringUTF(path);
-	jint result = jni->CallIntMethod(lNativeActivity, downloadFileMethod, urlstring, pathstring);
-	if (urlstring) {
-		jni->DeleteLocalRef(urlstring);
+
+int getLocalIP() {
+	jmethodID getIP = jnienv->GetMethodID(nativeActivity, "getLocalIpAddress",
+											   "()I");
+
+	if(getIP == 0) {
+		assert("porting::getLocalIP unable to find java getLocalIpAddress method" == 0);
 	}
-	if (pathstring) {
-		jni->DeleteLocalRef(pathstring);
-	}
-// 	jni->DeleteLocalRef(classApp);
-	jni->DeleteLocalRef(ClassNativeActivity);
-	jvm->DetachCurrentThread();
-	return result;
+
+	int value = jnienv->CallIntMethod(app_global->activity->clazz, getIP);
+	return value;
 }
 }

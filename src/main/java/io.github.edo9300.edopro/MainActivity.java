@@ -9,7 +9,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -24,7 +24,6 @@ public class MainActivity extends SDLActivity {
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
-		Log.e("bbb", "ccc");
 		super.onCreate(savedInstanceState);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			checkPermission();

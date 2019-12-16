@@ -7,10 +7,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
 
-import java.net.URL;
-import java.io.BufferedInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import android.net.wifi.WifiManager;
+import android.text.format.Formatter;
 
 public class EpNativeActivity extends NativeActivity {
 
@@ -64,7 +62,6 @@ public class EpNativeActivity extends NativeActivity {
 		startActivity(intent);
 	}
 
-
 	public float getDensity() {
 		return getResources().getDisplayMetrics().density;
 	}
@@ -77,49 +74,8 @@ public class EpNativeActivity extends NativeActivity {
 		return getResources().getDisplayMetrics().heightPixels;
 	}
 
-	public static int memcmp(byte b1[], byte b2[], int sz){
-		for(int i = 0; i < sz; i++){
-			if(b1[i] != b2[i]){
-				if((b1[i] >= 0 && b2[i] >= 0)||(b1[i] < 0 && b2[i] < 0))
-					return b1[i] - b2[i];
-				if(b1[i] < 0 && b2[i] >= 0)
-					return 1;
-				if(b2[i] < 0 && b1[i] >=0)
-					return -1;
-			}
-		}
-		return 0;
-	}
-
-	public int checkHeader(byte data[]){
-		byte jpg_header[] = {(byte)0xff, (byte)0xd8, (byte)0xff};
-		byte png_header[] = {(byte)0x89, (byte)0x50, (byte)0x4e, (byte)0x47, (byte)0x0d, (byte)0x0a, (byte)0x1a, (byte)0x0a};
-		if(memcmp(png_header, data, 8) == 0)
-			return 1;
-		else if(memcmp(jpg_header, data, 3) == 0)
-			return 2;
-		return 0;
-	}
-
-	public int downloadFile(String url, String path) {
-		int extension = 0;
-		try (BufferedInputStream inputStream = new BufferedInputStream(new URL(url).openStream());
-			 FileOutputStream fileOS = new FileOutputStream(path)) {
-			byte data[] = new byte[1024];
-			int byteContent;
-			/*if((byteContent = inputStream.read(data, 0, 8)) != -1){
-				if((byteContent >= 8) && ((extension = checkHeader(data)) != 0)) {
-					fileOS.write(data, 0, byteContent);*/
-					while ((byteContent = inputStream.read(data, 0, 1024)) != -1) {
-						fileOS.write(data, 0, byteContent);
-					}
-			extension = 1;
-				//}
-			//}
-		} catch (IOException e) {
-			return 0;
-			// handles IO exceptions
-		}
-		return extension;
+	public int getLocalIpAddress() {
+		WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+		return wm.getConnectionInfo().getIpAddress();
 	}
 }

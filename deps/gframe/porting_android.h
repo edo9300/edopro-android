@@ -69,23 +69,11 @@ void copyAssets();
 void showInputDialog(const std::string& acceptButton,
 		const  std::string& hint, const std::string& current, int editType);
 
-/**
- * WORKAROUND for not working callbacks from java -> c++
- * get current state of input dialog
- */
-int getInputDialogState();
-
-/**
- * WORKAROUND for not working callbacks from java -> c++
- * get text in current input dialog
- */
-std::string getInputDialogValue();
-
-int downloadFile(const char* url, const char* path);
-
 #ifndef SERVER
 float getDisplayDensity();
 std::pair<int,int> getDisplaySize();
 #endif
+
+int getLocalIP();
 
 }
