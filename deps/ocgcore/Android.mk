@@ -25,7 +25,7 @@ LOCAL_SRC_FILES :=  card.cpp \
                    
 LOCAL_CFLAGS    := -frtti -std=gnu++0x -D_IRR_ANDROID_PLATFORM_ -DLUA_COMPAT_5_2 -Wno-format-security
 LOCAL_CPPFLAGS    := -frtti -std=gnu++0x -D_IRR_ANDROID_PLATFORM_ -DLUA_COMPAT_5_2 -Wno-format-security
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../lua
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../lua/include
 
 include $(BUILD_STATIC_LIBRARY)
 
