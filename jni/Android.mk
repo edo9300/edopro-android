@@ -47,7 +47,6 @@ LOCAL_C_INCLUDES += $(CLASSES_PATH)/SDL2/include
 LOCAL_C_INCLUDES += $(CLASSES_PATH)/SDL2_mixer/include
 
 LOCAL_SRC_FILES := $(CLASSES_PATH)/android/android_tools.cpp \
-				$(CLASSES_PATH)/android/xstring.cpp \
 				$(CLASSES_PATH)/android/TouchEventTransferAndroid.cpp \
 				$(CLASSES_PATH)/android/CustomShaderConstantSetCallBack.cpp \
 				$(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
