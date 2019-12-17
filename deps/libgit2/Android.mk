@@ -1,7 +1,9 @@
 LOCAL_PATH := $(call my-dir)
 
-subdirs := $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, \
-		src \
-	))
+include $(CLEAR_VARS)
 
-include $(subdirs)
+LOCAL_MODULE := git2
+LOCAL_STATIC_LIBRARIES :=  ssh2
+LOCAL_SRC_FILES := ./lib/$(TARGET_ARCH_ABI)/libgit2.a
+
+include $(PREBUILT_STATIC_LIBRARY)

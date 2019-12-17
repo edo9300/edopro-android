@@ -117,9 +117,8 @@ LOCAL_SHARED_LIBRARIES += SDL2_mixer
 
 include $(BUILD_SHARED_LIBRARY)
 $(call import-add-path,$(CLASSES_PATH))
-$(call import-add-path,$(CLASSES_PATH)/irrlicht/source)
 $(call import-add-path,$(CLASSES_PATH)/android)
-$(call import-module,Irrlicht/Android/jni)
+$(call import-module,Irrlicht)
 $(call import-module,openssl)
 $(call import-module,libevent)
 $(call import-module,sqlite3)
