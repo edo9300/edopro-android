@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
 	ygo::mainGame = &_game;
 #ifdef __ANDROID__
 	ygo::mainGame->appMain = porting::app_global;
-	ygo::mainGame->working_directory = porting::path_storage + "/ygocore";
+	ygo::mainGame->working_directory = porting::working_directory;
 #else
 	ygo::mainGame->working_directory = "./";
 #endif

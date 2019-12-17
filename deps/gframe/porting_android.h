@@ -40,6 +40,8 @@ extern irr::IrrlichtDevice* mainDevice;
 extern JNIEnv *jnienv;
 
 extern std::string path_storage;
+extern std::string internal_storage;
+extern std::string working_directory;
 
 /**
  * do initialization required on android only
@@ -56,7 +58,7 @@ void initializePathsAndroid();
 /**
  * use java function to copy media from assets to external storage
  */
-void copyAssets();
+void copyAssets(const std::string& working_dir);
 
 /**
  * show text input dialog in java
@@ -73,6 +75,8 @@ void showInputDialog(const std::string& acceptButton,
 float getDisplayDensity();
 std::pair<int,int> getDisplaySize();
 #endif
+
+void readConfigs();
 
 int getLocalIP();
 

@@ -26,6 +26,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <sstream>
 #include <exception>
 #include <cstdlib>
+#include <sys/stat.h>
+#include <fstream>
 #include "bufferio.h"
 
 extern int main(int argc, char *argv[]);
@@ -96,6 +98,8 @@ extern "C" {
 namespace porting {
 
 std::string path_storage = "sdcard";
+std::string internal_storage = "";
+std::string working_directory = "";
 
 android_app* app_global;
 JNIEnv*      jnienv;
@@ -125,15 +129,17 @@ jclass findClass(std::string classname, JNIEnv* env = nullptr)
 	return (jclass) env->CallObjectMethod(cls, findClass, strClassName);
 }
 
-void copyAssets()
+void copyAssets(const std::string& working_dir)
 {
-	jmethodID assetcopy = jnienv->GetMethodID(nativeActivity,"copyAssets","()V");
+	jmethodID assetcopy = jnienv->GetMethodID(nativeActivity,"copyAssets","(Ljava/lang/String)V");
 
 	if (assetcopy == 0) {
 		assert("porting::copyAssets unable to find copy assets method" == 0);
 	}
 
-	jnienv->CallVoidMethod(app_global->activity->clazz, assetcopy);
+	jstring jworkingdir = jnienv->NewStringUTF(working_dir.c_str());
+
+	jnienv->CallVoidMethod(app_global->activity->clazz, assetcopy, jworkingdir);
 }
 
 void initAndroid()
@@ -221,6 +227,10 @@ void initializePathsAndroid()
 // 			cls_File, mt_getAbsPath, "getCacheDir");
  	path_storage = getAndroidPath(cls_Env, NULL, cls_File, mt_getAbsPath,
  			"getExternalStorageDirectory");
+
+	internal_storage = app_global->activity->internalDataPath;
+
+	readConfigs();
 // 	path_user    = path_storage + DIR_DELIM + PROJECT_NAME_C;
 // 	path_share   = path_storage + DIR_DELIM + PROJECT_NAME_C;
 }
@@ -292,6 +302,35 @@ std::pair<int,int> getDisplaySize()
 		firstrun = false;
 	}
 	return retval;
+}
+
+std::string selectWorkingDirectory() {
+	//TODO WORKING DIRECTORY SELECTION
+	return path_storage + "/Edopro";
+}
+
+void readConfigs() {
+	std::string path = internal_storage + "/working_dir";
+	struct stat buffer;
+	bool create = true;
+	if(stat(path.c_str(), &buffer) == 0) {
+		create = false;
+		LOGI("working_dir found");
+		std::ifstream confs(path);
+		std::getline(confs, working_directory);
+		LOGI("Working directory: %s", working_directory.c_str());
+		if(working_directory.empty())
+			create = true;
+	}
+	if(create){
+		LOGI("working_dir not found");
+		working_directory = selectWorkingDirectory();
+		std::ofstream confs(path);
+		confs << working_directory;
+		LOGI("Writing: %s", working_directory.c_str());
+	}
+
+
 }
 
 int getLocalIP() {

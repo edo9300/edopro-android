@@ -15,8 +15,8 @@ public class TextEntry extends Activity {
 	private final int MultiLineTextInput = 1;
 	private final int SingleLineTextInput = 2;
 	private final int SingleLinePasswordInput = 3;
-	public AlertDialog mTextInputDialog;
-	public EditText mTextInputWidget;
+    private AlertDialog mTextInputDialog;
+    private EditText mTextInputWidget;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -71,13 +71,13 @@ public class TextEntry extends Activity {
 		mTextInputDialog.show();
 	}
 
-	public void pushResult(String text) {
+    private void pushResult(String text) {
 		putMessageBoxResult(text);
 		mTextInputDialog.dismiss();
 		finish();
 	}
 
-	public void cancelDialog() {
+    private void cancelDialog() {
 		mTextInputDialog.dismiss();
 		finish();
 	}
