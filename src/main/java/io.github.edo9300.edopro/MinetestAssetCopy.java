@@ -132,15 +132,6 @@ public class MinetestAssetCopy extends Activity {
                 }
             }
 
-            // add a .nomedia file
-            try {
-                OutputStream dst = new FileOutputStream(baseDir + "Edopro/.nomedia");
-                dst.close();
-            } catch (IOException e) {
-                Log.e("MinetestAssetCopy", "Failed to create .nomedia file");
-                e.printStackTrace();
-            }
-
 
             // build lists from prepared data
             BuildFolderList();

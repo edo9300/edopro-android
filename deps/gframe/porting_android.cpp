@@ -28,6 +28,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <cstdlib>
 #include <sys/stat.h>
 #include <fstream>
+#include <android/log.h>
+#include <vector>
+#define LOGI(...) __android_log_print(ANDROID_LOG_DEBUG, "Edopro", __VA_ARGS__);
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "Edopro", __VA_ARGS__);
 #include "bufferio.h"
 
 extern int main(int argc, char *argv[]);
@@ -106,6 +110,7 @@ JNIEnv*      jnienv;
 jclass       nativeActivity;
 
 irr::IrrlichtDevice* mainDevice;
+irr::io::IFileArchive* assetsArchive;
 
 jclass findClass(std::string classname, JNIEnv* env = nullptr)
 {
@@ -129,15 +134,37 @@ jclass findClass(std::string classname, JNIEnv* env = nullptr)
 	return (jclass) env->CallObjectMethod(cls, findClass, strClassName);
 }
 
-void copyAssets(const std::string& working_dir)
-{
-	jmethodID assetcopy = jnienv->GetMethodID(nativeActivity,"copyAssets","(Ljava/lang/String)V");
+void copyAssets() {
+	//copy ssl certificate to internal memory
+	auto reader = assetsArchive->createAndOpenFile("data/cacert.cer");
+	if(reader) {
+		std::vector<char> buffer;
+		buffer.resize(reader->getSize());
+		reader->read(buffer.data(), buffer.size());
+		reader->drop();
+		struct stat st;
+		if(stat((internal_storage + "/cacert.cer").c_str(), &st) == 0) {
+			LOGI("Certificate file already copied");
+		} else {
+			std::ofstream out(internal_storage + "/cacert.cer", std::ofstream::binary);
+			if(out.is_open()) {
+				out.write((char*)buffer.data(), buffer.size());
+				LOGI("Saved certificate file at: %s", (internal_storage + "/cacert.cer").c_str());
+			} else {
+				LOGI("Cannot open certificate file for writing");
+			}
+		}
+	}
+	return;
 
-	if (assetcopy == 0) {
+
+	jmethodID assetcopy = jnienv->GetMethodID(nativeActivity, "copyAssets", "(Ljava/lang/String)V");
+
+	if(assetcopy == 0) {
 		assert("porting::copyAssets unable to find copy assets method" == 0);
 	}
 
-	jstring jworkingdir = jnienv->NewStringUTF(working_dir.c_str());
+	jstring jworkingdir = jnienv->NewStringUTF(working_directory.c_str());
 
 	jnienv->CallVoidMethod(app_global->activity->clazz, assetcopy, jworkingdir);
 }

@@ -42,7 +42,7 @@ public class EpNativeActivity extends NativeActivity {
 			makeFullScreen();
 	}
 
-	public void copyAssets() {
+	public void copyAssets(String hint) {
 		Intent intent = new Intent(this, MinetestAssetCopy.class);
 		startActivity(intent);
 	}

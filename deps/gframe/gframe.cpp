@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
 #ifdef __ANDROID__
 	porting::initAndroid();
 	porting::initializePathsAndroid();
-	chdir((porting::path_storage + "/ygocore").c_str());
+	chdir(porting::working_directory.c_str());
 #endif
 #ifdef __APPLE__
 	CFURLRef bundle_url = CFBundleCopyBundleURL(CFBundleGetMainBundle());
