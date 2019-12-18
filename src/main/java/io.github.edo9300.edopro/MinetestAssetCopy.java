@@ -26,10 +26,15 @@ public class MinetestAssetCopy extends Activity {
     private ProgressBar m_ProgressBar;
     private TextView m_Filename;
     private copyAssetTask m_AssetCopy;
+    private String workingDir;
+    private static native void assetsMutexUnlock();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        Log.e("MinetestAssetCopy", "MinetestAssetCopy on create");
         super.onCreate(savedInstanceState);
+        Bundle b = getIntent().getExtras();
+        String _workingDir = b.getString("workingDir");
         setContentView(R.layout.assetcopy);
         m_ProgressBar = findViewById(R.id.progressBar1);
         m_Filename = findViewById(R.id.textView1);
@@ -43,6 +48,7 @@ public class MinetestAssetCopy extends Activity {
         if (prevActivity != null) {
             m_AssetCopy = prevActivity.m_AssetCopy;
         } else {
+            workingDir = _workingDir;
             m_AssetCopy = new copyAssetTask();
             m_AssetCopy.execute();
         }
@@ -109,17 +115,15 @@ public class MinetestAssetCopy extends Activity {
 
         @Override
         protected String doInBackground(String... files) {
+            Log.e("MinetestAssetCopy", "doInBackground");
             m_foldernames = new Vector<>();
             m_filenames = new Vector<>();
             m_tocopy = new Vector<>();
             m_asset_size_unknown = new Vector<>();
-            String baseDir =
-                    Environment.getExternalStorageDirectory().getAbsolutePath()
-                            + "/";
 
 
             // prepare temp folder
-            File TempFolder = new File(baseDir + "Edopro/tmp/");
+            File TempFolder = new File(workingDir + "/tmp/");
 
             if (!TempFolder.exists()) {
                 TempFolder.mkdir();
@@ -153,7 +157,7 @@ public class MinetestAssetCopy extends Activity {
                     long filesize = -1;
 
                     if (m_asset_size_unknown.contains(filename)) {
-                        File testme = new File(baseDir + "/" + filename);
+                        File testme = new File(workingDir + "/" + filename);
 
                         if (testme.exists())
                             filesize = testme.length();
@@ -163,9 +167,9 @@ public class MinetestAssetCopy extends Activity {
 
                     InputStream src;
                     try {
-                        src = getAssets().open(filename);
+                        src = getAssets().open("defaults/" + filename);
                     } catch (IOException e) {
-                        Log.e("MinetestAssetCopy", "Copying file: " + filename + " FAILED (not in assets)");
+                        Log.e("MinetestAssetCopy", "Copying file: defaults/" +  filename + " FAILED (not in assets)");
                         e.printStackTrace();
                         continue;
                     }
@@ -198,9 +202,9 @@ public class MinetestAssetCopy extends Activity {
                         int total_filesize = 0;
                         OutputStream dst;
                         try {
-                            dst = new FileOutputStream(baseDir + "/" + filename);
+                            dst = new FileOutputStream(workingDir + "/" + filename);
                         } catch (IOException e) {
-                            Log.e("MinetestAssetCopy", "Copying file: " + baseDir +
+                            Log.e("MinetestAssetCopy", "Copying file: " + workingDir +
                                     "/" + filename + " FAILED (couldn't open output file)");
                             e.printStackTrace();
                             src.close();
@@ -236,7 +240,7 @@ public class MinetestAssetCopy extends Activity {
          * update progress bar
          */
         protected void onProgressUpdate(Integer... progress) {
-
+            Log.e("MinetestAssetCopy", "onProgressUpdate");
             if (m_copy_started) {
                 String todisplay = m_tocopy.get(progress[0]);
                 m_ProgressBar.setProgress(progress[0]);
@@ -252,17 +256,16 @@ public class MinetestAssetCopy extends Activity {
          * check all files and folders in filelist
          */
         void ProcessFileList() {
-            String FlashBaseDir =
-                    Environment.getExternalStorageDirectory().getAbsolutePath();
 
             for (String current_path : m_filenames) {
-                String FlashPath = FlashBaseDir + "/" + current_path;
-
+                String FlashPath = workingDir + "/" + current_path;
                 if (isAssetFolder(current_path)) {
+                    if(current_path.isEmpty()){
+                        FlashPath=workingDir;
+                    }
                     /* store information and update gui */
-                    m_Foldername = current_path;
+                    m_Foldername = "defaults/" + current_path;
                     publishProgress(0);
-
                     /* open file in order to check if it's a folder */
                     File current_folder = new File(FlashPath);
                     if (!current_folder.exists()) {
@@ -352,6 +355,7 @@ public class MinetestAssetCopy extends Activity {
         }
 
         protected void onPostExecute(String result) {
+            assetsMutexUnlock();
             finish();
         }
 

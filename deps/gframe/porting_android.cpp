@@ -33,6 +33,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define LOGI(...) __android_log_print(ANDROID_LOG_DEBUG, "Edopro", __VA_ARGS__);
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "Edopro", __VA_ARGS__);
 #include "bufferio.h"
+#include <thread>
 
 extern int main(int argc, char *argv[]);
 
@@ -93,9 +94,11 @@ extern "C" {
 				env->DeleteLocalRef(textString);
 			}
 		}
-		// errorstream << "Java_net_minetest_EpNativeActivity_putMessageBoxResult got: "
-// 				<< std::string((const char*)env->GetStringChars(text,0))
-// 				<< std::endl;
+	}
+	JNIEXPORT void JNICALL Java_io_github_edo9300_edopro_MinetestAssetCopy_assetsMutexUnlock(
+		JNIEnv * env, jclass thiz) {
+		LOGI("assetsMutexUnlock");
+		porting::assetscopied = true;
 	}
 }
 
@@ -104,6 +107,8 @@ namespace porting {
 std::string path_storage = "sdcard";
 std::string internal_storage = "";
 std::string working_directory = "";
+
+std::atomic<bool> assetscopied;
 
 android_app* app_global;
 JNIEnv*      jnienv;
@@ -134,7 +139,7 @@ jclass findClass(std::string classname, JNIEnv* env = nullptr)
 	return (jclass) env->CallObjectMethod(cls, findClass, strClassName);
 }
 
-void copyAssets() {
+void copyCertificate(){
 	//copy ssl certificate to internal memory
 	auto reader = assetsArchive->createAndOpenFile("data/cacert.cer");
 	if(reader) {
@@ -155,10 +160,20 @@ void copyAssets() {
 			}
 		}
 	}
-	return;
+}
 
-
-	jmethodID assetcopy = jnienv->GetMethodID(nativeActivity, "copyAssets", "(Ljava/lang/String)V");
+void copyAssets(bool forced) {
+	LOGI("In copyAssets");
+	std::string path = internal_storage + "/assets_copied";
+	struct stat buffer;
+	bool create = true;
+	if(stat(path.c_str(), &buffer) == 0 && !forced) {
+		LOGI("Assets already copied");
+		return;
+	}
+	std::ofstream flag(path);
+	flag.close();
+	jmethodID assetcopy = jnienv->GetMethodID(nativeActivity, "copyAssets", "(Ljava/lang/String;)V");
 
 	if(assetcopy == 0) {
 		assert("porting::copyAssets unable to find copy assets method" == 0);
@@ -166,7 +181,10 @@ void copyAssets() {
 
 	jstring jworkingdir = jnienv->NewStringUTF(working_directory.c_str());
 
+	LOGI("Called java function");
 	jnienv->CallVoidMethod(app_global->activity->clazz, assetcopy, jworkingdir);
+	LOGI("Waiting");
+	porting::assetscopied = false;
 }
 
 void initAndroid()

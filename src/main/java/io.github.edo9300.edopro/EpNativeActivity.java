@@ -4,6 +4,7 @@ import android.app.NativeActivity;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 
@@ -42,10 +43,14 @@ public class EpNativeActivity extends NativeActivity {
 			makeFullScreen();
 	}
 
-	public void copyAssets(String hint) {
+	public void copyAssets(String workingDir) {
 		Intent intent = new Intent(this, MinetestAssetCopy.class);
+		Bundle params = new Bundle();
+		params.putString("workingDir", workingDir);
+		intent.putExtras(params);
 		startActivity(intent);
-	}
+        Log.e("MinetestAssetCopy", "started copyAssets");
+    }
 
 	public void showDialog(String acceptButton, String hint, String current,
 						   int editType) {

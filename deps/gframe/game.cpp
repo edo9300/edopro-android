@@ -89,7 +89,7 @@ bool Game::Initialize() {
 			break;
 		}
 	}
-	porting::copyAssets();
+	porting::copyCertificate();
 #endif
 	coreloaded = true;
 #ifdef YGOPRO_BUILD_DLL

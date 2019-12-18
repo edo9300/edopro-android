@@ -22,6 +22,12 @@
 #ifdef __ANDROID__
 #include <android_native_app_glue.h>
 #include <android/android_tools.h>
+#include <android/log.h>
+#define LOGI(...) __android_log_print(ANDROID_LOG_DEBUG, "Edopro", __VA_ARGS__);
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "Edopro", __VA_ARGS__);
+#else
+#define LOGI(...)
+#define LOGE(...)
 #endif
 #include <errno.h>
 #include <netinet/in.h>

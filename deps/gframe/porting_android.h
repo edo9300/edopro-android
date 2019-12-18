@@ -28,6 +28,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <android/log.h>
 
 #include <string>
+#include <atomic>
 #include <irrlicht.h>
 
 namespace porting {
@@ -44,6 +45,8 @@ extern std::string path_storage;
 extern std::string internal_storage;
 extern std::string working_directory;
 
+extern std::atomic<bool> assetscopied;
+
 /**
  * do initialization required on android only
  */
@@ -59,7 +62,8 @@ void initializePathsAndroid();
 /**
  * use java function to copy media from assets to external storage
  */
-void copyAssets();
+void copyAssets(bool forced);
+void copyCertificate();
 
 /**
  * show text input dialog in java
