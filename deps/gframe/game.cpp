@@ -99,7 +99,11 @@ bool Game::Initialize() {
 	auto logger = device->getLogger();
 	logger->setLogLevel(ELL_NONE);
 	// Apply skin
+#ifndef __ANDROID__
 	if (gameConf.skin_index >= 0)
+#else
+	if(false)
+#endif
 	{
 		skinSystem = new CGUISkinSystem("skin", device);
 		core::array<io::path> skins = skinSystem->listSkins();
