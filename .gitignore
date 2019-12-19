@@ -6,6 +6,6 @@ build/
 .id*/
 local.properties
 *.iml
-**/*vs/
-*.jks
+*vs/
 release/
+defaults/

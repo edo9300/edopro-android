@@ -28,6 +28,7 @@
 #include "single_mode.h"
 #include "CGUICustomCheckBox/CGUICustomCheckBox.h"
 #include "CGUICustomTable/CGUICustomTable.h"
+
 #ifdef __ANDROID__
 #define MATERIAL_GUARD(f) do {mainGame->driver->enableMaterial2D(true); f; mainGame->driver->enableMaterial2D(false);} while(false);
 #else
@@ -57,10 +58,7 @@ bool Game::Initialize() {
 		params.DriverType = irr::video::EDT_OPENGL;
 	params.WindowSize = irr::core::dimension2d<u32>(Scale(1024), Scale(640));
 #else
-	appMain->onInputEvent = android::handleInput;
-	/*android::InitOptions *options = android::getInitOptions(app);
-	glversion = options->getOpenglVersion();
-	if(glversion == 0) {
+	/*if(glversion == 0) {
 		params.DriverType = irr::video::EDT_OGLES1;
 	} else {*/
 		params.DriverType = irr::video::EDT_OGLES1;
@@ -105,7 +103,7 @@ bool Game::Initialize() {
 	if(false)
 #endif
 	{
-		skinSystem = new CGUISkinSystem("skin", device);
+		skinSystem = new CGUISkinSystem("./skin", device);
 		core::array<io::path> skins = skinSystem->listSkins();
 		if ((size_t)gameConf.skin_index < skins.size())
 		{
