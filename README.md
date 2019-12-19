@@ -1,5 +1,20 @@
 # The-good-android-ygopro
 
-run ndk-build
+## Building & Installation
+Assuming `ndk-build` is in your PATH
+```
+ndk-build
+```
 
-open the roject in android studio and build teh app
+Then you can build with `gradlew` 
+
+```
+./gradlew build
+```
+
+You can also directly install to a plugged Android device
+```
+./gradlew installDebug
+```
+
+You can also open the project in Android Studio and build the app from there.

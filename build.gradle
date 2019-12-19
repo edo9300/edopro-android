@@ -43,6 +43,7 @@ android {
 
 	lintOptions {
 		disable "OldTargetApi", "GoogleAppIndexingWarning"
+		abortOnError false
 	}
 
 	Properties props = new Properties()
