@@ -13,7 +13,6 @@
 #ifdef __ANDROID__
 #include "porting_android.h"
 #include <android/TouchEventTransferAndroid.h>
-#include <android/android_tools.h>
 #endif
 #include <algorithm>
 
