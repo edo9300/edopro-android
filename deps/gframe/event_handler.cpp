@@ -21,7 +21,7 @@ namespace ygo {
 bool ClientField::OnEvent(const irr::SEvent& event) {
 #ifdef __ANDROID__
 	irr::SEvent transferEvent;
-	if(irr::android::TouchEventTransferAndroid::OnTransferCommon(event, false)) {
+	if(irr::android::TouchEventTransferAndroid::OnTransferCommon(event)) {
 		return true;
 	}
 #endif

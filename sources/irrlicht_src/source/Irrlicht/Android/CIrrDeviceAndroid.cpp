@@ -351,6 +351,7 @@ s32 CIrrDeviceAndroid::handleInput(ANDROID_APP app, AInputEvent* androidEvent)
 						event.TouchInput.ID = AMotionEvent_getPointerId(androidEvent, i);
 						event.TouchInput.X = AMotionEvent_getX(androidEvent, i);
 						event.TouchInput.Y = AMotionEvent_getY(androidEvent, i);
+						event.TouchInput.touchedCount = pointerCount;
 
 						device->postEventFromUser(event);
 					}
@@ -362,6 +363,7 @@ s32 CIrrDeviceAndroid::handleInput(ANDROID_APP app, AInputEvent* androidEvent)
 					event.TouchInput.ID = AMotionEvent_getPointerId(androidEvent, pointerIndex);
 					event.TouchInput.X = AMotionEvent_getX(androidEvent, pointerIndex);
 					event.TouchInput.Y = AMotionEvent_getY(androidEvent, pointerIndex);
+					event.TouchInput.touchedCount = AMotionEvent_getPointerCount(androidEvent);
 
 					device->postEventFromUser(event);
 				}
