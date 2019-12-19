@@ -212,7 +212,6 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
         if (mBrokenLibraries)
         {
-            Log.e("fff", "aaaa");
             mSingleton = this;
             AlertDialog.Builder dlgAlert  = new AlertDialog.Builder(this);
             dlgAlert.setMessage("An error occurred while trying to start the application. Please try again and/or reinstall."
@@ -235,7 +234,6 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         }
 
         // Set up JNI
-        Log.e("aaa", "bbb");
         SDL.setupJNI();
 
         // Initialize state

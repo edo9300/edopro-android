@@ -101,6 +101,5 @@ public class MainActivity extends SDLActivity {
 		params.putString("workingDir", getExternalFilesDir(null).getAbsolutePath() + "/Edopro");
 		intent.putExtras(params);
 		startActivityForResult(intent, 1);
-        Log.e("MinetestAssetCopy", "started copyAssets");
     }
 }
