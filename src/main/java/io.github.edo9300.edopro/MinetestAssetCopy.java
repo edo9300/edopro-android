@@ -12,6 +12,8 @@ import android.view.Display;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.content.Intent;
+import android.content.Context;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -27,7 +29,7 @@ public class MinetestAssetCopy extends Activity {
     private TextView m_Filename;
     private copyAssetTask m_AssetCopy;
     private String workingDir;
-    private static native void assetsMutexUnlock();
+    //private static native void assetsMutexUnlock();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -355,7 +357,8 @@ public class MinetestAssetCopy extends Activity {
         }
 
         protected void onPostExecute(String result) {
-            assetsMutexUnlock();
+            Intent returnIntent = new Intent();
+            setResult(Activity.RESULT_CANCELED, returnIntent);
             finish();
         }
 

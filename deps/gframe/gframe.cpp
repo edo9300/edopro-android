@@ -39,7 +39,6 @@ int main(int argc, char* argv[]) {
 #ifdef __ANDROID__
 	porting::initAndroid();
 	porting::initializePathsAndroid();
-	porting::copyAssets(false);
 	if(chdir(porting::working_directory.c_str())!=0)
 		LOGE("failed to change direcroty");
 #endif

@@ -85,4 +85,5 @@ void readConfigs();
 
 int getLocalIP();
 
+std::string getExternalFilesDir(JNIEnv *env);
 }

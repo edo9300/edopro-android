@@ -34,7 +34,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "Edopro", __VA_ARGS__);
 #include "bufferio.h"
 #include <thread>
-
+#define NATIVEACTIVITY_CLASS_NAME "android/app/NativeActivity"
 extern int main(int argc, char *argv[]);
 
 void android_main(android_app *app)
@@ -270,9 +270,7 @@ void initializePathsAndroid()
  
 //  	path_cache   = getAndroidPath(nativeActivity, app_global->activity->clazz,
 // 			cls_File, mt_getAbsPath, "getCacheDir");
- 	path_storage = getAndroidPath(cls_Env, NULL, cls_File, mt_getAbsPath,
- 			"getExternalStorageDirectory");
-
+ 	path_storage = getExternalFilesDir(jnienv);
 	internal_storage = app_global->activity->internalDataPath;
 
 	readConfigs();
@@ -280,6 +278,26 @@ void initializePathsAndroid()
 // 	path_share   = path_storage + DIR_DELIM + PROJECT_NAME_C;
 }
 
+std::string getExternalFilesDir(JNIEnv *env) {
+ // Invoking getExternalFilesDir() java API
+  jstring obj_Path;
+  jclass cls_Env = env->FindClass(NATIVEACTIVITY_CLASS_NAME);
+  jmethodID mid = env->GetMethodID(cls_Env, "getExternalFilesDir",
+                                   "(Ljava/lang/String;)Ljava/io/File;");
+  jobject obj_File = env->CallObjectMethod(app_global->activity->clazz, mid, NULL);
+  if (obj_File) {
+    jclass cls_File = env->FindClass("java/io/File");
+    jmethodID mid_getPath =
+        env->GetMethodID(cls_File, "getPath", "()Ljava/lang/String;");
+    obj_Path = (jstring)env->CallObjectMethod(obj_File, mid_getPath);
+  }
+  const char* path = env->GetStringUTFChars(obj_Path, NULL);
+  std::string s(path);
+
+  env->ReleaseStringUTFChars(obj_Path, path);
+  env->DeleteLocalRef(obj_Path);
+  return s;
+}
 void showInputDialog(const std::string& acceptButton, const  std::string& hint,
 		const std::string& current, int editType)
 {

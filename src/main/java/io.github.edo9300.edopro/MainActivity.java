@@ -12,6 +12,8 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.widget.Toast;
+import android.content.Context;
+import android.os.Environment;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,7 +30,7 @@ public class MainActivity extends SDLActivity {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			checkPermission();
 		} else {
-			next();
+			copyAssets();
 		}
 	}
 
@@ -68,11 +70,22 @@ public class MainActivity extends SDLActivity {
 					}
 				}
 				// permission were granted - run
-				next();
+				copyAssets();
 				break;
 		}
 	}
 
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+
+	    if (requestCode == 1) {
+	        if(resultCode == Activity.RESULT_OK){
+	            next();
+	        }
+	        if (resultCode == Activity.RESULT_CANCELED) {
+	            next();
+	        }
+	    }
+	}
 	public void next() {
 		/*Intent intent = new Intent(this, SDLActivity.class);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -81,4 +94,13 @@ public class MainActivity extends SDLActivity {
 		intent2.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 		startActivity(intent2);
 	}
+
+	public void copyAssets() {
+		Intent intent = new Intent(this, MinetestAssetCopy.class);
+		Bundle params = new Bundle();
+		params.putString("workingDir", getExternalFilesDir(null).getAbsolutePath() + "/Edopro");
+		intent.putExtras(params);
+		startActivityForResult(intent, 1);
+        Log.e("MinetestAssetCopy", "started copyAssets");
+    }
 }
