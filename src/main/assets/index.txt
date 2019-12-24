@@ -1,0 +1,28 @@
+
+deck
+fonts
+lflists
+puzzles
+puzzles/Folder - Puzzles to test Edopro
+puzzles/Folder - Tests for known bugs in Percy
+puzzles/Folder - Tests for known bugs in Percy/Bugs already fixed
+puzzles/Puzzles to be kept
+puzzles/Puzzles to be kept/Folder - Duel Links Puzzles
+puzzles/Puzzles to be kept/Folder - Miscellaneous Puzzles
+puzzles/Puzzles to be kept/Folder - QB Puzzles
+puzzles/Puzzles to be kept/Folder - Tutorials
+puzzles/Puzzles to be kept/Folder - WCS Puzzles
+puzzles/Puzzles to be kept/Folder - YGOPro Team Puzzles
+skin
+skin/Default
+skin/Default/bu
+sound
+sound/BGM
+sound/BGM/advantage
+sound/BGM/deck
+sound/BGM/disadvantage
+sound/BGM/duel
+sound/BGM/lose
+sound/BGM/menu
+sound/BGM/win
+textures
