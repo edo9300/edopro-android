@@ -1,5 +1,6 @@
 package io.github.edo9300.edopro;
 
+import org.libsdl.app.SDLActivity;
 import android.app.NativeActivity;
 import android.content.Intent;
 import android.os.Build;

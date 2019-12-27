@@ -1,10 +1,16 @@
 package io.github.edo9300.edopro;
 
+import java.io.BufferedReader;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import org.libsdl.app.SDLActivity;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -12,14 +18,13 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.widget.Toast;
-import android.content.Context;
-import android.os.Environment;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class MainActivity extends SDLActivity {
+public class MainActivity extends Activity {
 
 	private final static int PERMISSIONS = 1;
 	private static final String[] REQUIRED_SDK_PERMISSIONS = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE};
@@ -30,7 +35,7 @@ public class MainActivity extends SDLActivity {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			checkPermission();
 		} else {
-			copyAssets();
+			getworkingDirectory();
 		}
 	}
 
@@ -70,23 +75,48 @@ public class MainActivity extends SDLActivity {
 					}
 				}
 				// permission were granted - run
-				copyAssets();
+				getworkingDirectory();
 				break;
 		}
 	}
-	
-	@Override
-	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
-	    if (requestCode == 1) {
-	        if(resultCode == Activity.RESULT_OK){
-	            next();
-	        }
-	        if (resultCode == Activity.RESULT_CANCELED) {
-	            next();
-	        }
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		switch(requestCode) {
+			case 1: {
+				try {
+					File file = new File(getApplicationContext().getFilesDir(),"assets_copied");
+					file.createNewFile();
+				} catch (Exception e){
+					Log.e("Edopro", "error when creating assets_copied file: " + e.getMessage());
+				}
+				next();
+				break;
+			}
+			case 2: {
+				if (resultCode == Activity.RESULT_CANCELED) {
+					break;
+				}
+				Uri uri = data.getData();
+				Log.e("Edopro", "Result URI " + uri);
+				String dest_dir = FileUtil.getFullPathFromTreeUri(uri,this);
+				Log.e("Edopro", "Parsed result URI " + dest_dir);
+				File file = new File(getApplicationContext().getFilesDir(),"working_dir");
+				try {
+					FileOutputStream fOut = new FileOutputStream(file);
+					OutputStreamWriter myOutWriter = new OutputStreamWriter(fOut);
+					myOutWriter.append(dest_dir);
+					myOutWriter.close();
+					fOut.close();
+				} catch(Exception e) {
+					Log.e("Edopro", "cannot write to working directory file: " + e.getMessage());
+					break;
+				}
+				copyAssets(dest_dir);
+				break;
+			}
 	    }
 	}
+
 	public void next() {
 		/*Intent intent = new Intent(this, SDLActivity.class);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -96,10 +126,36 @@ public class MainActivity extends SDLActivity {
 		startActivity(intent2);
 	}
 
-	public void copyAssets() {
+	public void getworkingDirectory() {
+		File file = new File(getApplicationContext().getFilesDir(),"working_dir");
+		if(file.exists()) {
+			try {
+				BufferedReader br = new BufferedReader(new FileReader(file));
+				String working_directory = br.readLine();
+				br.close();
+				if(working_directory != null) {
+					copyAssets(working_directory);
+					return;
+				}
+			}
+			catch (IOException e) {
+				Log.e("Edopro", "working directory file found but not read: " + e.getMessage());
+			}
+		}
+		Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+		i.addCategory(Intent.CATEGORY_DEFAULT);
+		startActivityForResult(Intent.createChooser(i, "Choose directory"), 2);
+	}
+
+	public void copyAssets(String working_dir) {
+		File file = new File(getApplicationContext().getFilesDir(),"assets_copied");
+		if(file.exists()){
+			next();
+			return;
+		}
 		Intent intent = new Intent(this, MinetestAssetCopy.class);
 		Bundle params = new Bundle();
-		params.putString("workingDir", getExternalFilesDir(null).getAbsolutePath() + "/Edopro");
+		params.putString("workingDir", working_dir);
 		intent.putExtras(params);
 		startActivityForResult(intent, 1);
     }
