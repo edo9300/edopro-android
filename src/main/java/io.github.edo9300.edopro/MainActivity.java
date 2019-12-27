@@ -118,12 +118,9 @@ public class MainActivity extends Activity {
 	}
 
 	public void next() {
-		/*Intent intent = new Intent(this, SDLActivity.class);
+		Intent intent = new Intent(this, SdlLauncher.class);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-		startActivity(intent);*/
-		Intent intent2 = new Intent(this, EpNativeActivity.class);
-		intent2.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-		startActivity(intent2);
+		startActivity(intent);
 	}
 
 	public void getworkingDirectory() {

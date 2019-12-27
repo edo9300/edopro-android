@@ -35,6 +35,18 @@
 			</intent-filter>
 		</activity>
 		<activity
+			android:name=".SdlLauncher"
+			android:configChanges="orientation|keyboardHidden|navigation|screenSize"
+			android:label="${project}"
+			android:launchMode="singleTask"
+			android:screenOrientation="sensorLandscape"
+			android:theme="@style/AppTheme">
+			<intent-filter>
+				<action android:name="android.intent.action.MAIN" />
+				<category android:name="android.intent.category.LAUNCHER" />
+			</intent-filter>
+		</activity>
+		<activity
 			android:name=".EpNativeActivity"
 			android:configChanges="orientation|keyboard|keyboardHidden|navigation|screenSize|smallestScreenSize"
 			android:hardwareAccelerated="true"
