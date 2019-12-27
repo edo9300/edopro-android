@@ -34,6 +34,12 @@ bool TouchEventTransferAndroid::OnTransferCommon(const SEvent& event) {
 					translated.MouseInput.Event = EMIE_LMOUSE_PRESSED_DOWN;
 					translated.MouseInput.ButtonStates = EMBSM_LEFT;
 					m_down_pos = m_pointer;
+					SEvent hoverEvent;
+					hoverEvent.EventType = EET_MOUSE_INPUT_EVENT;
+					hoverEvent.MouseInput.Event = EMIE_MOUSE_MOVED;
+					hoverEvent.MouseInput.X = event.TouchInput.X;
+					hoverEvent.MouseInput.Y = event.TouchInput.Y;
+					ygo::mainGame->device->postEventFromUser(hoverEvent);
 					break;
 				case ETIE_MOVED:
 					m_pointer = core::position2di( event.TouchInput.X, event.TouchInput.Y);
