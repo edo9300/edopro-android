@@ -44,9 +44,7 @@ LOCAL_C_INCLUDES += $(GFRAME_PATH)/ResizeablePanel
 LOCAL_C_INCLUDES += $(CLASSES_PATH)/SDL2/include
 LOCAL_C_INCLUDES += $(CLASSES_PATH)/SDL2_mixer/include
 
-LOCAL_SRC_FILES := $(CLASSES_PATH)/android/TouchEventTransferAndroid.cpp \
-				$(CLASSES_PATH)/android/CustomShaderConstantSetCallBack.cpp \
-				$(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
+LOCAL_SRC_FILES := $(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
 				$(GFRAME_PATH)/CGUICustomContextMenu/CGUICustomContextMenu.cpp \
 				$(GFRAME_PATH)/CGUICustomContextMenu/CGUICustomMenu.cpp \
 				$(GFRAME_PATH)/CGUICustomTabControl/CGUICustomTabControl.cpp \
@@ -112,7 +110,6 @@ LOCAL_SHARED_LIBRARIES += SDL2_mixer
 
 include $(BUILD_SHARED_LIBRARY)
 $(call import-add-path,$(CLASSES_PATH))
-$(call import-add-path,$(CLASSES_PATH)/android)
 $(call import-module,irrlicht)
 $(call import-module,openssl)
 $(call import-module,libevent)

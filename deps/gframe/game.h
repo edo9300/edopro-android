@@ -650,7 +650,6 @@ public:
 	s32 ogles2Solid;
 	s32 ogles2TrasparentAlpha;
 	s32 ogles2BlendTexture;
-	irr::android::CustomShaderConstantSetCallBack customShadersCallback;
 	Signal externalSignal;
 	IGUIStaticText* fpsCounter;
 #endif

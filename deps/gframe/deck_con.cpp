@@ -7,7 +7,6 @@
 #include "duelclient.h"
 #ifdef __ANDROID__
 #include "porting_android.h"
-#include <android/TouchEventTransferAndroid.h>
 #endif
 #include <algorithm>
 #include <unordered_map>
@@ -125,7 +124,7 @@ void DeckBuilder::Terminate() {
 bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 #ifdef __ANDROID__
 	irr::SEvent transferEvent;
-	if(irr::android::TouchEventTransferAndroid::OnTransferCommon(event)) {
+	if(porting::transformEvent(event)) {
 		return true;
 	}
 #endif

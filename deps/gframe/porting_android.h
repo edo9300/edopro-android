@@ -80,6 +80,8 @@ float getDisplayDensity();
 std::pair<int,int> getDisplaySize();
 #endif
 
+bool transformEvent(const irr::SEvent& event);
+
 void readConfigs();
 
 int getLocalIP();

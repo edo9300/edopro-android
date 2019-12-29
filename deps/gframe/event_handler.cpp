@@ -12,7 +12,6 @@
 #include "progressivebuffer.h"
 #ifdef __ANDROID__
 #include "porting_android.h"
-#include <android/TouchEventTransferAndroid.h>
 #endif
 #include <algorithm>
 
@@ -21,7 +20,7 @@ namespace ygo {
 bool ClientField::OnEvent(const irr::SEvent& event) {
 #ifdef __ANDROID__
 	irr::SEvent transferEvent;
-	if(irr::android::TouchEventTransferAndroid::OnTransferCommon(event)) {
+	if(porting::transformEvent(event)) {
 		return true;
 	}
 #endif

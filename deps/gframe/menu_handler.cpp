@@ -9,7 +9,6 @@
 #include "game.h"
 #ifdef __ANDROID__
 #include "porting_android.h"
-#include <android/TouchEventTransferAndroid.h>
 #endif
 
 namespace ygo {
@@ -70,8 +69,7 @@ void LoadReplay() {
 }
 bool MenuHandler::OnEvent(const irr::SEvent& event) {
 #ifdef __ANDROID__
-	irr::SEvent transferEvent;
-	if(irr::android::TouchEventTransferAndroid::OnTransferCommon(event)) {
+	if(porting::transformEvent(event)) {
 		return true;
 	}
 #endif

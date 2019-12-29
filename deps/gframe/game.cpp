@@ -1066,53 +1066,9 @@ void Game::MainLoop() {
 	ogles2Solid = 0;
 	ogles2TrasparentAlpha = 0;
 	ogles2BlendTexture = 0;
-	if(true) {
-		ogles2Solid = video::EMT_SOLID;
-		ogles2TrasparentAlpha = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
-		ogles2BlendTexture = video::EMT_ONETEXTURE_BLEND;
-	} else {
-		io::path solidvsFileName = "media/ogles2customsolid.frag";
-		io::path TACvsFileName = "media/ogles2customTAC.frag";
-		io::path blendvsFileName = "media/ogles2customblend.frag";
-		io::path psFileName = "media/ogles2custom.vert";
-		if(!driver->queryFeature(video::EVDF_PIXEL_SHADER_1_1) &&
-		   !driver->queryFeature(video::EVDF_ARB_FRAGMENT_PROGRAM_1)) {
-			//Printer::log("WARNING: Pixel shaders disabled "
-	//					 "because of missing driver/hardware support.");
-			psFileName = "";
-		}
-		if(!driver->queryFeature(video::EVDF_VERTEX_SHADER_1_1) &&
-		   !driver->queryFeature(video::EVDF_ARB_VERTEX_PROGRAM_1)) {
-			//Printer::log("WARNING: Vertex shaders disabled "
-			//			 "because of missing driver/hardware support.");
-			solidvsFileName = "";
-			TACvsFileName = "";
-			blendvsFileName = "";
-		}
-		video::IGPUProgrammingServices* gpu = driver->getGPUProgrammingServices();
-		if(gpu) {
-			char log_custom_shader[1024];
-			const video::E_GPU_SHADING_LANGUAGE shadingLanguage = video::EGSL_DEFAULT;
-			ogles2Solid = gpu->addHighLevelShaderMaterialFromFiles(
-				psFileName, "vertexMain", video::EVST_VS_1_1,
-				solidvsFileName, "pixelMain", video::EPST_PS_1_1,
-				&customShadersCallback, video::EMT_SOLID, 0, shadingLanguage);
-			ogles2TrasparentAlpha = gpu->addHighLevelShaderMaterialFromFiles(
-				psFileName, "vertexMain", video::EVST_VS_1_1,
-				TACvsFileName, "pixelMain", video::EPST_PS_1_1,
-				&customShadersCallback, video::EMT_TRANSPARENT_ALPHA_CHANNEL, 0, shadingLanguage);
-			ogles2BlendTexture = gpu->addHighLevelShaderMaterialFromFiles(
-				psFileName, "vertexMain", video::EVST_VS_1_1,
-				blendvsFileName, "pixelMain", video::EPST_PS_1_1,
-				&customShadersCallback, video::EMT_ONETEXTURE_BLEND, 0, shadingLanguage);
-			sprintf(log_custom_shader, "ogles2Sold = %d", ogles2Solid);
-			//Printer::log(log_custom_shader);
-			sprintf(log_custom_shader, "ogles2BlendTexture = %d", ogles2BlendTexture);
-			//Printer::log(log_custom_shader);
-			sprintf(log_custom_shader, "ogles2TrasparentAlpha = %d", ogles2TrasparentAlpha);
-			//Printer::log(log_custom_shader);
-		}
-	}
+	ogles2Solid = video::EMT_SOLID;
+	ogles2TrasparentAlpha = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
+	ogles2BlendTexture = video::EMT_ONETEXTURE_BLEND;
 	matManager.mCard.MaterialType = (video::E_MATERIAL_TYPE)ogles2BlendTexture;
 	matManager.mTexture.MaterialType = (video::E_MATERIAL_TYPE)ogles2TrasparentAlpha;
 	matManager.mBackLine.MaterialType = (video::E_MATERIAL_TYPE)ogles2BlendTexture;

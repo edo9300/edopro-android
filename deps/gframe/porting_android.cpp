@@ -345,6 +345,102 @@ std::pair<int,int> getDisplaySize()
 	return retval;
 }
 
+/*
+* implementation from https://github.com/minetest/minetest/blob/02a23892f94d3c83a6bdc301defc0e7ade7e1c2b/src/gui/modalMenu.cpp#L116
+* with this patch applied to the engine https://github.com/minetest/minetest/blob/02a23892f94d3c83a6bdc301defc0e7ade7e1c2b/build/android/patches/irrlicht-touchcount.patch
+*/
+bool transformEvent(const irr::SEvent & event) {
+	static irr::core::position2di m_pointer = irr::core::position2di(0, 0);
+	auto device = static_cast<irr::IrrlichtDevice*>(porting::mainDevice);
+	if(event.EventType == irr::EET_TOUCH_INPUT_EVENT) {
+		irr::SEvent translated;
+		memset(&translated, 0, sizeof(irr::SEvent));
+		translated.EventType = irr::EET_MOUSE_INPUT_EVENT;
+
+		translated.MouseInput.X = event.TouchInput.X;
+		translated.MouseInput.Y = event.TouchInput.Y;
+		translated.MouseInput.Control = false;
+
+		bool dont_send_event = false;
+
+		if(event.TouchInput.touchedCount == 1) {
+			switch(event.TouchInput.Event) {
+				case irr::ETIE_PRESSED_DOWN:
+					m_pointer = irr::core::position2di(event.TouchInput.X, event.TouchInput.Y);
+					translated.MouseInput.Event = irr::EMIE_LMOUSE_PRESSED_DOWN;
+					translated.MouseInput.ButtonStates = irr::EMBSM_LEFT;
+					irr::SEvent hoverEvent;
+					hoverEvent.EventType = irr::EET_MOUSE_INPUT_EVENT;
+					hoverEvent.MouseInput.Event = irr::EMIE_MOUSE_MOVED;
+					hoverEvent.MouseInput.X = event.TouchInput.X;
+					hoverEvent.MouseInput.Y = event.TouchInput.Y;
+					device->postEventFromUser(hoverEvent);
+					break;
+				case irr::ETIE_MOVED:
+					m_pointer = irr::core::position2di(event.TouchInput.X, event.TouchInput.Y);
+					translated.MouseInput.Event = irr::EMIE_MOUSE_MOVED;
+					translated.MouseInput.ButtonStates = irr::EMBSM_LEFT;
+					break;
+				case irr::ETIE_LEFT_UP:
+					translated.MouseInput.Event = irr::EMIE_LMOUSE_LEFT_UP;
+					translated.MouseInput.ButtonStates = 0;
+					// we don't have a valid pointer element use last
+					// known pointer pos
+					translated.MouseInput.X = m_pointer.X;
+					translated.MouseInput.Y = m_pointer.Y;
+					break;
+				default:
+					dont_send_event = true;
+					// this is not supposed to happen
+					//errorstream << "GUIModalMenu::preprocessEvent"
+					//	<< " unexpected usecase irr::Event="
+					//	<< event.TouchInput.Event << std::endl;
+			}
+		} else if((event.TouchInput.touchedCount == 2) &&
+			(event.TouchInput.Event == irr::ETIE_PRESSED_DOWN)) {
+
+			translated.MouseInput.Event = irr::EMIE_RMOUSE_PRESSED_DOWN;
+			translated.MouseInput.ButtonStates = irr::EMBSM_LEFT | irr::EMBSM_RIGHT;
+			translated.MouseInput.X = m_pointer.X;
+			translated.MouseInput.Y = m_pointer.Y;
+			device->postEventFromUser(translated);
+
+			translated.MouseInput.Event = irr::EMIE_RMOUSE_LEFT_UP;
+			translated.MouseInput.ButtonStates = irr::EMBSM_LEFT;
+
+			device->postEventFromUser(translated);
+			dont_send_event = true;
+		}
+		// ignore unhandled 2 touch events ... accidental moving for example
+		else if(event.TouchInput.touchedCount == 2) {
+			dont_send_event = true;
+		} else if(event.TouchInput.touchedCount > 2) {
+			//errorstream << "GUIModalMenu::preprocessEvent"
+			//	<< " to many multitouch events "
+			//	<< event.TouchInput.touchedCount << " ignoring them"
+			//	<< std::endl;
+		}
+
+		if(dont_send_event) {
+			return true;
+		}
+
+		// check if translated event needs to be preprocessed again
+		if(transformEvent(translated)) {
+			return true;
+		}
+
+		bool retval = device->postEventFromUser(translated);;
+
+		if(event.TouchInput.Event == irr::ETIE_LEFT_UP) {
+			// reset pointer
+			m_pointer = irr::core::position2di(0, 0);
+		}
+		return retval;
+	}
+	return false;
+}
+
 void readConfigs() {
 	std::string path = internal_storage + "/working_dir";
 	struct stat buffer;

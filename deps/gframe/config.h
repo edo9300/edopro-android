@@ -99,9 +99,6 @@ inline int _wtoi(const wchar_t * s) {
 #else
 #include "dllinterface.h"
 #endif
-#ifdef __ANDROID__
-#include <android/CustomShaderConstantSetCallBack.h>
-#endif
 
 using namespace irr;
 using namespace core;
