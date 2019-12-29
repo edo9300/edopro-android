@@ -5,10 +5,7 @@
 #include <Windows.h>
 #else
 #ifdef __ANDROID__
-#include <android/log.h>
-#define LOGI(...) __android_log_print(ANDROID_LOG_DEBUG, "Edopro", __VA_ARGS__);
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "Edopro", __VA_ARGS__);
-#include <unistd.h>
+#include <fstream>
 #include "porting_android.h"
 #endif
 #include <dlfcn.h>
@@ -69,12 +66,13 @@ void* OpenLibrary(const std::string& path) {
 #ifdef __ANDROID__
 	void* lib = nullptr;
 	const auto dest_dir = porting::internal_storage + "/libocgcore.so";
-	LOGI("SYMLINKING %s to %s", (path + "libocgcore.so").c_str(), dest_dir.c_str());
-	/*if(symlink((path + "libocgcore.so").c_str(), dest_dir.c_str()) == 0) {
-		LOGI("SYMLINK SUCCESS");*/
-		lib = dlopen(dest_dir.c_str(), RTLD_LAZY);
-		//remove(dest_dir.c_str());
-	//}
+	std::ifstream  src(path + "libocgcore.so", std::ios::binary);
+	std::ofstream  dst(dest_dir, std::ios::binary);
+	dst << src.rdbuf();
+	dst.close();
+	src.close();
+	lib = dlopen(dest_dir.c_str(), RTLD_LAZY);
+	remove(dest_dir.c_str());
 	return lib;
 #endif
 	return dlopen((path + "libocgcore.so").c_str(), RTLD_LAZY);
