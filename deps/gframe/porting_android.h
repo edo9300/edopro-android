@@ -41,7 +41,6 @@ extern irr::io::IFileArchive* assetsArchive;
 /** java <-> c++ interaction interface **/
 extern JNIEnv *jnienv;
 
-extern std::string path_storage;
 extern std::string internal_storage;
 extern std::string working_directory;
 
@@ -84,6 +83,4 @@ std::pair<int,int> getDisplaySize();
 void readConfigs();
 
 int getLocalIP();
-
-std::string getExternalFilesDir(JNIEnv *env);
 }

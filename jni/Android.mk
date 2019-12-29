@@ -3,7 +3,7 @@ LOCAL_PATH := $(call my-dir)/..
 include $(CLEAR_VARS)
 LOCAL_MODULE := EdoproClient
 
-LOCAL_CFLAGS := -D_IRR_ANDROID_PLATFORM_  -DYGOPRO_USE_SDL_MIXER -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -std=c++11
+LOCAL_CFLAGS := -D_IRR_ANDROID_PLATFORM_  -DYGOPRO_USE_SDL_MIXER -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -std=c++11 -DYGOPRO_BUILD_DLL
 LOCAL_CPPFLAGS := -std=c++11 
 
 ifndef NDEBUG
@@ -100,7 +100,7 @@ LOCAL_STATIC_LIBRARIES += android_native_app_glue
 LOCAL_STATIC_LIBRARIES += libssl_static
 LOCAL_STATIC_LIBRARIES += libcrypto_static
 LOCAL_STATIC_LIBRARIES += libevent2
-LOCAL_STATIC_LIBRARIES += libocgcore_static
+#LOCAL_STATIC_LIBRARIES += libocgcore_static
 LOCAL_STATIC_LIBRARIES += clzma
 LOCAL_STATIC_LIBRARIES += sqlite3
 LOCAL_STATIC_LIBRARIES += libft2
@@ -117,8 +117,8 @@ $(call import-module,irrlicht)
 $(call import-module,openssl)
 $(call import-module,libevent)
 $(call import-module,sqlite3)
-$(call import-module,ocgcore)
-$(call import-module,lua)
+#$(call import-module,ocgcore)
+#$(call import-module,lua)
 $(call import-module,freetype)
 $(call import-module,gframe/lzma)
 $(call import-module,fmt)

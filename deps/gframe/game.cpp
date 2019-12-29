@@ -91,7 +91,7 @@ bool Game::Initialize() {
 #endif
 	coreloaded = true;
 #ifdef YGOPRO_BUILD_DLL
-	if(!(ocgcore = LoadOCGcore(TEXT("./"))) && !(ocgcore = LoadOCGcore(TEXT("./expansions/"))))
+	if(!(ocgcore = LoadOCGcore(working_directory + TEXT("./"))) && !(ocgcore = LoadOCGcore(working_directory + TEXT("./expansions/"))))
 		coreloaded = false;
 #endif
 	auto logger = device->getLogger();
@@ -1190,7 +1190,7 @@ void Game::MainLoop() {
 		if(!dInfo.isStarted && cores_to_load.size() && repoManager.GetUpdatingRepos() == 0) {
 			for(auto& path : cores_to_load) {
 				void* ncore = nullptr;
-				if((ncore = ChangeOCGcore(path, ocgcore))) {
+				if((ncore = ChangeOCGcore(working_directory + path, ocgcore))) {
 					corename = Utils::ToUnicodeIfNeeded(path);
 					ocgcore = ncore;
 					if(!coreloaded) {

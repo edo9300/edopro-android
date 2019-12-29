@@ -11,9 +11,9 @@
 
 namespace ygo {
 
-bool SoundManager::Init(double sounds_volume, double music_volume, bool sounds_enabled, bool music_enabled, const std::string& working_directory) {
+bool SoundManager::Init(double sounds_volume, double music_volume, bool sounds_enabled, bool music_enabled, const path_string& working_directory) {
 #ifdef BACKEND
-	working_dir = working_directory;
+	working_dir = Utils::ToUTF8IfNeeded(working_directory);
 	soundsEnabled = sounds_enabled;
 	musicEnabled = music_enabled;
 	try {

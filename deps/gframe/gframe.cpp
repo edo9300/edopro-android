@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
 	ygo::mainGame->appMain = porting::app_global;
 	ygo::mainGame->working_directory = porting::working_directory;
 #else
-	ygo::mainGame->working_directory = "./";
+	ygo::mainGame->working_directory = TEXT("./");
 #endif
 	if(!ygo::mainGame->Initialize())
 		return EXIT_FAILURE;
