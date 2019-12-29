@@ -64,7 +64,6 @@ void* OpenLibrary(const std::string& path) {
 	return dlopen((path + "libocgcore.dylib").c_str(), RTLD_LAZY);
 #else
 #ifdef __ANDROID__
-	int apilevel = AConfiguration_getSdkVersion(porting::app_global->config);
 	void* lib = nullptr;
 	const auto dest_dir = porting::internal_storage + "/libocgcore.so";
 	std::ifstream  src(path + "libocgcore.so", std::ios::binary);
