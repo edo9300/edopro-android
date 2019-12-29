@@ -6,7 +6,6 @@
 #else
 #ifdef __ANDROID__
 #include <fstream>
-#include <android/configuration.h>
 #include "porting_android.h"
 #endif
 #include <dlfcn.h>
@@ -66,8 +65,6 @@ void* OpenLibrary(const std::string& path) {
 #else
 #ifdef __ANDROID__
 	int apilevel = AConfiguration_getSdkVersion(porting::app_global->config);
-	if(apilevel < 24)
-		return dlopen((path + "libocgcore.so").c_str(), RTLD_LAZY);
 	void* lib = nullptr;
 	const auto dest_dir = porting::internal_storage + "/libocgcore.so";
 	std::ifstream  src(path + "libocgcore.so", std::ios::binary);
