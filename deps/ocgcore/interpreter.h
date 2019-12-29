@@ -9,7 +9,9 @@
 #define INTERPRETER_H_
 
 // Due to longjmp behaviour, we must build Lua as C++ to avoid UB
-#include <lua.hpp>
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 
 #include "common.h"
 #include <unordered_map>
