@@ -20,6 +20,19 @@ ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
 LOCAL_CFLAGS += -mno-unaligned-access
 endif
 
+ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
+LOCAL_CFLAGS +=-D_ANDROIDARMV7_=1
+endif
+ifeq ($(TARGET_ARCH_ABI), x86)
+LOCAL_CFLAGS +=-D_ANDROIDX86_=1
+endif
+ifeq ($(TARGET_ARCH_ABI), arm64-v8a)
+LOCAL_CFLAGS +=-D_ANDROIDARMV8_=1
+endif
+ifeq ($(TARGET_ARCH_ABI), x86_64)
+LOCAL_CFLAGS +=-D_ANDROIDX64_=1
+endif
+
 CLASSES_PATH := $(LOCAL_PATH)/deps
 GFRAME_PATH := $(CLASSES_PATH)/gframe
 LOCAL_C_INCLUDES := $(CLASSES_PATH)
