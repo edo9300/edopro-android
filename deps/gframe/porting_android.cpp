@@ -276,7 +276,6 @@ void initializePathsAndroid()
 // 	path_share   = path_storage + DIR_DELIM + PROJECT_NAME_C;
 }
 
-}
 void showInputDialog(const std::string& acceptButton, const  std::string& hint,
 		const std::string& current, int editType)
 {
