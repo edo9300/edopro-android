@@ -533,7 +533,7 @@ const io::path& CFileSystem::getWorkingDirectory()
 			#endif
 		#endif
 
-		#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
+		#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_) || defined(_IRR_IOS_PLATFORM_) || defined(_IRR_ANDROID_PLATFORM_))
 
 			// getting the CWD is rather complex as we do not know the size
 			// so try it until the call was successful
@@ -631,7 +631,7 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 		tmp.replace('\\', '/');
 	#endif
 	return tmp;
-#elif (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
+#elif (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_) || defined(_IRR_IOS_PLATFORM_) || defined(_IRR_ANDROID_PLATFORM_))
 	c8* p=0;
 	c8 fpath[4096];
 	fpath[0]=0;
@@ -875,7 +875,7 @@ IFileList* CFileSystem::createFileList()
 
 		// --------------------------------------------
 		//! Linux version
-		#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
+		#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_) || defined(_IRR_IOS_PLATFORM_) || defined(_IRR_ANDROID_PLATFORM_))
 
 
 		r = new CFileList(Path, false, false);

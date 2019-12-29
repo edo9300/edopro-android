@@ -83,7 +83,6 @@ bool Game::Initialize() {
 		if(archive->getType() == EFAT_ANDROID_ASSET) {
 			porting::assetsArchive = archive;
 			archive->addDirectoryToFileList("data/");
-			archive->addDirectoryToFileList("media/");
 			break;
 		}
 	}
@@ -97,13 +96,8 @@ bool Game::Initialize() {
 	auto logger = device->getLogger();
 	logger->setLogLevel(ELL_NONE);
 	// Apply skin
-#ifndef __ANDROID__
-	if (gameConf.skin_index >= 0)
-#else
-	if(false)
-#endif
-	{
-		skinSystem = new CGUISkinSystem("./skin", device);
+	if (gameConf.skin_index >= 0) {
+		skinSystem = new CGUISkinSystem((working_directory + "./skin").c_str(), device);
 		core::array<io::path> skins = skinSystem->listSkins();
 		if ((size_t)gameConf.skin_index < skins.size())
 		{
