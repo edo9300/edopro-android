@@ -1,0 +1,24 @@
+time: 1577717108090
+msg: Native crash: Aborted
+stacktrace: *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+AospExtended Version: 'v6.4'
+Build fingerprint: 'asus/WW_X00TD/ASUS_X00T_2:8.1.0/OPM1/15.2016.1805.318-20180712:user/release-keys'
+Revision: '0'
+ABI: 'arm'
+pid: 8858, tid: 8897, name: Edopro NativeTh  >>> io.github.edo9300.edopro <<<
+signal 6 (SIGABRT), code -6 (SI_TKILL), fault addr --------
+Abort message: 'stack corruption detected (-fstack-protector)'
+    r0  00000000  r1  000022c1  r2  00000006  r3  00000008
+    r4  0000229a  r5  000022c1  r6  bf4c974c  r7  0000010c
+    r8  00000000  r9  00000000  r10 ef7fd4ec  r11 00001000
+    ip  bf4c96e8  sp  bf4c9738  lr  ed1e7089  pc  ed1deed6
+
+backtrace:
+    #00 pc 0001ced6  /system/lib/libc.so (abort+58)
+    #01 pc 000545db  /system/lib/libc.so (__stack_chk_fail+10)
+    #02 pc 0031a5c9  /data/app/io.github.edo9300.edopro-_o4P6at8JPHCjNRZ13KTpQ==/lib/arm/libEdoproClient.so (porting::readConfigs()+164)
+    #03 pc 0030b5c7  /data/app/io.github.edo9300.edopro-_o4P6at8JPHCjNRZ13KTpQ==/lib/arm/libEdoproClient.so (main+46)
+    #04 pc 00319e1f  /data/app/io.github.edo9300.edopro-_o4P6at8JPHCjNRZ13KTpQ==/lib/arm/libEdoproClient.so (android_main+22)
+    #05 pc 006b5c47  /data/app/io.github.edo9300.edopro-_o4P6at8JPHCjNRZ13KTpQ==/lib/arm/libEdoproClient.so
+    #06 pc 000643d9  /system/lib/libc.so (__pthread_start(void*)+22)
+    #07 pc 0001e099  /system/lib/libc.so (__start_thread+24)
