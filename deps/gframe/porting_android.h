@@ -85,4 +85,6 @@ bool transformEvent(const irr::SEvent& event);
 void readConfigs();
 
 int getLocalIP();
+
+void launchWindbot(const std::string& args);
 }

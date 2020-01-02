@@ -460,12 +460,25 @@ void readConfigs() {
 int getLocalIP() {
 	jmethodID getIP = jnienv->GetMethodID(nativeActivity, "getLocalIpAddress",
 											   "()I");
-
 	if(getIP == 0) {
 		assert("porting::getLocalIP unable to find java getLocalIpAddress method" == 0);
 	}
-
 	int value = jnienv->CallIntMethod(app_global->activity->clazz, getIP);
 	return value;
+}
+
+void launchWindbot(const std::string& args) {
+	std::string arg = "Deck=MokeyMokey Port=7911 Version=4936";
+	jmethodID launchwindbot = jnienv->GetMethodID(nativeActivity, "launchWindbot",
+											   "(Ljava/lang/String;)V");
+
+	if(launchwindbot == 0) {
+		assert("porting::launchWindbot unable to find java show dialog method" == 0);
+	}
+
+	jstring jargs = jnienv->NewStringUTF(arg.c_str());
+
+	jnienv->CallVoidMethod(app_global->activity->clazz, launchwindbot,
+						   jargs);
 }
 }

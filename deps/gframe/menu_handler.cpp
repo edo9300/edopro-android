@@ -277,6 +277,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 						NetServer::StopServer();
 						break;
 					}
+					porting::launchWindbot("a");
 					mainGame->btnHostConfirm->setEnabled(false);
 					mainGame->btnHostCancel->setEnabled(false);
 				}

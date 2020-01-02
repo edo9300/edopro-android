@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
+import libwindbot.windbot.WindBot;
 
 import android.net.wifi.WifiManager;
 import android.text.format.Formatter;
@@ -55,6 +56,9 @@ public class EpNativeActivity extends NativeActivity {
 		params.putInt("editType", editType);
 		intent.putExtras(params);
 		startActivity(intent);
+	}
+
+	public void launchWindbot(String parameters){
 	}
 
 	public float getDensity() {
