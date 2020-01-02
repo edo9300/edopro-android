@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import org.libsdl.app.SDLActivity;
+import libwindbot.windbot.WindBot;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
@@ -28,6 +29,7 @@ public class MainActivity extends Activity {
 
 	private final static int PERMISSIONS = 1;
 	private static final String[] REQUIRED_SDK_PERMISSIONS = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE};
+	public static String working_directory;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -118,6 +120,7 @@ public class MainActivity extends Activity {
 	}
 
 	public void next() {
+		WindBot.initAndroid(working_directory);
 		Intent intent = new Intent(this, SdlLauncher.class);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 		startActivity(intent);
@@ -128,7 +131,7 @@ public class MainActivity extends Activity {
 		if(file.exists()) {
 			try {
 				BufferedReader br = new BufferedReader(new FileReader(file));
-				String working_directory = br.readLine();
+				working_directory = br.readLine();
 				br.close();
 				if(working_directory != null) {
 					copyAssets(working_directory);
