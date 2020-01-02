@@ -46,6 +46,10 @@ android {
 		abortOnError false
 	}
 
+    aaptOptions {
+        noCompress 'dll', "config"
+    }
+
 	Properties props = new Properties()
 	props.load(new FileInputStream(file("local.properties")))
 
