@@ -468,7 +468,7 @@ int getLocalIP() {
 }
 
 void launchWindbot(const std::string& args) {
-	std::string arg = "Deck=MokeyMokey Port=7911 Version=4936";
+	//std::string arg = "Deck=MokeyMokey Port=7911 Version=4936";
 	jmethodID launchwindbot = jnienv->GetMethodID(nativeActivity, "launchWindbot",
 											   "(Ljava/lang/String;)V");
 
@@ -476,7 +476,7 @@ void launchWindbot(const std::string& args) {
 		assert("porting::launchWindbot unable to find java show dialog method" == 0);
 	}
 
-	jstring jargs = jnienv->NewStringUTF(arg.c_str());
+	jstring jargs = jnienv->NewStringUTF(args.c_str());
 
 	jnienv->CallVoidMethod(app_global->activity->clazz, launchwindbot,
 						   jargs);

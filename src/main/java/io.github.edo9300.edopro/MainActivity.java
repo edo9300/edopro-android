@@ -120,7 +120,7 @@ public class MainActivity extends Activity {
 	}
 
 	public void next() {
-		WindBot.initAndroid(working_directory);
+		WindBot.initAndroid(working_directory + "/Windbot");
 		Intent intent = new Intent(this, SdlLauncher.class);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 		startActivity(intent);
