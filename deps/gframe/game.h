@@ -23,7 +23,7 @@
 #include "deck_manager.h"
 #include "sound_manager.h"
 #include "repo_manager.h"
-#include "server_lobby.h"
+#include "windbot_panel.h"
 
 namespace ygo {
 
@@ -43,6 +43,7 @@ struct Config {
 	std::wstring gamename;
 	std::wstring lastdeck;
 	unsigned int lastlflist;
+	unsigned int lastallowedcards;
 	std::wstring textfont;
 	std::wstring numfont;
 	std::wstring roompass;
@@ -125,6 +126,7 @@ public:
 	void LoadArchivesDB();
 	void RefreshDeck(irr::gui::IGUIComboBox* cbDeck);
 	void RefreshLFLists();
+	void RefreshAiDecks();
 	void RefreshReplay();
 	void RefreshSingleplay();
 	void DrawSelectionLine(irr::video::S3DVertex* vec, bool strip, int width, float* cv);
@@ -283,9 +285,6 @@ public:
 	uint32 showingcard;
 	bool cardimagetextureloading;
 
-	std::vector<RoomInfo> roomsVector;
-	std::vector<ServerInfo> serversVector;
-
 
 	irr::core::dimension2d<irr::u32> window_size;
 	irr::core::vector2d<irr::f32> window_scale;
@@ -426,8 +425,10 @@ public:
 	//host panel
 	irr::gui::IGUIWindow* wHostPrepare;
 	irr::gui::IGUIWindow* wHostPrepare2;
+	WindBotPanel gBot;
 	irr::gui::IGUIStaticText* stHostCardRule;
 	irr::gui::IGUIButton* btnHostPrepDuelist;
+	irr::gui::IGUIButton* btnHostPrepWindBot;
 	irr::gui::IGUIButton* btnHostPrepOB;
 	irr::gui::IGUIStaticText* stHostPrepDuelist[6];
 	irr::gui::IGUICheckBox* chkHostPrepReady[6];
@@ -550,6 +551,7 @@ public:
 	irr::gui::IGUIStaticText* wDeckEdit;
 	irr::gui::IGUIComboBox* cbDBLFList;
 	irr::gui::IGUIComboBox* cbDBDecks;
+	irr::gui::IGUIButton* btnHandTest;
 	irr::gui::IGUIButton* btnClearDeck;
 	irr::gui::IGUIButton* btnSortDeck;
 	irr::gui::IGUIButton* btnShuffleDeck;
@@ -614,6 +616,8 @@ public:
 	irr::gui::IGUIButton* btnReplaySwap;
 	//surrender/leave
 	irr::gui::IGUIButton* btnLeaveGame;
+	//restart
+	irr::gui::IGUIButton* btnRestartSingle;
 	//swap
 	irr::gui::IGUIButton* btnSpectatorSwap;
 	//chain control
@@ -771,8 +775,9 @@ rect<T> Game::Scale(rect<T> rect) {
 #define BUTTON_RENAME_REPLAY		134
 #define BUTTON_EXPORT_DECK			135
 #define EDITBOX_TEAM_COUNT			136
-#define BUTTON_BOT_START			137
-#define BUTTON_BOT_ADD				138
+#define COMBOBOX_MATCH_MODE			137
+#define BUTTON_HP_AI_TOGGLE			138
+#define BUTTON_BOT_ADD				139
 #define EDITBOX_CHAT				140
 #define EDITBOX_PORT_BOX			141
 #define COMBOBOX_BOT_DECK			142
@@ -830,6 +835,7 @@ rect<T> Game::Scale(rect<T> rect) {
 #define BUTTON_CHAIN_ALWAYS			265
 #define BUTTON_CHAIN_WHENAVAIL		266
 #define BUTTON_CANCEL_OR_FINISH		267
+#define BUTTON_RESTART_SINGLE		268
 #define BUTTON_CLEAR_LOG			270
 #define LISTBOX_LOG					271
 #define BUTTON_CLEAR_CHAT			272
@@ -862,6 +868,7 @@ rect<T> Game::Scale(rect<T> rect) {
 #define SCROLL_FILTER				315
 #define EDITBOX_KEYWORD				316
 #define BUTTON_CLEAR_FILTER			317
+#define BUTTON_HAND_TEST			318
 #define COMBOBOX_OTHER_FILT			319
 #define BUTTON_REPLAY_START			320
 #define BUTTON_REPLAY_PAUSE			321
@@ -883,6 +890,7 @@ rect<T> Game::Scale(rect<T> rect) {
 #define CHECKBOX_SHOW_ANIME			370
 #define CHECKBOX_QUICK_ANIMATION	371
 #define COMBOBOX_SORTTYPE			372
+#define CHECKBOX_CHAIN_BUTTONS		373
 
 #define BUTTON_MARKS_FILTER			380
 #define BUTTON_MARKERS_OK			381

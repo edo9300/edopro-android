@@ -20,14 +20,15 @@ public:
 		LIMITATION_FILTER_OCG,
 		LIMITATION_FILTER_TCG,
 		LIMITATION_FILTER_TCG_OCG,
+		LIMITATION_FILTER_PRERELEASE,
 		LIMITATION_FILTER_ANIME,
 		LIMITATION_FILTER_ILLEGAL,
 		LIMITATION_FILTER_VIDEOGAME,
 		LIMITATION_FILTER_CUSTOM
 	};
 	virtual bool OnEvent(const irr::SEvent& event);
-	void Initialize();
-	void Terminate();
+	void Initialize(bool refresh = true);
+	void Terminate(bool showmenu = true);
 	void GetHoveredCard();
 	bool FiltersChanged();
 	void FilterCards(bool force_refresh = false);

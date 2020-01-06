@@ -5,6 +5,7 @@
 #include "image_manager.h"
 #include "game.h"
 #include "duelclient.h"
+#include "single_mode.h"
 #ifdef __ANDROID__
 #include "porting_android.h"
 #endif
@@ -66,10 +67,11 @@ static bool check_set_code(CardDataC* data, std::vector<unsigned int>& setcodes)
 	return false;
 }
 
-void DeckBuilder::Initialize() {
+void DeckBuilder::Initialize(bool refresh) {
 	mainGame->is_building = true;
 	mainGame->is_siding = false;
-	mainGame->ClearCardInfo();
+	if(refresh)
+		mainGame->ClearCardInfo();
 	mainGame->mTopMenu->setVisible(false);
 	mainGame->wInfos->setVisible(true);
 	mainGame->wCardImg->setVisible(true);
@@ -82,8 +84,17 @@ void DeckBuilder::Initialize() {
 	mainGame->btnSideShuffle->setVisible(false);
 	mainGame->btnSideSort->setVisible(false);
 	mainGame->btnSideReload->setVisible(false);
+	mainGame->btnHandTest->setVisible(true);
 	filterList = &deckManager._lfList[mainGame->cbDBLFList->getSelected()];
-	ClearSearch();
+	if(refresh) {
+		ClearSearch();
+	} else if(results.size()) {
+		auto oldscrpos = scroll_pos;
+		auto oldscrbpos = mainGame->scrFilter->getPos();
+		StartFilter();
+		scroll_pos = oldscrpos;
+		mainGame->scrFilter->setPos(oldscrbpos);
+	}
 	mouse_pos.set(0, 0);
 	hovered_code = 0;
 	hovered_pos = 0;
@@ -92,26 +103,30 @@ void DeckBuilder::Initialize() {
 	is_draging = false;
 	prev_deck = mainGame->cbDBDecks->getSelected();
 	prev_operation = 0;
-	scroll_pos = 0;
 	mainGame->SetMesageWindow();
 	mainGame->device->setEventReceiver(this);
 }
-void DeckBuilder::Terminate() {
+void DeckBuilder::Terminate(bool showmenu) {
 	mainGame->is_building = false;
-	mainGame->ClearCardInfo();
-	mainGame->mTopMenu->setVisible(true);
+	if(showmenu) {
+		mainGame->ClearCardInfo();
+		mainGame->mTopMenu->setVisible(true);
+	}
 	mainGame->wDeckEdit->setVisible(false);
 	mainGame->wCategories->setVisible(false);
 	mainGame->wFilter->setVisible(false);
 	mainGame->wSort->setVisible(false);
-	mainGame->wCardImg->setVisible(false);
-	mainGame->wInfos->setVisible(false);
-	mainGame->btnLeaveGame->setVisible(false);
-	mainGame->PopupElement(mainGame->wMainMenu);
+	if(showmenu) {
+		mainGame->wCardImg->setVisible(false);
+		mainGame->wInfos->setVisible(false);
+		mainGame->btnLeaveGame->setVisible(false);
+		mainGame->PopupElement(mainGame->wMainMenu);
+		mainGame->ClearTextures();
+		mainGame->ClearCardInfo(0);
+	}
+	mainGame->btnHandTest->setVisible(false);
 	mainGame->device->setEventReceiver(&mainGame->menuHandler);
 	mainGame->wACMessage->setVisible(false);
-	mainGame->ClearTextures();
-	mainGame->ClearCardInfo(0);
 	mainGame->scrFilter->setVisible(false);
 	mainGame->SetMesageWindow();
 	int sel = mainGame->cbDBDecks->getSelected();
@@ -142,6 +157,14 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 		switch(event.GUIEvent.EventType) {
 		case irr::gui::EGET_BUTTON_CLICKED: {
 			switch(id) {
+			case BUTTON_HAND_TEST: {
+				Terminate(false);
+				open_file = true;
+				open_file_name = TEXT("hand-test-mode");
+				SingleMode::singleSignal.SetNoWait(false);
+				SingleMode::StartPlay();
+				break;
+			}
 			case BUTTON_CLEAR_DECK: {
 				deckManager.current_deck.main.clear();
 				deckManager.current_deck.extra.clear();
@@ -486,9 +509,10 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 					mainGame->cbLimit->addItem(dataManager.GetSysString(1317).c_str());
 					mainGame->cbLimit->addItem(dataManager.GetSysString(1318).c_str());
 					mainGame->cbLimit->addItem(dataManager.GetSysString(1320).c_str());
-					mainGame->cbLimit->addItem(dataManager.GetSysString(1240).c_str());
-					mainGame->cbLimit->addItem(dataManager.GetSysString(1241).c_str());
-					mainGame->cbLimit->addItem(dataManager.GetSysString(1242).c_str());
+					mainGame->cbLimit->addItem(dataManager.GetSysString(1900).c_str());
+					mainGame->cbLimit->addItem(dataManager.GetSysString(1901).c_str());
+					mainGame->cbLimit->addItem(dataManager.GetSysString(1902).c_str());
+					mainGame->cbLimit->addItem(dataManager.GetSysString(1903).c_str());
 					if(mainGame->chkAnime->isChecked()) {
 						mainGame->cbLimit->addItem(dataManager.GetSysString(1264).c_str());
 						mainGame->cbLimit->addItem(dataManager.GetSysString(1265).c_str());
@@ -859,19 +883,17 @@ void DeckBuilder::FilterCards(bool force_refresh) {
 	auto ip = std::unique(results.begin(), results.end());
 	results.resize(std::distance(results.begin(), ip));
 	result_string = fmt::to_wstring(results.size());
+	scroll_pos = 0;
 	if(results.size() > 7) {
-		scroll_pos = 0;
 		mainGame->scrFilter->setVisible(true);
 		mainGame->scrFilter->setMax((results.size() - 7) * DECK_SEARCH_SCROLL_STEP);
-		mainGame->scrFilter->setPos(0);
 	} else {
-		scroll_pos = 0;
 		mainGame->scrFilter->setVisible(false);
-		mainGame->scrFilter->setPos(0);
 	}
+	mainGame->scrFilter->setPos(0);
 }
 bool DeckBuilder::CheckCard(CardDataC* data, const CardString& text, const wchar_t& checkchar, std::vector<std::wstring>& tokens, std::vector<unsigned int>& set_code) {
-	if(data->type & TYPE_TOKEN || (data->ot > 3 && !mainGame->chkAnime->isChecked()))
+	if(data->type & TYPE_TOKEN || ((data->ot & 0x103) != data->ot && !mainGame->chkAnime->isChecked()))
 		return false;
 	switch(filter_type) {
 	case 1: {
@@ -948,6 +970,8 @@ bool DeckBuilder::CheckCard(CardDataC* data, const CardString& text, const wchar
 			return false;
 		if(filter_lm == LIMITATION_FILTER_TCG_OCG && data->ot != 0x3)
 			return false;
+		if(filter_lm == LIMITATION_FILTER_PRERELEASE && !(data->ot & 0x100))
+			return false;
 		if(filter_lm == LIMITATION_FILTER_ANIME && data->ot != 0x4)
 			return false;
 		if(filter_lm == LIMITATION_FILTER_ILLEGAL && data->ot != 0x8)
@@ -985,6 +1009,7 @@ void DeckBuilder::ClearSearch() {
 	ClearFilter();
 	results.clear();
 	result_string = L"0";
+	scroll_pos = 0;
 }
 void DeckBuilder::ClearFilter() {
 	mainGame->cbAttribute->setSelected(0);
