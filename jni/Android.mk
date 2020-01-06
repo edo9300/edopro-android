@@ -89,7 +89,9 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
 				$(GFRAME_PATH)/single_mode.cpp \
 				$(GFRAME_PATH)/sound_manager.cpp \
 				$(GFRAME_PATH)/sound_sdlmixer.cpp \
-				$(GFRAME_PATH)/utils.cpp 
+				$(GFRAME_PATH)/utils.cpp \
+				$(GFRAME_PATH)/windbot.cpp \
+				$(GFRAME_PATH)/windbot_panel.cpp 
 
 LOCAL_LDLIBS := -lEGL -llog -lGLESv1_CM -lGLESv2 -landroid -lOpenSLES
 
