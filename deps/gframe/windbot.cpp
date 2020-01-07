@@ -57,7 +57,7 @@ bool WindBot::Launch(int port, bool chat, int hand) const {
 	return false;
 #else
 #ifdef __ANDROID__
-	std::string param = fmt::format("Deck={} Port={} Version={} Name='[AI] {}' Chat={} Hand={}", BufferIO::EncodeUTF8s(deck).c_str(), port, version, BufferIO::EncodeUTF8s(name).c_str(), chat, hand);
+	std::string param = fmt::format("Deck={} Port={} Version={} Name='[AI] {}' Chat={} Hand={}", BufferIO::EncodeUTF8s(deck).c_str(), port, version, BufferIO::EncodeUTF8s(name).c_str(), chat ? 1 : 0, hand);
 	porting::launchWindbot(param);
 	return true;
 #else
