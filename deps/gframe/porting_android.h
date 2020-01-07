@@ -44,8 +44,6 @@ extern JNIEnv *jnienv;
 extern std::string internal_storage;
 extern std::string working_directory;
 
-extern std::atomic<bool> assetscopied;
-
 /**
  * do initialization required on android only
  */
@@ -61,7 +59,6 @@ void initializePathsAndroid();
 /**
  * use java function to copy media from assets to external storage
  */
-void copyAssets(bool forced);
 void copyCertificate();
 
 /**

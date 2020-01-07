@@ -16,6 +16,7 @@ import android.net.wifi.WifiManager;
 
 public class EpNativeActivity extends NativeActivity {
 
+	private static native void pauseApp(boolean pause);
 	static {
 		System.loadLibrary("EdoproClient");
 	}
@@ -33,6 +34,7 @@ public class EpNativeActivity extends NativeActivity {
 	protected void onResume() {
 		super.onResume();
 		makeFullScreen();
+		pauseApp(false);
 	}
 
     private void makeFullScreen() {
@@ -96,6 +98,13 @@ public class EpNativeActivity extends NativeActivity {
 		WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
 		return wm.getConnectionInfo().getIpAddress();
 	}
+
+	@Override
+	public void onStop (){
+		super.onStop();
+		pauseApp(true);
+	}
+
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
