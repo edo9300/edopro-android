@@ -1,6 +1,5 @@
 package io.github.edo9300.edopro;
 
-import org.libsdl.app.SDLActivity;
 import android.app.NativeActivity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -14,7 +13,6 @@ import android.view.WindowManager;
 import libwindbot.windbot.WindBot;
 
 import android.net.wifi.WifiManager;
-import android.text.format.Formatter;
 
 public class EpNativeActivity extends NativeActivity {
 
@@ -66,11 +64,10 @@ public class EpNativeActivity extends NativeActivity {
 	private final BroadcastReceiver myReceiver = new BroadcastReceiver() {
 		@Override
 		public void onReceive(Context context, Intent intent) {
-			Log.e("Edoprowindbot", "bbbb");
 			String action = intent.getAction();
 			if (action.equals("RUN_WINDBOT")) {
 				String args = intent.getStringExtra("args");
-				Log.e("Edoprowindbot", args);
+				Log.i("Edoprowindbot", "Launching windbot with " + args + " as parameters.");
 				WindBot.runAndroid(args);
 			}
 		}

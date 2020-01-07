@@ -5,7 +5,6 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import org.libsdl.app.SDLActivity;
 import libwindbot.windbot.WindBot;
 import android.Manifest;
 import android.app.Activity;
