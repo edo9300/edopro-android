@@ -9,3 +9,4 @@ local.properties
 *vs/
 release/
 defaults/
+.DS_Store
