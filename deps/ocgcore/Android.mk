@@ -16,14 +16,13 @@ LOCAL_SRC_FILES :=  card.cpp \
 				libduel.cpp \
 				libeffect.cpp \
 				libgroup.cpp \
-				mem.cpp \
 				ocgapi.cpp \
 				operations.cpp \
 				playerop.cpp \
 				processor.cpp \
 				scriptlib.cpp
                    
-LOCAL_CFLAGS    := -frtti -std=gnu++0x -D_IRR_ANDROID_PLATFORM_ -DLUA_COMPAT_5_2 -Wno-format-security
+LOCAL_CFLAGS    := -frtti -DLUA_COMPAT_5_2 -Wno-format-security
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../lua/include
 LOCAL_STATIC_LIBRARIES += liblua5.3
 

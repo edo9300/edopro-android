@@ -106,7 +106,6 @@ LOCAL_STATIC_LIBRARIES += git2
 LOCAL_STATIC_LIBRARIES += curl
 LOCAL_SHARED_LIBRARIES := SDL2
 LOCAL_SHARED_LIBRARIES += SDL2_mixer
-LOCAL_SHARED_LIBRARIES += ocgcore
 
 include $(BUILD_SHARED_LIBRARY)
 $(call import-add-path,$(CLASSES_PATH))
@@ -122,5 +121,3 @@ $(call import-module,SDL2)
 $(call import-module,SDL_mixer)
 
 $(call import-module,android/native_app_glue)
-
-$(call import-module,ocgcore)
