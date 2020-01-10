@@ -6,14 +6,12 @@ import android.content.res.AssetFileDescriptor;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.Log;
 import android.view.Display;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.content.Intent;
-import android.content.Context;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -24,7 +22,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.Vector;
 
-public class MinetestAssetCopy extends Activity {
+public class AssetCopy extends Activity {
     private ProgressBar m_ProgressBar;
     private TextView m_Filename;
     private copyAssetTask m_AssetCopy;
@@ -33,7 +31,7 @@ public class MinetestAssetCopy extends Activity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        Log.e("MinetestAssetCopy", "MinetestAssetCopy on create");
+        Log.e("AssetCopy", "AssetCopy on create");
         super.onCreate(savedInstanceState);
         Bundle b = getIntent().getExtras();
         String _workingDir = b.getString("workingDir");
@@ -45,8 +43,8 @@ public class MinetestAssetCopy extends Activity {
         m_ProgressBar.invalidate();
 
         /* check if there's already a copy in progress and reuse in case it is*/
-        MinetestAssetCopy prevActivity =
-                (MinetestAssetCopy) getLastNonConfigurationInstance();
+        AssetCopy prevActivity =
+                (AssetCopy) getLastNonConfigurationInstance();
         if (prevActivity != null) {
             m_AssetCopy = prevActivity.m_AssetCopy;
         } else {
@@ -117,25 +115,33 @@ public class MinetestAssetCopy extends Activity {
 
         @Override
         protected String doInBackground(String... files) {
-            Log.e("MinetestAssetCopy", "doInBackground");
+            Log.e("AssetCopy", "doInBackground");
             m_foldernames = new Vector<>();
             m_filenames = new Vector<>();
             m_tocopy = new Vector<>();
             m_asset_size_unknown = new Vector<>();
 
 
-            // prepare temp folder
-            File TempFolder = new File(workingDir + "/tmp/");
-
-            if (!TempFolder.exists()) {
-                TempFolder.mkdir();
-            } else {
-                File[] todel = TempFolder.listFiles();
-
-                for (File file : todel) {
-                    Log.v("MinetestAssetCopy", "deleting: " + file.getAbsolutePath());
-                    file.delete();
+            try {
+                InputStream certin = getAssets().open("cacert.cer");
+                File certout = new File(getApplicationContext().getFilesDir(),"cacert.cer");
+                if(certout.exists()){
+                    Log.i("Edopro", "Certificate file already copied");
+                }else {
+                    try {
+                        FileOutputStream fOut = new FileOutputStream(certout);
+                        byte[] buffer = new byte[1024];
+                        int length;
+                        while ((length = certin.read(buffer)) > 0) {
+                            fOut.write(buffer, 0, length);
+                        }
+                        fOut.close();
+                    } catch (Exception e) {
+                        Log.e("Edopro", "cannot copy certificate file: " + e.getMessage());
+                    }
                 }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
 
 
@@ -171,7 +177,7 @@ public class MinetestAssetCopy extends Activity {
                     try {
                         src = getAssets().open("defaults/" + filename);
                     } catch (IOException e) {
-                        Log.e("MinetestAssetCopy", "Copying file: defaults/" +  filename + " FAILED (not in assets)");
+                        Log.e("AssetCopy", "Copying file: defaults/" +  filename + " FAILED (not in assets)");
                         e.printStackTrace();
                         continue;
                     }
@@ -206,7 +212,7 @@ public class MinetestAssetCopy extends Activity {
                         try {
                             dst = new FileOutputStream(workingDir + "/" + filename);
                         } catch (IOException e) {
-                            Log.e("MinetestAssetCopy", "Copying file: " + workingDir +
+                            Log.e("AssetCopy", "Copying file: " + workingDir +
                                     "/" + filename + " FAILED (couldn't open output file)");
                             e.printStackTrace();
                             src.close();
@@ -221,16 +227,16 @@ public class MinetestAssetCopy extends Activity {
                         }
 
                         dst.close();
-                        Log.v("MinetestAssetCopy", "Copied file: " +
+                        Log.v("AssetCopy", "Copied file: " +
                                 m_tocopy.get(i) + " (" + total_filesize +
                                 " bytes)");
                     } else if (len < 0) {
-                        Log.e("MinetestAssetCopy", "Copying file: " +
+                        Log.e("AssetCopy", "Copying file: " +
                                 m_tocopy.get(i) + " failed, size < 0");
                     }
                     src.close();
                 } catch (IOException e) {
-                    Log.e("MinetestAssetCopy", "Copying file: " +
+                    Log.e("AssetCopy", "Copying file: " +
                             m_tocopy.get(i) + " failed");
                     e.printStackTrace();
                 }
@@ -242,7 +248,7 @@ public class MinetestAssetCopy extends Activity {
          * update progress bar
          */
         protected void onProgressUpdate(Integer... progress) {
-            Log.e("MinetestAssetCopy", "onProgressUpdate");
+            Log.e("AssetCopy", "onProgressUpdate");
             if (m_copy_started) {
                 String todisplay = m_tocopy.get(progress[0]);
                 m_ProgressBar.setProgress(progress[0]);
@@ -272,10 +278,10 @@ public class MinetestAssetCopy extends Activity {
                     File current_folder = new File(FlashPath);
                     if (!current_folder.exists()) {
                         if (!current_folder.mkdirs()) {
-                            Log.e("MinetestAssetCopy", "\t failed create folder: " +
+                            Log.e("AssetCopy", "\t failed create folder: " +
                                     FlashPath);
                         } else {
-                            Log.v("MinetestAssetCopy", "\t created folder: " +
+                            Log.v("AssetCopy", "\t created folder: " +
                                     FlashPath);
                         }
                     }
@@ -298,7 +304,7 @@ public class MinetestAssetCopy extends Activity {
                         fd.close();
                     } catch (IOException e) {
                         m_asset_size_unknown.add(current_path);
-                        Log.e("MinetestAssetCopy", "Failed to open asset file \"" +
+                        Log.e("AssetCopy", "Failed to open asset file \"" +
                                 FlashPath + "\" for size check");
                     }
 
@@ -329,7 +335,7 @@ public class MinetestAssetCopy extends Activity {
                 }
                 is.close();
             } catch (IOException e1) {
-                Log.e("MinetestAssetCopy", "Error on processing index.txt");
+                Log.e("AssetCopy", "Error on processing index.txt");
                 e1.printStackTrace();
             }
         }
@@ -351,7 +357,7 @@ public class MinetestAssetCopy extends Activity {
                 }
                 is.close();
             } catch (IOException e1) {
-                Log.e("MinetestAssetCopy", "Error on processing filelist.txt");
+                Log.e("AssetCopy", "Error on processing filelist.txt");
                 e1.printStackTrace();
             }
         }

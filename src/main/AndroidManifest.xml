@@ -64,7 +64,7 @@
 			android:theme="@style/Theme.Dialog"
 			android:windowSoftInputMode="stateAlwaysHidden"/>
 		<activity
-			android:name=".MinetestAssetCopy"
+			android:name=".AssetCopy"
 			android:screenOrientation="sensorLandscape"
 			android:theme="@style/AppTheme"/>
 	</application>

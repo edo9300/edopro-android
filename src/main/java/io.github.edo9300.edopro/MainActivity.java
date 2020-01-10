@@ -152,7 +152,7 @@ public class MainActivity extends Activity {
 			next();
 			return;
 		}
-		Intent intent = new Intent(this, MinetestAssetCopy.class);
+		Intent intent = new Intent(this, AssetCopy.class);
 		Bundle params = new Bundle();
 		params.putString("workingDir", working_dir);
 		intent.putExtras(params);
