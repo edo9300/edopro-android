@@ -16,7 +16,8 @@
 		android:allowBackup="true"
 		android:icon="@mipmap/ic_launcher"
 		android:label="${project}"
-		android:resizeableActivity="false">
+		android:resizeableActivity="false"
+		android:isGame="true">
 
 		<meta-data
 			android:name="android.max_aspect"
