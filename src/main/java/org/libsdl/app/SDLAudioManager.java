@@ -246,7 +246,10 @@ public class SDLAudioManager
             Log.e(TAG, "Attempted to make audio call with uninitialized audio!");
             return;
         }
-
+        if (Build.VERSION.SDK_INT < 21) {
+            Log.e(TAG, "Function not supported on android kitkat!");
+            return;
+        }
         for (int i = 0; i < buffer.length;) {
             int result = mAudioTrack.write(buffer, i, buffer.length - i, AudioTrack.WRITE_BLOCKING);
             if (result > 0) {
