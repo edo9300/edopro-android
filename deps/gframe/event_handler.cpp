@@ -1,4 +1,3 @@
-#include "event_handler.h"
 #include "client_field.h"
 #include "math.h"
 #include "network.h"
@@ -14,6 +13,7 @@
 #include "porting_android.h"
 #endif
 #include <algorithm>
+#include "utils_gui.h"
 
 namespace ygo {
 
@@ -649,11 +649,11 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 						auto it = std::find(selected_cards.begin(), selected_cards.end(), command_card);
 						selected_cards.erase(it);
 						if(command_card->controler)
-							mainGame->stCardPos[id - BUTTON_CARD_0]->setBackgroundColor(0xffd0d0d0);
-						else mainGame->stCardPos[id - BUTTON_CARD_0]->setBackgroundColor(0xffffffff);
+							mainGame->stCardPos[id - BUTTON_CARD_0]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
+						else mainGame->stCardPos[id - BUTTON_CARD_0]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 					} else {
 						command_card->is_selected = true;
-						mainGame->stCardPos[id - BUTTON_CARD_0]->setBackgroundColor(0xffffff00);
+						mainGame->stCardPos[id - BUTTON_CARD_0]->setBackgroundColor(Game::GetSkinColor(L"card_selected_bg", 0xffffff00));
 						selected_cards.push_back(command_card);
 					}
 					int sel = selected_cards.size();
@@ -680,11 +680,11 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 					if (command_card->is_selected) {
 						command_card->is_selected = false;
 						if(command_card->controler)
-							mainGame->stCardPos[id - BUTTON_CARD_0]->setBackgroundColor(0xffd0d0d0);
-						else mainGame->stCardPos[id - BUTTON_CARD_0]->setBackgroundColor(0xffffffff);
+							mainGame->stCardPos[id - BUTTON_CARD_0]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
+						else mainGame->stCardPos[id - BUTTON_CARD_0]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 					} else {
 						command_card->is_selected = true;
-						mainGame->stCardPos[id - BUTTON_CARD_0]->setBackgroundColor(0xffffff00);
+						mainGame->stCardPos[id - BUTTON_CARD_0]->setBackgroundColor(Game::GetSkinColor(L"card_selected_bg", 0xffffff00));
 					}
 					selected_cards.push_back(command_card);
 					if (selected_cards.size() > 0) {
@@ -874,32 +874,32 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 					mainGame->stCardPos[i]->setText(text.c_str());
 					// color
 					if(conti_selecting)
-						mainGame->stCardPos[i]->setBackgroundColor(0xffffffff);
+						mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 					else if(selectable_cards[i + pos]->location == LOCATION_OVERLAY) {
 						if(selectable_cards[i + pos]->owner != selectable_cards[i + pos]->overlayTarget->controler)
-							mainGame->stCardPos[i]->setOverrideColor(0xff0000ff);
+							mainGame->stCardPos[i]->setOverrideColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELECT_WINDOW_OVERLAY_TEXT", 0xff0000ff));
 						if(selectable_cards[i + pos]->is_selected)
-							mainGame->stCardPos[i]->setBackgroundColor(0xffffff00);
+							mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"card_selected_bg", 0xffffff00));
 						else if(selectable_cards[i + pos]->overlayTarget->controler)
-							mainGame->stCardPos[i]->setBackgroundColor(0xffd0d0d0);
+							mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
 						else
-							mainGame->stCardPos[i]->setBackgroundColor(0xffffffff);
+							mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 					} else if(selectable_cards[i + pos]->location == LOCATION_DECK || selectable_cards[i + pos]->location == LOCATION_EXTRA || selectable_cards[i + pos]->location == LOCATION_REMOVED) {
 						if(selectable_cards[i + pos]->position & POS_FACEDOWN)
-							mainGame->stCardPos[i]->setOverrideColor(0xff0000ff);
+							mainGame->stCardPos[i]->setOverrideColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELECT_WINDOW_SET_TEXT", 0xff0000ff));
 						if(selectable_cards[i + pos]->is_selected)
-							mainGame->stCardPos[i]->setBackgroundColor(0xffffff00);
+							mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"card_selected_bg", 0xffffff00));
 						else if(selectable_cards[i + pos]->controler)
-							mainGame->stCardPos[i]->setBackgroundColor(0xffd0d0d0);
+							mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
 						else
-							mainGame->stCardPos[i]->setBackgroundColor(0xffffffff);
+							mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 					} else {
 						if(selectable_cards[i + pos]->is_selected)
-							mainGame->stCardPos[i]->setBackgroundColor(0xffffff00);
+							mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"card_selected_bg", 0xffffff00));
 						else if(selectable_cards[i + pos]->controler)
-							mainGame->stCardPos[i]->setBackgroundColor(0xffd0d0d0);
+							mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
 						else
-							mainGame->stCardPos[i]->setBackgroundColor(0xffffffff);
+							mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 					}
 				}
 				break;
@@ -925,24 +925,24 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 					mainGame->stDisplayPos[i]->setText(text.c_str());
 					if(display_cards[i + pos]->location == LOCATION_OVERLAY) {
 						if(display_cards[i + pos]->owner != display_cards[i + pos]->overlayTarget->controler)
-							mainGame->stDisplayPos[i]->setOverrideColor(0xff0000ff);
+							mainGame->stDisplayPos[i]->setOverrideColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELECT_WINDOW_OVERLAY_TEXT", 0xff0000ff));
 						// BackgroundColor: controller of the xyz monster
 						if(display_cards[i + pos]->overlayTarget->controler)
-							mainGame->stDisplayPos[i]->setBackgroundColor(0xffd0d0d0);
+							mainGame->stDisplayPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
 						else
-							mainGame->stDisplayPos[i]->setBackgroundColor(0xffffffff);
+							mainGame->stDisplayPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 					} else if(display_cards[i + pos]->location == LOCATION_EXTRA || display_cards[i + pos]->location == LOCATION_REMOVED) {
 						if(display_cards[i + pos]->position & POS_FACEDOWN)
-							mainGame->stDisplayPos[i]->setOverrideColor(0xff0000ff);
+							mainGame->stDisplayPos[i]->setOverrideColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELECT_WINDOW_SET_TEXT", 0xff0000ff));
 						if(display_cards[i + pos]->controler)
-							mainGame->stDisplayPos[i]->setBackgroundColor(0xffd0d0d0);
+							mainGame->stDisplayPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
 						else
-							mainGame->stDisplayPos[i]->setBackgroundColor(0xffffffff);
+							mainGame->stDisplayPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 					} else {
 						if(display_cards[i + pos]->controler)
-							mainGame->stDisplayPos[i]->setBackgroundColor(0xffd0d0d0);
+							mainGame->stDisplayPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
 						else
-							mainGame->stDisplayPos[i]->setBackgroundColor(0xffffffff);
+							mainGame->stDisplayPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 					}
 				}
 				break;
@@ -1751,7 +1751,7 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 		case irr::gui::EGET_ELEMENT_HOVERED: {
 			// Set cursor to an I-Beam if hovering over an edit box
 			if (event.GUIEvent.Caller->getType() == EGUIET_EDIT_BOX && event.GUIEvent.Caller->isEnabled()) {
-				Utils::changeCursor(ECI_IBEAM);
+				GUIUtils::ChangeCursor(mainGame->device, ECI_IBEAM);
 				return true;
 			}
 			break;
@@ -1759,7 +1759,7 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 		case irr::gui::EGET_ELEMENT_LEFT: {
 			// Set cursor to normal if left an edit box
 			if (event.GUIEvent.Caller->getType() == EGUIET_EDIT_BOX) {
-				Utils::changeCursor(ECI_NORMAL);
+				GUIUtils::ChangeCursor(mainGame->device, ECI_NORMAL);
 				return true;
 			}
 			break;
@@ -1914,12 +1914,12 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 		}
 		case irr::KEY_F11: {
 			if(!event.KeyInput.PressedDown)
-				Utils::ToggleFullscreen();
+				GUIUtils::ToggleFullscreen(mainGame->device, mainGame->is_fullscreen);
 			return true;
 		}
 		case irr::KEY_F10: {
 			if (!event.KeyInput.PressedDown)
-				Utils::takeScreenshot(mainGame->device);
+				GUIUtils::TakeScreenshot(mainGame->device);
 			return true;
 		}
 		default: break;

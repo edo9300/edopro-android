@@ -1,8 +1,8 @@
 #include "data_manager.h"
-#include "readonlymemvfs.h"
-#include "game.h"
-#include <stdio.h>
+#include "sqlite3.h"
 #include <fstream>
+#include "readonlymemvfs.h"
+#include "logging.h"
 
 namespace ygo {
 
@@ -43,7 +43,21 @@ bool DataManager::ParseDB(sqlite3 * pDB) {
 			cd->code = sqlite3_column_int(pStmt, 0);
 			cd->ot = sqlite3_column_int(pStmt, 1);
 			cd->alias = sqlite3_column_int(pStmt, 2);
-			cd->setcode = sqlite3_column_int64(pStmt, 3);
+			cd->setcodes_p = nullptr;
+			auto setcodes = sqlite3_column_int64(pStmt, 3);
+			for(int i = 0; i < 4; i++) {
+				uint16_t setcode = (setcodes >> (i * 16)) & 0xffff;
+				if(setcode)
+					cd->setcodes.push_back(setcode);
+			}
+			if(cd->setcodes.size()) {
+				uint16_t* setptr = cd->setcodes_p = new uint16_t[cd->setcodes.size() + 1];
+				for(const auto& setcode : cd->setcodes) {
+					*setptr = setcode;
+					setptr++;
+				}
+				*setptr = 0;
+			}
 			cd->type = sqlite3_column_int(pStmt, 4);
 			cd->attack = sqlite3_column_int(pStmt, 5);
 			cd->defense = sqlite3_column_int(pStmt, 6);
@@ -62,6 +76,11 @@ bool DataManager::ParseDB(sqlite3 * pDB) {
 			cd->race = sqlite3_column_int(pStmt, 8);
 			cd->attribute = sqlite3_column_int(pStmt, 9);
 			cd->category = sqlite3_column_int(pStmt, 10);
+			auto search = _datas.find(cd->code);
+			if(search != _datas.end()) {
+				if(search->second->setcodes_p)
+					delete search->second->setcodes_p;
+			}
 			_datas[cd->code] = cd;
 			if(const char* text = (const char*)sqlite3_column_text(pStmt, 12)) {
 				cs.name = BufferIO::DecodeUTF8s(text);
@@ -99,14 +118,17 @@ bool DataManager::LoadStrings(const path_string& file) {
 		pos = str.find(' ');
 		auto value = str.substr(0, pos);
 		str = str.substr(pos + 1);
-		if(type == "system")
-			_sysStrings[std::stoi(value)] = BufferIO::DecodeUTF8s(str);
-		else if(type == "victory")
-			_victoryStrings[std::stoi(value, 0, 16)] = BufferIO::DecodeUTF8s(str);
-		else if(type == "counter")
-			_counterStrings[std::stoi(value, 0, 16)] = BufferIO::DecodeUTF8s(str);
-		else if(type == "setname")
-			_setnameStrings[std::stoi(value, 0, 16)] = BufferIO::DecodeUTF8s(str);
+		try {
+			if(type == "system")
+				_sysStrings[std::stoi(value)] = BufferIO::DecodeUTF8s(str);
+			else if(type == "victory")
+				_victoryStrings[std::stoi(value, 0, 16)] = BufferIO::DecodeUTF8s(str);
+			else if(type == "counter")
+				_counterStrings[std::stoi(value, 0, 16)] = BufferIO::DecodeUTF8s(str);
+			else if(type == "setname")
+				_setnameStrings[std::stoi(value, 0, 16)] = BufferIO::DecodeUTF8s(str);
+		}
+		catch(...) {}
 	}
 	string_file.close();
 	return true;
@@ -116,7 +138,7 @@ bool DataManager::Error(sqlite3* pDB, sqlite3_stmt* pStmt) {
 	if(pStmt)
 		sqlite3_finalize(pStmt);
 	sqlite3_close(pDB);
-	mainGame->ErrorLog(error);
+	ErrorLog(error);
 	return false;
 }
 bool DataManager::GetData(int code, CardData* pData) {
@@ -204,7 +226,7 @@ std::vector<unsigned int> DataManager::GetSetCode(std::vector<std::wstring>& set
 	std::vector<unsigned int> res;
 	for(auto& string : _setnameStrings) {
 		auto xpos = string.second.find_first_of(L'|');//setname|extra info
-		if(Game::CompareStrings(string.second.substr(0, xpos), setname, true))
+		if(Utils::ContainsSubstring(string.second.substr(0, xpos), setname, true))
 			res.push_back(string.first);
 	}
 	return res;
@@ -289,10 +311,22 @@ std::wstring DataManager::FormatSetName(unsigned long long setcode) {
 		return unknown_string;
 	return res;
 }
+std::wstring DataManager::FormatSetName(std::vector<uint16> setcodes) {
+	std::wstring res;
+	for(auto& setcode : setcodes) {
+		auto name = GetSetName(setcode);
+		if(!res.empty() && !name.empty())
+			res += L"|";
+		res += name;
+	}
+	if(res.empty())
+		return unknown_string;
+	return res;
+}
 std::wstring DataManager::FormatLinkMarker(int link_marker) {
 	std::wstring res;
 	if(link_marker & LINK_MARKER_TOP_LEFT)
-		res+=L"[\u2196]";
+		res += L"[\u2196]";
 	if(link_marker & LINK_MARKER_TOP)
 		res += L"[\u2191]";
 	if(link_marker & LINK_MARKER_TOP_RIGHT)

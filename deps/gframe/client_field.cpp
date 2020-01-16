@@ -385,35 +385,37 @@ void ClientField::ShowSelectCard(bool buttonok, bool chain) {
 			mainGame->stCardPos[i]->setText(text.c_str());
 			// color
 			if (selectable_cards[i]->is_selected)
-				mainGame->stCardPos[i]->setBackgroundColor(0xffffff00);
+				mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"card_selected_bg", 0xffffff00));
 			else {
 				if(conti_selecting)
-					mainGame->stCardPos[i]->setBackgroundColor(0xffffffff);
+					mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 				else if(selectable_cards[i]->location == LOCATION_OVERLAY) {
 					if(selectable_cards[i]->owner != selectable_cards[i]->overlayTarget->controler)
-						mainGame->stCardPos[i]->setOverrideColor(0xff0000ff);
+						mainGame->stCardPos[i]->setOverrideColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELECT_WINDOW_OVERLAY_TEXT", 0xff0000ff));
 					if(selectable_cards[i]->overlayTarget->controler)
-						mainGame->stCardPos[i]->setBackgroundColor(0xffd0d0d0);
-					else mainGame->stCardPos[i]->setBackgroundColor(0xffffffff);
+						mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
+					else
+						mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 				} else if(selectable_cards[i]->location == LOCATION_DECK || selectable_cards[i]->location == LOCATION_EXTRA || selectable_cards[i]->location == LOCATION_REMOVED) {
 					if(selectable_cards[i]->position & POS_FACEDOWN)
-						mainGame->stCardPos[i]->setOverrideColor(0xff0000ff);
+						mainGame->stCardPos[i]->setOverrideColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELECT_WINDOW_SET_TEXT", 0xff0000ff));
 					if(selectable_cards[i]->controler)
-						mainGame->stCardPos[i]->setBackgroundColor(0xffd0d0d0);
+						mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
 					else
-						mainGame->stCardPos[i]->setBackgroundColor(0xffffffff);
+						mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 				} else {
 					if(selectable_cards[i]->controler)
-						mainGame->stCardPos[i]->setBackgroundColor(0xffd0d0d0);
+						mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
 					else
-						mainGame->stCardPos[i]->setBackgroundColor(0xffffffff);
+						mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 				}
 			}
 		} else {
 			if(sort_list[i]) {
 				mainGame->stCardPos[i]->setText(fmt::to_wstring(sort_list[i]).c_str());
-			} else mainGame->stCardPos[i]->setText(L"");
-			mainGame->stCardPos[i]->setBackgroundColor(0xffffffff);
+			} else
+				mainGame->stCardPos[i]->setText(L"");
+			mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 		}
 		mainGame->stCardPos[i]->setVisible(true);
 		mainGame->stCardPos[i]->setRelativePosition(mainGame->Scale<s32>(startpos + i * 125, 30, startpos + 120 + i * 125, 50));
@@ -456,14 +458,16 @@ void ClientField::ShowChainCard() {
 			selectable_cards[i]->sequence + 1).c_str());
 		if(selectable_cards[i]->location == LOCATION_OVERLAY) {
 			if(selectable_cards[i]->owner != selectable_cards[i]->overlayTarget->controler)
-				mainGame->stCardPos[i]->setOverrideColor(0xff0000ff);
+				mainGame->stCardPos[i]->setOverrideColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELECT_WINDOW_OVERLAY_TEXT", 0xff0000ff));
 			if(selectable_cards[i]->overlayTarget->controler)
-				mainGame->stCardPos[i]->setBackgroundColor(0xffd0d0d0);
-			else mainGame->stCardPos[i]->setBackgroundColor(0xffffffff);
+				mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
+			else
+				mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 		} else {
 			if(selectable_cards[i]->controler)
-				mainGame->stCardPos[i]->setBackgroundColor(0xffd0d0d0);
-			else mainGame->stCardPos[i]->setBackgroundColor(0xffffffff);
+				mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
+			else
+				mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 		}
 		mainGame->stCardPos[i]->setVisible(true);
 		mainGame->stCardPos[i]->setRelativePosition(mainGame->Scale<s32>(startpos + i * 125, 30, startpos + 120 + i * 125, 50));
@@ -516,23 +520,23 @@ void ClientField::ShowLocationCard() {
 		mainGame->stDisplayPos[i]->setText(text.c_str());
 		if(display_cards[i]->location == LOCATION_OVERLAY) {
 			if(display_cards[i]->owner != display_cards[i]->overlayTarget->controler)
-				mainGame->stDisplayPos[i]->setOverrideColor(0xff0000ff);
+				mainGame->stDisplayPos[i]->setOverrideColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELECT_WINDOW_OVERLAY_TEXT", 0xff0000ff));
 			if(display_cards[i]->overlayTarget->controler)
-				mainGame->stDisplayPos[i]->setBackgroundColor(0xffd0d0d0);
+				mainGame->stDisplayPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
 			else 
-				mainGame->stDisplayPos[i]->setBackgroundColor(0xffffffff);
+				mainGame->stDisplayPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 		} else if(display_cards[i]->location == LOCATION_EXTRA || display_cards[i]->location == LOCATION_REMOVED) {
 			if(display_cards[i]->position & POS_FACEDOWN)
-				mainGame->stCardPos[i]->setOverrideColor(0xff0000ff);
+				mainGame->stCardPos[i]->setOverrideColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELECT_WINDOW_SET_TEXT", 0xff0000ff));
 			if(display_cards[i]->controler)
-				mainGame->stCardPos[i]->setBackgroundColor(0xffd0d0d0);
+				mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
 			else 
-				mainGame->stCardPos[i]->setBackgroundColor(0xffffffff);
+				mainGame->stCardPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 		} else {
 			if(display_cards[i]->controler)
-				mainGame->stDisplayPos[i]->setBackgroundColor(0xffd0d0d0);
+				mainGame->stDisplayPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_SELF_WINDOW_BACKGROUND", 0xffd0d0d0));
 			else 
-				mainGame->stDisplayPos[i]->setBackgroundColor(0xffffffff);
+				mainGame->stDisplayPos[i]->setBackgroundColor(Game::GetSkinColor(L"DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND", 0xffffffff));
 		}
 		mainGame->stDisplayPos[i]->setVisible(true);
 		mainGame->stDisplayPos[i]->setRelativePosition(mainGame->Scale<s32>(startpos + i * 125, 30, startpos + 120 + i * 125, 50));
@@ -1293,19 +1297,19 @@ static bool is_declarable(CardDataC* cd, const std::vector<int64>& opcodes) {
 		GET_OP(OPCODE_GETTYPE, type);
 		GET_OP(OPCODE_GETRACE, race);
 		GET_OP(OPCODE_GETATTRIBUTE, attribute);
-		GET_OP(OPCODE_GETSETCARD, setcode);
+		//GET_OP(OPCODE_GETSETCARD, setcode);
 		case OPCODE_ISSETCARD: {
 			if (stack.size() >= 1) {
 				int set_code = stack.top();
 				stack.pop();
-				unsigned long long sc = cd->setcode;
 				bool res = false;
-				int settype = set_code & 0xfff;
-				int setsubtype = set_code & 0xf000;
-				while (sc) {
-					if ((sc & 0xfff) == settype && (sc & 0xf000 & setsubtype) == setsubtype)
+				uint16 settype = set_code & 0xfff;
+				uint16 setsubtype = set_code & 0xf000;
+				for(auto& sc : cd->setcodes) {
+					if((sc & 0xfff) == settype && (sc & 0xf000 & setsubtype) == setsubtype) {
 						res = true;
-					sc = sc >> 16;
+						break;
+					}
 				}
 				stack.push(res);
 			}
@@ -1362,7 +1366,7 @@ void ClientField::UpdateDeclarableList() {
 	mainGame->lstANCard->clear();
 	ancard.clear();
 	for(auto& string : dataManager._strings) {
-		if(Game::CompareStrings(string.second.name.c_str(), pname, true, true)) {
+		if(Utils::ContainsSubstring(string.second.name.c_str(), pname, true, true)) {
 			auto cp = dataManager.GetCardData(string.first);	//verified by _strings
 			//datas.alias can be double card names or alias
 			if(cp && is_declarable(cp, declare_opcodes)) {

@@ -65,11 +65,16 @@ void SoundManager::RefreshBGMDir(path_string path, BGM scene) {
 }
 void SoundManager::RefreshChantsList() {
 #ifdef BACKEND
-	for(auto& file : Utils::FindfolderFiles(TEXT("./sound/chants"), { TEXT("mp3"), TEXT("wav") })) {
+	for(auto& file : Utils::FindfolderFiles(TEXT("./sound/chants"), { TEXT("ogg"), TEXT("wav") })) {
 		auto scode = Utils::GetFileName(TEXT("./sound/chants/") + file);
-		unsigned int code = std::stoi(scode);
-		if(code && !ChantsList.count(code))
-			ChantsList[code] = Utils::ToUTF8IfNeeded(file);
+		try {
+			unsigned int code = std::stoi(scode);
+			if(code && !ChantsList.count(code))
+				ChantsList[code] = Utils::ToUTF8IfNeeded(file);
+		}
+		catch(...) {
+			continue;
+		}
 	}
 #endif
 }

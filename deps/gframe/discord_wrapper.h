@@ -1,11 +1,9 @@
 #ifndef DISCORD_WRAPPER_H
 #define DISCORD_WRAPPER_H
 
-#ifdef DISCORD_APP_ID
-#include "discord_rpc.h"
-#endif
 #include <string>
 #include "utils.h"
+struct DiscordUser;
 class DiscordWrapper {
 public:
 	struct DiscordSecret {
@@ -23,17 +21,21 @@ public:
 		PUZZLE,
 		DECK,
 		DECK_SIDING,
-		CLEAR
+		CLEAR,
+		INITIALIZE,
+		TERMINATE
 	};
 	DiscordWrapper();
 	~DiscordWrapper();
 	bool Initialize(path_string workingDir);
 	void UpdatePresence(PresenceType type);
-	std::string& CreateSecret(bool update) const;
 	bool connected;
 	void Check();
 private:
+	static void Connect();
+	static void Disconnect();
 #ifdef DISCORD_APP_ID
+	std::string& CreateSecret(bool update) const;
 	static void OnReady(const DiscordUser* connectedUser, void* payload);
 	static void OnDisconnected(int errcode, const char* message, void* payload);
 	static void OnError(int errcode, const char* message, void* payload);

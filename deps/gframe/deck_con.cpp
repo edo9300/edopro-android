@@ -46,23 +46,17 @@ static int parse_filter(const wchar_t* pstr, unsigned int* type) {
 }
 
 static bool check_set_code(CardDataC* data, std::vector<unsigned int>& setcodes) {
-	unsigned long long card_setcode = data->setcode;
+	auto card_setcodes = data->setcodes;
 	if (data->alias) {
 		auto aptr = dataManager._datas.find(data->alias);
 		if (aptr != dataManager._datas.end())
-			card_setcode = aptr->second->setcode;
+			card_setcodes = aptr->second->setcodes;
 	}
 	if(setcodes.empty())
-		return !!card_setcode;
+		return card_setcodes.empty();
 	for(auto& set_code : setcodes) {
-		auto sc = card_setcode;
-		int settype = set_code & 0xfff;
-		int setsubtype = set_code & 0xf000;
-		while(sc) {
-			if((sc & 0xfff) == settype && (sc & 0xf000 & setsubtype) == setsubtype)
-				return true;
-			sc = sc >> 16;
-		}
+		if(std::find(card_setcodes.begin(), card_setcodes.end(), set_code) != card_setcodes.end())
+			return true;
 	}
 	return false;
 }
@@ -200,9 +194,11 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 						break;
 					}
 				}
-				if(sel >= 0)
-					mainGame->cbDBDecks->setSelected(sel);
-				else {
+				if(sel >= 0) {
+					mainGame->stACMessage->setText(dataManager.GetSysString(1339).c_str());
+					mainGame->PopupElement(mainGame->wACMessage, 30);
+					break;
+				} else {
 					mainGame->cbDBDecks->addItem(dname);
 					mainGame->cbDBDecks->setSelected(mainGame->cbDBDecks->getItemCount() - 1);
 				}
@@ -221,6 +217,28 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 				mainGame->PopupElement(mainGame->wQuery);
 				mainGame->gMutex.unlock();
 				prev_operation = id;
+				break;
+			}
+			case BUTTON_RENAME_DECK: {
+				int sel = mainGame->cbDBDecks->getSelected();
+				const wchar_t* dname = mainGame->ebDeckname->getText();
+				if(sel == -1 || *dname == 0 || !wcscmp(dname, mainGame->cbDBDecks->getItem(sel)))
+					break;
+				for(size_t i = 0; i < mainGame->cbDBDecks->getItemCount(); ++i) {
+					if(i == sel)continue;
+					if(!wcscmp(dname, mainGame->cbDBDecks->getItem(i))) {
+						mainGame->stACMessage->setText(dataManager.GetSysString(1339).c_str());
+						mainGame->PopupElement(mainGame->wACMessage, 30);
+						return false;
+					}
+				}
+				if(deckManager.RenameDeck(Utils::ParseFilename(mainGame->cbDBDecks->getItem(sel)), Utils::ParseFilename(dname))) {
+					mainGame->cbDBDecks->removeItem(sel);
+					mainGame->cbDBDecks->setSelected(mainGame->cbDBDecks->addItem(dname));
+				} else {
+					mainGame->stACMessage->setText(dataManager.GetSysString(1364).c_str());
+					mainGame->PopupElement(mainGame->wACMessage, 30);
+				}
 				break;
 			}
 			case BUTTON_LEAVE_GAME: {
@@ -829,7 +847,7 @@ void DeckBuilder::FilterCards(bool force_refresh) {
 	results.clear();
 	std::vector<std::wstring> searchterms;
 	if(wcslen(mainGame->ebCardName->getText())) {
-		searchterms = Game::TokenizeString<std::wstring>(Game::StringtoUpper(mainGame->ebCardName->getText()), L"+");
+		searchterms = Utils::TokenizeString<std::wstring>(Utils::ToUpperNoAccents<std::wstring>(mainGame->ebCardName->getText()), L"+");
 	} else
 		searchterms = { L"" };
 	if(FiltersChanged() || force_refresh)
@@ -858,9 +876,9 @@ void DeckBuilder::FilterCards(bool force_refresh) {
 		if(!term.empty()) {
 			if(term.front() == L'@' || term.front() == L'$') {
 				if(term.size() > 1)
-					tokens = Game::TokenizeString<std::wstring>(&term[1], L"*");
+					tokens = Utils::TokenizeString<std::wstring>(&term[1], L"*");
 			} else {
-				tokens = Game::TokenizeString<std::wstring>(term, L"*");
+				tokens = Utils::TokenizeString<std::wstring>(term, L"*");
 			}
 		}
 		std::vector<unsigned int> set_code = dataManager.GetSetCode(tokens);
@@ -983,13 +1001,13 @@ bool DeckBuilder::CheckCard(CardDataC* data, const CardString& text, const wchar
 	}
 	if(tokens.size()) {
 		if(checkchar == L'$') {
-			return Game::CompareStrings(text.name, tokens, true);
+			return Utils::ContainsSubstring(text.name, tokens, true);
 		} else if(checkchar == L'@') {
 			if(set_code.empty() && tokens.size() > 0 && tokens.front() != L"")
 				return false;
 			return check_set_code(data, set_code);
 		} else {
-			return (set_code.size() && check_set_code(data, set_code)) || Game::CompareStrings(text.name, tokens, true) || Game::CompareStrings(text.text, tokens, true);
+			return (set_code.size() && check_set_code(data, set_code)) || Utils::ContainsSubstring(text.name, tokens, true) || Utils::ContainsSubstring(text.text, tokens, true);
 		}
 	}
 	return true;
@@ -1029,7 +1047,7 @@ void DeckBuilder::ClearFilter() {
 void DeckBuilder::SortList() {
 	auto left = results.begin();
 	for(auto it = results.begin(); it != results.end(); ++it) {
-		if(searched_terms.find(Game::StringtoUpper(dataManager.GetName((*it)->code))) != searched_terms.end()) {
+		if(searched_terms.find(Utils::ToUpperNoAccents(dataManager.GetName((*it)->code))) != searched_terms.end()) {
 			std::iter_swap(left, it);
 			++left;
 		}

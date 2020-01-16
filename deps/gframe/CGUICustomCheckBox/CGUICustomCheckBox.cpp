@@ -24,7 +24,7 @@ namespace gui
 //! constructor
 CGUICustomCheckBox::CGUICustomCheckBox(bool checked, IGUIEnvironment* environment, IGUIElement* parent, s32 id, core::rect<s32> rectangle)
 : IGUICheckBox(environment, parent, id, rectangle), checkTime(0), Pressed(false), Checked(checked)
-, Border(false), Background(false)
+, Border(false), Background(false), override_color(NULL)
 {
 	#ifdef _DEBUG
 	setDebugName("CGUICustomCheckBox");
@@ -145,7 +145,7 @@ void CGUICustomCheckBox::draw()
 	IGUISkin* skin = Environment->getSkin();
 	if (skin)
 	{
-#ifdef __ANDROID__
+#if IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
 		video::IVideoDriver* driver = Environment->getVideoDriver();
 		core::rect<s32> frameRect(AbsoluteRect);
 
@@ -188,15 +188,9 @@ void CGUICustomCheckBox::draw()
 			checkRect.UpperLeftCorner.X += height + 5;
 
 			IGUIFont* font = skin->getFont();
-			if (font)
-			{
-				if(Name == "White") {
-					font->draw(Text.c_str(), checkRect,
-						irr::video::SColor(255,255,255,255), false, true, &AbsoluteClippingRect);
-				} else {
-					font->draw(Text.c_str(), checkRect,
-						skin->getColor(isEnabled() ? EGDC_BUTTON_TEXT : EGDC_GRAY_TEXT), false, true, &AbsoluteClippingRect);
-				}
+			if(font) {
+				font->draw(Text.c_str(), checkRect,
+						   override_color != NULL ? override_color : skin->getColor(isEnabled() ? EGDC_BUTTON_TEXT : EGDC_GRAY_TEXT), false, true, &AbsoluteClippingRect);
 			}
 		}
 	}
@@ -218,7 +212,7 @@ bool CGUICustomCheckBox::isChecked() const
 	return Checked;
 }
 
-#ifdef __ANDROID__
+#if IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
 //! Sets whether to draw the background
 void CGUICustomCheckBox::setDrawBackground(bool draw) {
 	Background = draw;
@@ -245,7 +239,7 @@ void CGUICustomCheckBox::serializeAttributes(io::IAttributes* out, io::SAttribut
 {
 	IGUICheckBox::serializeAttributes(out,options);
 	out->addBool("Checked",	Checked);
-#ifdef __ANDROID__
+#if IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
 	out->addBool("Border", Border);
 	out->addBool("Background", Background);
 #endif
@@ -256,12 +250,16 @@ void CGUICustomCheckBox::serializeAttributes(io::IAttributes* out, io::SAttribut
 void CGUICustomCheckBox::deserializeAttributes(io::IAttributes* in, io::SAttributeReadWriteOptions* options=0)
 {
 	Checked = in->getAttributeAsBool ("Checked");
-#ifdef __ANDROID__
+#if IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
 	Border = in->getAttributeAsBool("Border", Border);
 	Background = in->getAttributeAsBool("Background", Background);
 #endif
 
 	IGUICheckBox::deserializeAttributes(in,options);
+}
+
+void CGUICustomCheckBox::setColor(video::SColor color) {
+	override_color = color;
 }
 
 

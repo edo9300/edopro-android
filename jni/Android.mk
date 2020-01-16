@@ -76,6 +76,7 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
 				$(GFRAME_PATH)/generic_duel.cpp \
 				$(GFRAME_PATH)/gframe.cpp \
 				$(GFRAME_PATH)/image_manager.cpp \
+				$(GFRAME_PATH)/logging.cpp \
 				$(GFRAME_PATH)/materials.cpp \
 				$(GFRAME_PATH)/menu_handler.cpp \
 				$(GFRAME_PATH)/netserver.cpp \
@@ -90,6 +91,7 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
 				$(GFRAME_PATH)/sound_manager.cpp \
 				$(GFRAME_PATH)/sound_sdlmixer.cpp \
 				$(GFRAME_PATH)/utils.cpp \
+				$(GFRAME_PATH)/utils_gui.cpp \
 				$(GFRAME_PATH)/windbot.cpp \
 				$(GFRAME_PATH)/windbot_panel.cpp 
 

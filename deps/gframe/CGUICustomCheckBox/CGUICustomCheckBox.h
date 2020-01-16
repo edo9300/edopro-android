@@ -23,6 +23,7 @@ namespace gui
 		CGUICustomCheckBox(bool checked, IGUIEnvironment* environment, IGUIElement* parent, s32 id, core::rect<s32> rectangle);
 
         static IGUICheckBox* addCustomCheckBox(bool checked, IGUIEnvironment* environment, core::rect<s32> rectangle, IGUIElement* parent = 0, s32 id = -1, const wchar_t* text = 0);
+
 		//! set if box is checked
 		virtual void setChecked(bool checked);
 
@@ -58,11 +59,14 @@ namespace gui
 		//! Reads attributes of the element
 		virtual void deserializeAttributes(io::IAttributes* in, io::SAttributeReadWriteOptions* options);
 
+		virtual void setColor(video::SColor color);
+
 	private:
 
 		u32 checkTime;
 		bool Pressed;
 		bool Checked;
+		video::SColor override_color;
 		bool Border;
 		bool Background;
 	};
