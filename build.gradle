@@ -23,7 +23,7 @@ android {
 	defaultConfig {
 		versionCode 1
 		versionName "${System.env.VERSION_STR}.${versionCode}"
-		minSdkVersion 21
+		minSdkVersion 16
 		targetSdkVersion 28
 		applicationId "io.github.edo9300.edopro"
 		manifestPlaceholders = [package: "io.github.edo9300.edopro", project: project.name]
