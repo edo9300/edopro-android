@@ -1,3 +1,4 @@
+#include <fmt/chrono.h>
 #include "config.h"
 #include "menu_handler.h"
 #include "netserver.h"
@@ -9,6 +10,8 @@
 #include "game.h"
 #include "server_lobby.h"
 #include "utils_gui.h"
+#include "CGUIFileSelectListBox/CGUIFileSelectListBox.h"
+#include "CGUITTFont/CGUITTFont.h"
 #ifdef __ANDROID__
 #include "porting_android.h"
 #endif
@@ -64,7 +67,9 @@ void LoadReplay() {
 	mainGame->dField.Clear();
 	mainGame->HideElement(mainGame->wReplay);
 	mainGame->device->setEventReceiver(&mainGame->dField);
-	unsigned int start_turn = _wtoi(mainGame->ebRepStartTurn->getText());
+	unsigned int start_turn;
+	try { start_turn = std::stoi(mainGame->ebRepStartTurn->getText());  }
+	catch(...) { start_turn = 0; }
 	if(start_turn == 1)
 		start_turn = 0;
 	ReplayMode::StartReplay(start_turn, mainGame->chkYrp->isChecked());
@@ -572,8 +577,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->btnExportDeck->setEnabled(replay.IsExportable());
 				std::wstring repinfo;
 				time_t curtime = replay.pheader.seed;
-				tm* st = localtime(&curtime);
-				repinfo.append(fmt::format(L"{}/{}/{} {:02}:{:02}:{:02}\n", st->tm_year + 1900, st->tm_mon + 1, st->tm_mday, st->tm_hour, st->tm_min, st->tm_sec).c_str());
+				repinfo.append(fmt::format(L"{:%Y/%m/%d %H:%M:%S}\n", *std::localtime(&curtime)));
 				auto names = replay.GetPlayerNames();
 				for(int i = 0; i < replay.GetPlayersCount(0); i++) {
 					repinfo.append(names[i] + L"\n");

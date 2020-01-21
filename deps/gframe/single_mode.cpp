@@ -1,8 +1,11 @@
+#include <fmt/chrono.h>
+#include <random>
 #include "single_mode.h"
 #include "duelclient.h"
 #include "game.h"
 #include "core_utils.h"
-#include <random>
+#include "sound_manager.h"
+#include "CGUIFileSelectListBox/CGUIFileSelectListBox.h"
 
 namespace ygo {
 
@@ -211,12 +214,9 @@ restart:
 	}
 	mainGame->soundManager->StopSounds();
 	if(!hand_test && !is_restarting) {
-		time_t nowtime = time(NULL);
-		tm* localedtime = localtime(&nowtime);
-		wchar_t timetext[40];
-		wcsftime(timetext, 40, L"%Y-%m-%d %H-%M-%S", localedtime);
+		auto now = std::time(nullptr);
 		mainGame->gMutex.lock();
-		mainGame->ebRSName->setText(timetext);
+		mainGame->ebRSName->setText(fmt::format(L"{:%Y-%m-%d %H-%M-%S}", *std::localtime(&now)).c_str());
 		mainGame->wReplaySave->setText(dataManager.GetSysString(1340).c_str());
 		mainGame->PopupElement(mainGame->wReplaySave);
 		mainGame->gMutex.unlock();
@@ -319,7 +319,7 @@ bool SingleMode::SinglePlayAnalyze(CoreUtils::Packet packet) {
 			int type = BufferIO::Read<uint8_t>(pbuf);
 			int player = BufferIO::Read<uint8_t>(pbuf);
 			/*uint64_t data = BufferIO::Read<uint64_t>(pbuf);*/
-			if(player == 0)
+			if(player == 0 || type >= HINT_SKILL)
 				ANALYZE;
 			if(type > 0 && type < 6 && type != 4)
 				record = false;

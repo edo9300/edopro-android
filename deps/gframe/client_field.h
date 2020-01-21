@@ -41,6 +41,7 @@ public:
 	std::vector<ClientCard*> activatable_cards;
 	std::vector<ClientCard*> attackable_cards;
 	std::vector<ClientCard*> conti_cards;
+	ClientCard* skills[2];
 	std::vector<std::pair<u64,int>> activatable_descs;
 	std::vector<u64> select_options;
 	std::vector<ChainInfo> chains;
@@ -148,5 +149,7 @@ public:
 //special cards
 #define CARD_MARINE_DOLPHIN	78734254
 #define CARD_TWINKLE_MOSS	13857930
+
+#define LOCATION_SKILL   0x400
 
 #endif //CLIENT_FIELD_H

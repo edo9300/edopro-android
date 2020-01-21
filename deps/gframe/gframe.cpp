@@ -1,8 +1,9 @@
+#include <event2/thread.h>
+#include <memory>
 #include "config.h"
 #include "game.h"
 #include "data_manager.h"
-#include <event2/thread.h>
-#include <memory>
+#include "log.h"
 #ifdef __APPLE__
 #import <CoreFoundation/CoreFoundation.h>
 #include "osx_menu.h"
@@ -26,7 +27,7 @@ void ClickButton(irr::gui::IGUIElement* btn) {
 }
 #ifdef _WIN32
 #ifdef UNICODE
-#pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:wmainCRTStartup") 
+//#pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:wmainCRTStartup") 
 int wmain(int argc, wchar_t* argv[]) {
 #else
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup") 
@@ -40,7 +41,7 @@ int main(int argc, char* argv[]) {
 	porting::initAndroid();
 	porting::initializePathsAndroid();
 	if(chdir(porting::working_directory.c_str())!=0)
-		LOGE("failed to change direcroty");
+		LOGE("failed to change directory");
 #endif
 #ifdef __APPLE__
 	CFURLRef bundle_url = CFBundleCopyBundleURL(CFBundleGetMainBundle());
@@ -67,9 +68,7 @@ int main(int argc, char* argv[]) {
 			if(extension == TEXT("ydk") || extension == TEXT("yrp") || extension == TEXT("yrpx")) {
 				fschar_t exepath[MAX_PATH];
 				GetModuleFileName(NULL, exepath, MAX_PATH);
-				std::wcout << exepath << std::endl;
 				auto path = ygo::Utils::GetFilePath(exepath);
-				std::wcout << path << std::endl;
 				SetCurrentDirectory(path.c_str());
 			}
 #endif //_DEBUG

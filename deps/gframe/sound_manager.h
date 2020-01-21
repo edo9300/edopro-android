@@ -46,11 +46,17 @@ public:
 		WIN,
 		LOSE
 	};
+	enum class CHANT {
+		SUMMON,
+		ATTACK,
+		ACTIVATE
+	};
 	bool Init(double sounds_volume, double music_volume, bool sounds_enabled, bool music_enabled, const path_string& working_directory);
 	void RefreshBGMList();
+	void RefreshChantsList();
 	void PlaySoundEffect(SFX sound);
 	void PlayBGM(BGM scene);
-	bool PlayChant(unsigned int code);
+	bool PlayChant(CHANT chant, unsigned int code);
 	void SetSoundVolume(double volume);
 	void SetMusicVolume(double volume);
 	void EnableSounds(bool enable);
@@ -62,12 +68,11 @@ public:
 
 private:
 	std::vector<std::string> BGMList[8];
-	std::map<unsigned int, std::string> ChantsList;
+	std::map<std::pair<CHANT, unsigned int>, std::string> ChantsList;
 	int bgm_scene = -1;
 	std::mt19937 rnd;
 	std::unique_ptr<SoundBackend> mixer;
 	void RefreshBGMDir(path_string path, BGM scene);
-	void RefreshChantsList();
 	bool soundsEnabled = false;
 	bool musicEnabled = false;
 	std::string working_dir = "./";

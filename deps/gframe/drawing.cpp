@@ -2,12 +2,29 @@
 #include "materials.h"
 #include "image_manager.h"
 #include "deck_manager.h"
-#include "duelclient.h"
+#include "duelclient.h""
+#include "CGUITTFont/CGUITTFont.h"
+#include "CGUIImageButton/CGUIImageButton.h"
+#if 0
+#ifdef __ANDROID__
+#include <GLES/gl.h>
+#include <GLES/glext.h>
+#include <GLES/glplatform.h>
+#elif defined(__APPLE__)
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
+#else
+#include <GL/gl.h>
+#include <GL/glu.h>
+#endif
+#endif
+
+void glLineWidth(float);
 
 namespace ygo {
 void Game::DrawSelectionLine(irr::video::S3DVertex* vec, bool strip, int width, irr::video::SColor color) {
 	if(false) {
-#ifndef __ANDROID__
+#if 0
 		float origin[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 		float cv[4];
 		SColorf conv(color);
@@ -32,9 +49,8 @@ void Game::DrawSelectionLine(irr::video::S3DVertex* vec, bool strip, int width, 
 		glEnable(GL_TEXTURE_2D);
 #endif
 	} else {
-#ifdef __ANDROID__
-		glLineWidth(width + 2);
-#endif
+		if(driver->getDriverType() != irr::video::EDT_DIRECT3D9)
+			glLineWidth(width + 2);
 		driver->setMaterial(matManager.mOutLine);
 		if(strip) {
 			if(linePatternD3D < 15) {
@@ -212,7 +228,7 @@ void Game::DrawBackGround() {
 	if (dField.hovered_location != 0 && dField.hovered_location != 2 && dField.hovered_location != POSITION_HINT
 		&& !(dInfo.duel_field < 4 && dField.hovered_location == LOCATION_MZONE && dField.hovered_sequence > 4)
 		&& !(dInfo.duel_field != 3 && dInfo.duel_field != 5 && dField.hovered_location == LOCATION_SZONE && dField.hovered_sequence > 5)) {
-		S3DVertex *vertex = 0;
+		S3DVertex *vertex = nullptr;
 		if (dField.hovered_location == LOCATION_DECK)
 			vertex = matManager.vFieldDeck[dField.hovered_controler][speed];
 		else if (dField.hovered_location == LOCATION_MZONE) {
@@ -400,6 +416,8 @@ void Game::DrawCards() {
 			DrawCard(pcard);
 		for(auto& pcard : dField.extra[p])
 			DrawCard(pcard);
+		if(dField.skills[p])
+			DrawCard(dField.skills[p]);
 	}
 }
 void Game::DrawCard(ClientCard* pcard) {

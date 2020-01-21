@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "client_field.h"
 #include "math.h"
 #include "network.h"
@@ -9,11 +10,13 @@
 #include "single_mode.h"
 #include "materials.h"
 #include "progressivebuffer.h"
+#include "utils_gui.h"
+#include "sound_manager.h"
+#include "CGUIImageButton/CGUIImageButton.h"
+#include "CGUITTFont/CGUITTFont.h"
 #ifdef __ANDROID__
 #include "porting_android.h"
 #endif
-#include <algorithm>
-#include "utils_gui.h"
 
 namespace ygo {
 
@@ -1464,6 +1467,8 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 				} else if(hovered_location == LOCATION_DECK) {
 					if(deck[hovered_controler].size())
 						mcard = deck[hovered_controler].back();
+				} else if(hovered_location == LOCATION_SKILL) {
+					mcard = skills[hovered_controler];
 				} else {
 					if(mainGame->Resize(327, 8, 630, 51).isPointInside(mousepos))
 						mplayer = 0;
@@ -1504,7 +1509,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 					SetShowMark(mcard, true);
 					if(mcard->code) {
 						mainGame->ShowCardInfo(mcard->code);
-						if(mcard->location & 0xe) {
+						if(mcard->location & (0xe|0x400)) {
 							std::wstring str(dataManager.GetName(mcard->code));
 							if(mcard->type & TYPE_MONSTER) {
 								if(mcard->alias && (mcard->alias < mcard->code - 10 || mcard->alias > mcard->code + 10)
@@ -1912,14 +1917,23 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 				mainGame->device->minimizeWindow();
 			return true;
 		}
-		case irr::KEY_F11: {
-			if(!event.KeyInput.PressedDown)
-				GUIUtils::ToggleFullscreen(mainGame->device, mainGame->is_fullscreen);
+		case irr::KEY_F9: {
+			if (!event.KeyInput.PressedDown) {
+				mainGame->soundManager->StopMusic();
+				mainGame->soundManager->StopSounds();
+				mainGame->soundManager->RefreshBGMList();
+				mainGame->soundManager->RefreshChantsList();
+			}
 			return true;
 		}
 		case irr::KEY_F10: {
 			if (!event.KeyInput.PressedDown)
 				GUIUtils::TakeScreenshot(mainGame->device);
+			return true;
+		}
+		case irr::KEY_F11: {
+			if(!event.KeyInput.PressedDown)
+				GUIUtils::ToggleFullscreen(mainGame->device, mainGame->is_fullscreen);
 			return true;
 		}
 		default: break;
@@ -2010,7 +2024,7 @@ void ClientField::GetHoverField(int x, int y) {
 				hovered_controler = 0;
 				hovered_location = LOCATION_SZONE;
 				hovered_sequence = 5;
-			} else if(boardy >= matManager.vFieldSzone[0][6][field][speed][0].Pos.Y && boardy <= matManager.vFieldSzone[0][6][field][speed][2].Pos.Y) {
+			} else if(field == 0 && boardy >= matManager.vFieldSzone[0][6][field][speed][0].Pos.Y && boardy <= matManager.vFieldSzone[0][6][field][speed][2].Pos.Y) {
 				hovered_controler = 0;
 				hovered_location = LOCATION_SZONE;
 				hovered_sequence = 6;
@@ -2027,6 +2041,9 @@ void ClientField::GetHoverField(int x, int y) {
 			} else if(boardy >= matManager.vFieldDeck[1][speed][2].Pos.Y && boardy <= matManager.vFieldDeck[1][speed][0].Pos.Y) {
 				hovered_controler = 1;
 				hovered_location = LOCATION_DECK;
+			} else if(field == 1 && boardy >= matManager.vSkillZone[0][field][speed][0].Pos.Y && boardy <= matManager.vSkillZone[0][field][speed][2].Pos.Y) {
+				hovered_controler = 0;
+				hovered_location = LOCATION_SKILL;
 			}
 		} else if(field == 0 && boardx >= matManager.vFieldRemove[1][field][speed][1].Pos.X && boardx <= matManager.vFieldRemove[1][field][speed][0].Pos.X) {
 			if(boardy >= matManager.vFieldRemove[1][field][speed][2].Pos.Y && boardy <= matManager.vFieldRemove[1][field][speed][0].Pos.Y) {
@@ -2035,6 +2052,14 @@ void ClientField::GetHoverField(int x, int y) {
 			} else if(boardy >= matManager.vFieldContiAct[speed][0].Y && boardy <= matManager.vFieldContiAct[speed][2].Y) {
 				hovered_controler = 0;
 				hovered_location = POSITION_HINT;
+			} else if(boardy >= matManager.vSkillZone[0][field][speed][0].Pos.Y && boardy <= matManager.vSkillZone[0][field][speed][2].Pos.Y) {
+				hovered_controler = 0;
+				hovered_location = LOCATION_SKILL;
+			}
+		} else if(speed == 1 && boardx >= matManager.vSkillZone[0][field][speed][1].Pos.X && boardx <= matManager.vSkillZone[0][field][speed][2].Pos.X) {
+			if(boardy >= matManager.vSkillZone[0][field][speed][0].Pos.Y && boardy <= matManager.vSkillZone[0][field][speed][2].Pos.Y) {
+				hovered_controler = 0;
+				hovered_location = LOCATION_SKILL;
 			}
 		} else if(field == 1 && boardx >= matManager.vFieldSzone[1][7][field][speed][1].Pos.X && boardx <= matManager.vFieldSzone[1][7][field][speed][2].Pos.X) {
 			if(boardy >= matManager.vFieldSzone[1][7][field][speed][2].Pos.Y && boardy <= matManager.vFieldSzone[1][7][field][speed][0].Pos.Y) {
@@ -2052,7 +2077,7 @@ void ClientField::GetHoverField(int x, int y) {
 			} else if(boardy >= matManager.vFieldGrave[0][field][speed][0].Pos.Y && boardy <= matManager.vFieldGrave[0][field][speed][2].Pos.Y) {
 				hovered_controler = 0;
 				hovered_location = LOCATION_GRAVE;
-			} else if(boardy >= matManager.vFieldSzone[1][6][field][speed][2].Pos.Y && boardy <= matManager.vFieldSzone[1][6][field][speed][0].Pos.Y) {
+			} else if(field == 0 && boardy >= matManager.vFieldSzone[1][6][field][speed][2].Pos.Y && boardy <= matManager.vFieldSzone[1][6][field][speed][0].Pos.Y) {
 				hovered_controler = 1;
 				hovered_location = LOCATION_SZONE;
 				hovered_sequence = 6;
@@ -2070,8 +2095,11 @@ void ClientField::GetHoverField(int x, int y) {
 			} else if(boardy >= matManager.vFieldExtra[1][speed][2].Pos.Y && boardy <= matManager.vFieldExtra[1][speed][0].Pos.Y) {
 				hovered_controler = 1;
 				hovered_location = LOCATION_EXTRA;
+			} else if(field == 1 && boardy >= matManager.vSkillZone[1][field][speed][2].Pos.Y && boardy <= matManager.vSkillZone[1][field][speed][0].Pos.Y) {
+				hovered_controler = 1;
+				hovered_location = LOCATION_SKILL;
 			}
-		} else if(field == 1 && boardx >= matManager.vFieldSzone[0][7][field][speed][0].Pos.X && boardx <= matManager.vFieldSzone[0][7][field][speed][1].Pos.X) {
+		} else if(speed == 0 && field == 1 && boardx >= matManager.vFieldSzone[0][7][field][speed][1].Pos.X && boardx <= matManager.vFieldSzone[0][7][field][speed][0].Pos.X) {
 			if(boardy >= matManager.vFieldSzone[0][7][field][speed][0].Pos.Y && boardy <= matManager.vFieldSzone[0][7][field][speed][2].Pos.Y) {
 				hovered_controler = 0;
 				hovered_location = LOCATION_SZONE;
@@ -2081,6 +2109,14 @@ void ClientField::GetHoverField(int x, int y) {
 			if(boardy >= matManager.vFieldRemove[0][field][speed][0].Pos.Y && boardy <= matManager.vFieldRemove[0][field][speed][2].Pos.Y) {
 				hovered_controler = 0;
 				hovered_location = LOCATION_REMOVED;
+			} else if(field == 0 && boardy >= matManager.vSkillZone[1][field][speed][2].Pos.Y && boardy <= matManager.vSkillZone[1][field][speed][0].Pos.Y) {
+				hovered_controler = 1;
+				hovered_location = LOCATION_SKILL;
+			}
+		} else if(field == 1 && speed == 1 && boardx >= matManager.vSkillZone[1][field][speed][1].Pos.X && boardx <= matManager.vSkillZone[1][field][speed][0].Pos.X){
+			if(boardy >= matManager.vSkillZone[1][field][speed][2].Pos.Y && boardy <= matManager.vSkillZone[1][field][speed][0].Pos.Y) {
+				hovered_controler = 1;
+				hovered_location = LOCATION_SKILL;
 			}
 		} else if(boardx >= matManager.vFieldMzone[0][0][0].Pos.X && boardx <= matManager.vFieldMzone[0][4][1].Pos.X) {
 			int sequence = (boardx - matManager.vFieldMzone[0][0][0].Pos.X) / (matManager.vFieldMzone[0][0][1].Pos.X - matManager.vFieldMzone[0][0][0].Pos.X);
