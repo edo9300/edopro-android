@@ -16,6 +16,7 @@
 #include <map>
 #include <unordered_set>
 #include <unordered_map>
+#include <tuple>
 
 class card;
 class duel;
@@ -228,7 +229,7 @@ public:
 	void reset(uint32 id, uint32 reset_type);
 	void reset_effect_count();
 	void refresh_disable_status();
-	uint8 refresh_control_status();
+	std::tuple<uint8, effect*> refresh_control_status();
 
 	void count_turn(uint16 ct);
 	void create_relation(card* target, uint32 reset);
@@ -266,7 +267,6 @@ public:
 	effect* is_affected_by_effect(int32 code);
 	effect* is_affected_by_effect(int32 code, card* target);
 	int32 get_card_effect(uint32 code);
-	effect* check_control_effect();
 	int32 fusion_check(group* fusion_m, group* cg, uint32 chkf);
 	void fusion_filter_valid(group* fusion_m, group* cg, uint32 chkf, effect_set* eset);
 	int32 check_fusion_substitute(card* fcard);

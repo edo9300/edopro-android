@@ -63,8 +63,8 @@ restart:
 	mainGame->dInfo.startlp = start_lp;
 	mainGame->dInfo.strLP[0] = fmt::to_wstring(mainGame->dInfo.lp[0]);
 	mainGame->dInfo.strLP[1] = fmt::to_wstring(mainGame->dInfo.lp[1]);
-	mainGame->dInfo.hostname.push_back(mainGame->ebNickName->getText());
-	mainGame->dInfo.clientname.push_back(L"");
+	mainGame->dInfo.hostname = { mainGame->ebNickName->getText() };
+	mainGame->dInfo.clientname = { L"" };
 	mainGame->dInfo.player_type = 0;
 	mainGame->dInfo.turn = 0;
 	bool loaded = true;
@@ -98,7 +98,7 @@ restart:
 			OCG_LoadScript(pduel, cmd, sizeof(cmd)-1, " ");
 		} else {
 			if(!mainGame->LoadScript(pduel, script_name)) {
-				script_name = Utils::ToUTF8IfNeeded(TEXT("./puzzles/") + open_file_name);
+				script_name = Utils::ToUTF8IfNeeded(EPRO_TEXT("./puzzles/") + open_file_name);
 				if(!mainGame->LoadScript(pduel, script_name))
 					loaded = false;
 			}

@@ -11,6 +11,7 @@
 #include <SColor.h>
 #include <rect.h>
 #include <EGUIElementTypes.h>
+#include "image_manager.h"
 #include "client_field.h"
 #include "deck_con.h"
 #include "menu_handler.h"
@@ -45,7 +46,7 @@ namespace irr {
 	}
 	namespace video {
 		class IVideoDriver;
-		class S3DVertex;
+		struct S3DVertex;
 		class ITexture;
 	}
 	namespace io {
@@ -81,24 +82,26 @@ struct Config {
 	std::wstring numfont;
 	std::wstring roompass;
 	//settings
-	int chkMAutoPos;
-	int chkSTAutoPos;
-	int chkRandomPos;
-	int chkAutoChain;
-	int chkWaitChain;
-	int chkIgnore1;
-	int chkIgnore2;
-	int chkHideSetname;
-	int chkHideHintButton;
-	int draw_field_spell;
-	int quick_animation;
+	bool chkMAutoPos;
+	bool chkSTAutoPos;
+	bool chkRandomPos;
+	bool chkAutoChain;
+	bool chkWaitChain;
+	bool chkIgnore1;
+	bool chkIgnore2;
+	bool chkHideSetname;
+	bool chkHideHintButton;
+	bool draw_field_spell;
+	bool quick_animation;
 
-	int chkAnime;
+	bool scale_background;
+	bool accurate_bg_resize;
+	bool chkAnime;
 	bool enablemusic;
 	bool enablesound;
 	double musicVolume;
 	double soundVolume;
-	int skin_index;
+	path_string skin;
 };
 
 struct DuelInfo {
@@ -153,6 +156,7 @@ class Game {
 public:
 	bool Initialize();
 	void MainLoop();
+	void ApplySkin(const path_string& skin, bool reload = false);
 	void LoadZipArchives();
 	void LoadExpansionDB();
 	void LoadArchivesDB();
@@ -175,7 +179,7 @@ public:
 	void DrawStackIndicator(const std::wstring& text, irr::video::S3DVertex* v, bool opponent);
 	void DrawGUI();
 	void DrawSpec();
-	void DrawBackImage(irr::video::ITexture* texture);
+	void DrawBackImage(irr::video::ITexture* texture, bool resized);
 	void ShowElement(irr::gui::IGUIElement* element, int autoframe = 0);
 	void HideElement(irr::gui::IGUIElement* element, bool set_action = false);
 	void PopupElement(irr::gui::IGUIElement* element, int hideframe = 0);
@@ -188,7 +192,7 @@ public:
 	void AddGithubRepositoryStatusWindow(const RepoManager::GitRepo& repo);
 	void LoadGithubRepositories();
 	void LoadServers();
-	void ShowCardInfo(int code, bool resize = false);
+	void ShowCardInfo(int code, bool resize = false, ImageManager::imgType type = ImageManager::imgType::ART);
 	void ClearCardInfo(int player = 0);
 	void AddChatMsg(const std::wstring& msg, int player, int type);
 	void AddLog(const std::wstring& msg, int param = 0);
@@ -197,7 +201,7 @@ public:
 	void ClearTextures();
 	void CloseDuelWindow();
 	void PopupMessage(const std::wstring& text, const std::wstring& caption = L"");
-	static irr::video::SColor GetSkinColor(const std::wstring& value, irr::video::SColor fallback = NULL);
+	static irr::video::SColor GetSkinColor(const std::wstring& value, irr::video::SColor fallback);
 
 	uint8 LocalPlayer(uint8 player);
 	std::wstring LocalName(int local_player);
@@ -367,6 +371,7 @@ public:
 	irr::gui::IGUIButton* btnClearChat;
 	irr::gui::IGUIButton* btnExpandChat;
 	irr::gui::IGUIButton* btnSaveLog;
+	irr::gui::IGUIButton* btnReloadSkin;
 	irr::gui::IGUITab* tabRepositories;
 	irr::gui::IGUIContextMenu* mTabRepositories;
 	irr::gui::Panel* tabSystem;
@@ -382,6 +387,7 @@ public:
 	irr::gui::IGUICheckBox* chkEnableMusic;
 	irr::gui::IGUIScrollBar* scrMusicVolume;
 	irr::gui::IGUIScrollBar* scrSoundVolume;
+	irr::gui::IGUIComboBox* cbCurrentSkin;
 	//main menu
 	irr::gui::IGUIWindow* wMainMenu;
 	irr::gui::IGUIWindow* wCommitsLog;
@@ -399,6 +405,7 @@ public:
 	irr::gui::IGUIButton* btnModeExit;
 	irr::gui::IGUIButton* btnCommitLogExit;
 	irr::gui::IGUIStaticText* stCommitLog;
+	irr::gui::IGUICheckBox* chkCommitLogExpand;
 	//lan
 	irr::gui::IGUIWindow* wLanWindow;
 	irr::gui::IGUIEditBox* ebNickName;
@@ -446,6 +453,8 @@ public:
 	irr::gui::IGUIEditBox* ebHostPort;
 	irr::gui::IGUIStaticText* stHostNotes;
 	irr::gui::IGUIEditBox* ebHostNotes;
+	irr::gui::IGUIStaticText* stVersus;
+	irr::gui::IGUIStaticText* stBestof;
 	//host panel
 	irr::gui::IGUIWindow* wHostPrepare;
 	irr::gui::IGUIWindow* wHostPrepare2;

@@ -7,8 +7,14 @@
 #include <fstream>
 #include <curl/curl.h>
 #ifdef __ANDROID__
+#include <COGLES2ExtensionHandler.h>
+#include <COGLESExtensionHandler.h>
+#include <COGLES2Driver.h>
+#include <COGLESDriver.h>
 #include "porting_android.h"
 #endif
+
+#define BASE_PATH EPRO_TEXT("textures/")
 
 namespace ygo {
 
@@ -17,52 +23,54 @@ ImageManager imageManager;
 void ImageManager::AddDownloadResource(PicSource src) {
 	pic_urls.push_back(src);
 }
-
+#define GET(obj,fun1,fun2) obj=fun1; if(!obj) obj=fun2;
+#define GET_TEXTURE_SIZED(obj,path,w,h) GET(obj,GetTextureFromFile(BASE_PATH path".png",mainGame->Scale(w),mainGame->Scale(h)),GetTextureFromFile(BASE_PATH path".jpg",mainGame->Scale(w),mainGame->Scale(h)))
+#define GET_TEXTURE(obj,path) GET(obj,driver->getTexture(BASE_PATH path".png"),driver->getTexture(BASE_PATH path".jpg"))
 bool ImageManager::Initial() {
 	timestamp_id = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	tCover[0] = GetTextureFromFile(TEXT("textures/cover.jpg"), mainGame->Scale(CARD_IMG_WIDTH), mainGame->Scale(CARD_IMG_HEIGHT));
-	tCover[1] = GetTextureFromFile(TEXT("textures/cover2.jpg"), mainGame->Scale(CARD_IMG_WIDTH), mainGame->Scale(CARD_IMG_HEIGHT));
+	GET_TEXTURE_SIZED(tCover[0],"cover", CARD_IMG_WIDTH, CARD_IMG_HEIGHT)
+	GET_TEXTURE_SIZED(tCover[1],"cover2", CARD_IMG_WIDTH, CARD_IMG_HEIGHT)
 	if(!tCover[1])
 		tCover[1] = tCover[0];
-	tUnknown = driver->getTexture(TEXT("textures/unknown.jpg"));
-	tAct = driver->getTexture(TEXT("textures/act.png"));
-	tAttack = driver->getTexture(TEXT("textures/attack.png"));
-	tChain = driver->getTexture(TEXT("textures/chain.png"));
-	tNegated = driver->getTexture(TEXT("textures/negated.png"));
-	tNumber = driver->getTexture(TEXT("textures/number.png"));
-	tLPBar = driver->getTexture(TEXT("textures/lp.png"));
-	tLPFrame = driver->getTexture(TEXT("textures/lpf.png"));
-	tMask = driver->getTexture(TEXT("textures/mask.png"));
-	tEquip = driver->getTexture(TEXT("textures/equip.png"));
-	tTarget = driver->getTexture(TEXT("textures/target.png"));
-	tChainTarget = driver->getTexture(TEXT("textures/chaintarget.png"));
-	tLim = driver->getTexture(TEXT("textures/lim.png"));
-	tHand[0] = GetTextureFromFile(TEXT("textures/f1.jpg"), mainGame->Scale(89), mainGame->Scale(128));
-	tHand[1] = GetTextureFromFile(TEXT("textures/f2.jpg"), mainGame->Scale(89), mainGame->Scale(128));
-	tHand[2] = GetTextureFromFile(TEXT("textures/f3.jpg"), mainGame->Scale(89), mainGame->Scale(128));
-	tBackGround = driver->getTexture(TEXT("textures/bg.jpg"));
-	tBackGround_menu = driver->getTexture(TEXT("textures/bg_menu.jpg"));
+	GET_TEXTURE(tUnknown,"unknown")
+	GET_TEXTURE(tAct, "act");
+	GET_TEXTURE(tAttack, "attack");
+	GET_TEXTURE(tChain, "chain");
+	GET_TEXTURE(tNegated, "negated");
+	GET_TEXTURE(tNumber, "number");
+	GET_TEXTURE(tLPBar, "lp");
+	GET_TEXTURE(tLPFrame, "lpf");
+	GET_TEXTURE(tMask, "mask");
+	GET_TEXTURE(tEquip, "equip");
+	GET_TEXTURE(tTarget, "target");
+	GET_TEXTURE(tChainTarget, "chaintarget");
+	GET_TEXTURE(tLim, "lim");
+	GET_TEXTURE_SIZED(tHand[0], "f1", 89, 128)
+	GET_TEXTURE_SIZED(tHand[1], "f2", 89, 128)
+	GET_TEXTURE_SIZED(tHand[2], "f3", 89, 128)
+	GET_TEXTURE(tBackGround, "bg")
+	GET_TEXTURE(tBackGround_menu, "bg_menu")
 	if(!tBackGround_menu)
 		tBackGround_menu = tBackGround;
-	tBackGround_deck = driver->getTexture(TEXT("textures/bg_deck.jpg"));
+	GET_TEXTURE(tBackGround_deck, "bg_deck")
 	if(!tBackGround_deck)
 		tBackGround_deck = tBackGround;
-	tField[0][0] = driver->getTexture(TEXT("textures/field2.png"));
-	tFieldTransparent[0][0] = driver->getTexture(TEXT("textures/field-transparent2.png"));
-	tField[0][1] = driver->getTexture(TEXT("textures/field3.png"));
-	tFieldTransparent[0][1] = driver->getTexture(TEXT("textures/field-transparent3.png"));
-	tField[0][2] = driver->getTexture(TEXT("textures/field.png"));
-	tFieldTransparent[0][2] = driver->getTexture(TEXT("textures/field-transparent.png"));
-	tField[0][3] = driver->getTexture(TEXT("textures/field4.png"));
-	tFieldTransparent[0][3] = driver->getTexture(TEXT("textures/field-transparent4.png"));
-	tField[1][0] = driver->getTexture(TEXT("textures/fieldSP2.png"));
-	tFieldTransparent[1][0] = driver->getTexture(TEXT("textures/field-transparentSP2.png"));
-	tField[1][1] = driver->getTexture(TEXT("textures/fieldSP3.png"));
-	tFieldTransparent[1][1] = driver->getTexture(TEXT("textures/field-transparentSP3.png"));
-	tField[1][2] = driver->getTexture(TEXT("textures/fieldSP.png"));
-	tFieldTransparent[1][2] = driver->getTexture(TEXT("textures/field-transparentSP.png"));
-	tField[1][3] = driver->getTexture(TEXT("textures/fieldSP4.png"));
-	tFieldTransparent[1][3] = driver->getTexture(TEXT("textures/field-transparentSP4.png"));
+	GET_TEXTURE(tField[0][0], "field2");
+	GET_TEXTURE(tFieldTransparent[0][0], "field-transparent2");
+	GET_TEXTURE(tField[0][1], "field3");
+	GET_TEXTURE(tFieldTransparent[0][1], "field-transparent3");
+	GET_TEXTURE(tField[0][2], "field");
+	GET_TEXTURE(tFieldTransparent[0][2], "field-transparent");
+	GET_TEXTURE(tField[0][3], "field4");
+	GET_TEXTURE(tFieldTransparent[0][3], "field-transparent4");
+	GET_TEXTURE(tField[1][0], "fieldSP2");
+	GET_TEXTURE(tFieldTransparent[1][0], "field-transparentSP2");
+	GET_TEXTURE(tField[1][1], "fieldSP3");
+	GET_TEXTURE(tFieldTransparent[1][1], "field-transparentSP3");
+	GET_TEXTURE(tField[1][2], "fieldSP");
+	GET_TEXTURE(tFieldTransparent[1][2], "field-transparentSP");
+	GET_TEXTURE(tField[1][3], "fieldSP4");
+	GET_TEXTURE(tFieldTransparent[1][3], "field-transparentSP4");
 	sizes[0].first = CARD_IMG_WIDTH * mainGame->gameConf.dpi_scale;
 	sizes[0].second = CARD_IMG_HEIGHT * mainGame->gameConf.dpi_scale;
 	sizes[1].first = CARD_IMG_WIDTH * mainGame->window_scale.X * mainGame->gameConf.dpi_scale;
@@ -75,6 +83,7 @@ bool ImageManager::Initial() {
 	}
 	return true;
 }
+#undef GET_TEXTURE
 void ImageManager::SetDevice(irr::IrrlichtDevice* dev) {
 	device = dev;
 	driver = dev->getVideoDriver();
@@ -92,16 +101,17 @@ void ImageManager::ClearTexture(bool resize) {
 		sizes[1].second = CARD_IMG_HEIGHT * mainGame->window_scale.Y * mainGame->gameConf.dpi_scale;
 		sizes[2].first = CARD_THUMB_WIDTH * mainGame->window_scale.X * mainGame->gameConf.dpi_scale;
 		sizes[2].second = CARD_THUMB_HEIGHT * mainGame->window_scale.Y * mainGame->gameConf.dpi_scale;
-		auto tmp_cover = GetTextureFromFile(TEXT("textures/cover.jpg"), sizes[1].first, sizes[1].second);
-		if(tmp_cover) {
-			driver->removeTexture(tCover[0]);
-			tCover[0] = tmp_cover;
-		}
-		tmp_cover = GetTextureFromFile(TEXT("textures/cover2.jpg"), sizes[1].first, sizes[1].second);
-		if(tmp_cover) {
-			driver->removeTexture(tCover[1]);
-			tCover[1] = tmp_cover;
-		}
+		irr::video::ITexture* tmp_cover = nullptr;
+#undef GET_TEXTURE_SIZED
+#define GET_TEXTURE_SIZED(obj,path) GET(tmp_cover,GetTextureFromFile(BASE_PATH path".png",sizes[1].first,sizes[1].second),GetTextureFromFile(BASE_PATH path".jpg",sizes[1].first,sizes[1].second))\
+										if(tmp_cover) {\
+											driver->removeTexture(obj);\
+											obj = tmp_cover;\
+										}
+		GET_TEXTURE_SIZED(tCover[0], "cover");
+		GET_TEXTURE_SIZED(tCover[1], "cover2");
+#undef GET_TEXTURE_SIZED
+#undef GET
 	}
 	if(!resize) {
 		ClearCachedTextures(resize);
@@ -134,7 +144,7 @@ void ImageManager::RemoveTexture(int code) {
 				}\
 				dest[it->first] = driver->addTexture(pair.second.c_str(), pair.first);\
 				pair.first->drop();\
-			} else if(pair.second != TEXT("wait for download"))\
+			} else if(pair.second != EPRO_TEXT("wait for download"))\
 				dest[it->first] = nullptr;\
 			it = src->erase(it);\
 			continue;\
@@ -162,7 +172,7 @@ void ImageManager::RefreshCachedTextures() {
 					}
 					tCovers[it->first] = driver->addTexture(pair.second.c_str(), pair.first);
 					pair.first->drop();
-				} else if(pair.second != TEXT("wait for download"))
+				} else if(pair.second != EPRO_TEXT("wait for download"))
 					tCovers[it->first] = nullptr;
 				it = loading_pics[3]->erase(it);
 				continue;
@@ -224,14 +234,14 @@ size_t write_data(char *ptr, size_t size, size_t nmemb, void *userdata) {
 const irr::fschar_t* GetExtension(char* header) {
 	int res = CheckImageHeader(header);
 	if(res == PNG_FILE)
-		return TEXT(".png");
+		return EPRO_TEXT(".png");
 	else if(res == JPG_FILE)
-		return TEXT(".jpg");
-	return TEXT("");
+		return EPRO_TEXT(".jpg");
+	return EPRO_TEXT("");
 }
 void ImageManager::DownloadPic() {
-	path_string dest_folder;// = fmt::format(TEXT("./pics/{}"), code);
-	path_string name;// = fmt::format(TEXT("./pics/temp/{}"), code);
+	path_string dest_folder;// = fmt::format(EPRO_TEXT("./pics/{}"), code);
+	path_string name;// = fmt::format(EPRO_TEXT("./pics/temp/{}"), code);
 	path_string ext;
 	while(!stop_threads) {
 		if(to_download.size() == 0) {
@@ -250,23 +260,23 @@ void ImageManager::DownloadPic() {
 		downloading_images[type][file.code].status = DOWNLOADING;
 		downloading.push_back(std::move(file));
 		pic_download.unlock();
-		name = fmt::format(TEXT("./pics/temp/{}"), code);
+		name = fmt::format(EPRO_TEXT("./pics/temp/{}"), code);
 		if(type == THUMB)
 			type = ART;
 		switch(type) {
 			case ART:
 			case THUMB: {
-				dest_folder = fmt::format(TEXT("./pics/{}"), code);
+				dest_folder = fmt::format(EPRO_TEXT("./pics/{}"), code);
 				break;
 			}
 			case FIELD: {
-				dest_folder = fmt::format(TEXT("./pics/field/{}"), code);
-				name.append(TEXT("_f"));
+				dest_folder = fmt::format(EPRO_TEXT("./pics/field/{}"), code);
+				name.append(EPRO_TEXT("_f"));
 				break;
 			}
 			case COVER: {
-				dest_folder = fmt::format(TEXT("./pics/cover/{}"), code);
-				name.append(TEXT("_c"));
+				dest_folder = fmt::format(EPRO_TEXT("./pics/cover/{}"), code);
+				name.append(EPRO_TEXT("_c"));
 				break;
 			}
 		}
@@ -321,7 +331,7 @@ void ImageManager::AddToDownloadQueue(int code, imgType type) {
 	pic_download.lock();
 	if(downloading_images[index].find(code) == downloading_images[index].end()) {
 		downloading_images[index][code].status = DOWNLOADING;
-		to_download.push(downloadParam{ code, type, NONE, TEXT("") });
+		to_download.push(downloadParam{ code, type, NONE, EPRO_TEXT("") });
 	}
 	pic_download.unlock();
 	cv.notify_one();
@@ -341,7 +351,7 @@ path_string ImageManager::GetDownloadPath(int code, imgType type) {
 	int index = static_cast<int>(type);
 	std::lock_guard<std::mutex> lk(pic_download);
 	if(downloading_images[index].find(code) == downloading_images[index].end())
-		return TEXT("");
+		return EPRO_TEXT("");
 	return downloading_images[index][code].path;
 }
 void ImageManager::ClearCachedTextures(bool resize) {
@@ -474,12 +484,12 @@ ImageManager::image_path ImageManager::LoadCardTexture(int code, imgType type, s
 	if(type == THUMB)
 		type = ART;
 	for(auto& path : (type == ART) ? mainGame->pic_dirs : mainGame->cover_dirs) {
-		for(auto extension : { TEXT(".png"), TEXT(".jpg") }) {
+		for(auto extension : { EPRO_TEXT(".png"), EPRO_TEXT(".jpg") }) {
 			if(timestamp_id != source_timestamp_id.load())
-				return std::make_pair(nullptr, TEXT("fail"));
+				return std::make_pair(nullptr, EPRO_TEXT("fail"));
 			irr::io::IReadFile* reader = nullptr;
-			if(path == TEXT("archives")) {
-				reader = Utils::FindandOpenFileFromArchives((type == ART) ? TEXT("pics") : TEXT("pics/cover"), fmt::format(TEXT("{}{}"), code, extension));
+			if(path == EPRO_TEXT("archives")) {
+				reader = Utils::FindandOpenFileFromArchives((type == ART) ? EPRO_TEXT("pics/") : EPRO_TEXT("pics/cover/"), fmt::format(EPRO_TEXT("{}{}"), code, extension));
 				if(!reader)
 					continue;
 			}
@@ -487,16 +497,16 @@ ImageManager::image_path ImageManager::LoadCardTexture(int code, imgType type, s
 				width = _width;
 				height = _height;
 			}
-			auto file = reader ? reader->getFileName().c_str() : fmt::format(TEXT("{}{}{}"), path, code, extension);
+			auto file = reader ? reader->getFileName().c_str() : fmt::format(EPRO_TEXT("{}{}{}"), path, code, extension);
 			__repeat:
-			if(img = GetTextureImageFromFile(file.c_str(), width, height, timestamp_id, std::ref(source_timestamp_id), reader)) {
+			if((img = GetTextureImageFromFile(file.c_str(), width, height, timestamp_id, std::ref(source_timestamp_id), reader))) {
 				if(timestamp_id != source_timestamp_id.load()) {
 					img->drop();
 					if(reader) {
 						reader->drop();
 						reader = nullptr;
 					}
-					return std::make_pair(nullptr, TEXT("fail"));
+					return std::make_pair(nullptr, EPRO_TEXT("fail"));
 				}
 				if(width != _width || height != _height) {
 					img->drop();
@@ -515,7 +525,7 @@ ImageManager::image_path ImageManager::LoadCardTexture(int code, imgType type, s
 					reader->drop();
 					reader = nullptr;
 				}
-				return std::make_pair(nullptr, TEXT("fail"));
+				return std::make_pair(nullptr, EPRO_TEXT("fail"));
 			}
 			if(reader) {
 				reader->drop();
@@ -526,7 +536,7 @@ ImageManager::image_path ImageManager::LoadCardTexture(int code, imgType type, s
 	if(GetDownloadStatus(code, type) == NONE) {
 		AddToDownloadQueue(code, type);
 	}
-	return std::make_pair(nullptr, TEXT("wait for download"));
+	return std::make_pair(nullptr, EPRO_TEXT("wait for download"));
 }
 irr::video::ITexture* ImageManager::GetTextureCard(int code, imgType type, bool wait, bool fit, int* chk) {
 	if(chk)
@@ -552,9 +562,10 @@ irr::video::ITexture* ImageManager::GetTextureCard(int code, imgType type, bool 
 				size_index = 0;
 				return tCovers;
 			}
-			case FIELD: /*should never come here*/ {
+			// Should never come to these last cases
+			case FIELD:
+			default:
 				return tMap[0];
-			}
 		}
 	}();
 	if(code == 0)
@@ -617,10 +628,10 @@ irr::video::ITexture* ImageManager::GetTextureField(int code) {
 				return nullptr;
 		} else {
 			for(auto& path : mainGame->field_dirs) {
-				for(auto extension : { TEXT(".png"), TEXT(".jpg") }) {
+				for(auto extension : { EPRO_TEXT(".png"), EPRO_TEXT(".jpg") }) {
 					irr::io::IReadFile* reader = nullptr;
-					if(path == TEXT("archives")) {
-						reader = Utils::FindandOpenFileFromArchives(TEXT("pics/field"), fmt::format(TEXT("{}{}"), code, extension));
+					if(path == EPRO_TEXT("archives")) {
+						reader = Utils::FindandOpenFileFromArchives(EPRO_TEXT("pics/field/"), fmt::format(EPRO_TEXT("{}{}"), code, extension));
 						if(!reader)
 							continue;
 						img = driver->getTexture(reader);
@@ -628,7 +639,7 @@ irr::video::ITexture* ImageManager::GetTextureField(int code) {
 						if(img)
 							break;
 					} else {
-						if(img = driver->getTexture(fmt::format(TEXT("{}{}{}"), path, code, extension).c_str()))
+						if((img = driver->getTexture(fmt::format(EPRO_TEXT("{}{}{}"), path, code, extension).c_str())))
 							break;
 					}
 				}
@@ -642,4 +653,259 @@ irr::video::ITexture* ImageManager::GetTextureField(int code) {
 	}
 	return (tit->second) ? tit->second : nullptr;
 }
+
+
+/*
+From minetest: Copyright (C) 2015 Aaron Suen <warr1024@gmail.com>
+https://github.com/minetest/minetest/blob/5506e97ed897dde2d4820fe1b021a4622bae03b3/src/client/guiscalingfilter.cpp
+originally under LGPL2.1+
+*/
+
+
+
+/* Fill in RGB values for transparent pixels, to correct for odd colors
+ * appearing at borders when blending.  This is because many PNG optimizers
+ * like to discard RGB values of transparent pixels, but when blending then
+ * with non-transparent neighbors, their RGB values will shpw up nonetheless.
+ *
+ * This function modifies the original image in-place.
+ *
+ * Parameter "threshold" is the alpha level below which pixels are considered
+ * transparent.  Should be 127 for 3d where alpha is threshold, but 0 for
+ * 2d where alpha is blended.
+ */
+void imageCleanTransparent(irr::video::IImage *src, irr::u32 threshold) {
+	irr::core::dimension2d<irr::u32> dim = src->getDimension();
+
+	// Walk each pixel looking for fully transparent ones.
+	// Note: loop y around x for better cache locality.
+	for(irr::u32 ctry = 0; ctry < dim.Height; ctry++)
+		for(irr::u32 ctrx = 0; ctrx < dim.Width; ctrx++) {
+
+			// Ignore opaque pixels.
+			irr::video::SColor c = src->getPixel(ctrx, ctry);
+			if(c.getAlpha() > threshold)
+				continue;
+
+			// Sample size and total weighted r, g, b values.
+			irr::u32 ss = 0, sr = 0, sg = 0, sb = 0;
+
+			// Walk each neighbor pixel (clipped to image bounds).
+			for(irr::u32 sy = (ctry < 1) ? 0 : (ctry - 1);
+				sy <= (ctry + 1) && sy < dim.Height; sy++)
+				for(irr::u32 sx = (ctrx < 1) ? 0 : (ctrx - 1);
+					sx <= (ctrx + 1) && sx < dim.Width; sx++) {
+
+				// Ignore transparent pixels.
+				irr::video::SColor d = src->getPixel(sx, sy);
+				if(d.getAlpha() <= threshold)
+					continue;
+
+				// Add RGB values weighted by alpha.
+				irr::u32 a = d.getAlpha();
+				ss += a;
+				sr += a * d.getRed();
+				sg += a * d.getGreen();
+				sb += a * d.getBlue();
+			}
+
+			// If we found any neighbor RGB data, set pixel to average
+			// weighted by alpha.
+			if(ss > 0) {
+				c.setRed(sr / ss);
+				c.setGreen(sg / ss);
+				c.setBlue(sb / ss);
+				src->setPixel(ctrx, ctry, c);
+			}
+		}
+}
+
+/* Scale a region of an image into another image, using nearest-neighbor with
+ * anti-aliasing; treat pixels as crisp rectangles, but blend them at boundaries
+ * to prevent non-integer scaling ratio artifacts.  Note that this may cause
+ * some blending at the edges where pixels don't line up perfectly, but this
+ * filter is designed to produce the most accurate results for both upscaling
+ * and downscaling.
+ */
+void imageScaleNNAAUnthreaded(irr::video::IImage *src, const irr::core::rect<irr::s32> &srcrect, irr::video::IImage *dest) {
+	double sx, sy, minsx, maxsx, minsy, maxsy, area, ra, ga, ba, aa, pw, ph, pa;
+	irr::u32 dy, dx;
+	irr::video::SColor pxl;
+
+	// Cache rectsngle boundaries.
+	double sox = srcrect.UpperLeftCorner.X * 1.0;
+	double soy = srcrect.UpperLeftCorner.Y * 1.0;
+	double sw = srcrect.getWidth() * 1.0;
+	double sh = srcrect.getHeight() * 1.0;
+
+	// Walk each destination image pixel.
+	// Note: loop y around x for better cache locality.
+	irr::core::dimension2d<irr::u32> dim = dest->getDimension();
+	for(dy = 0; dy < dim.Height; dy++)
+		for(dx = 0; dx < dim.Width; dx++) {
+
+			// Calculate floating-point source rectangle bounds.
+			// Do some basic clipping, and for mirrored/flipped rects,
+			// make sure min/max are in the right order.
+			minsx = sox + (dx * sw / dim.Width);
+			minsx = std::min(std::max(minsx, 0.0), sw);
+			maxsx = minsx + sw / dim.Width;
+			maxsx = std::min(std::max(maxsx, 0.0), sw);
+			if(minsx > maxsx)
+				std::swap(minsx, maxsx);
+			minsy = soy + (dy * sh / dim.Height);
+			minsy = std::min(std::max(minsy, 0.0), sh);
+			maxsy = minsy + sh / dim.Height;
+			maxsy = std::min(std::max(maxsy, 0.0), sh);
+			if(minsy > maxsy)
+				std::swap(minsy, maxsy);
+
+			// Total area, and integral of r, g, b values over that area,
+			// initialized to zero, to be summed up in next loops.
+			area = 0;
+			ra = 0;
+			ga = 0;
+			ba = 0;
+			aa = 0;
+
+			// Loop over the integral pixel positions described by those bounds.
+			for(sy = floor(minsy); sy < maxsy; sy++)
+				for(sx = floor(minsx); sx < maxsx; sx++) {
+
+					// Calculate width, height, then area of dest pixel
+					// that's covered by this source pixel.
+					pw = 1;
+					if(minsx > sx)
+						pw += sx - minsx;
+					if(maxsx < (sx + 1))
+						pw += maxsx - sx - 1;
+					ph = 1;
+					if(minsy > sy)
+						ph += sy - minsy;
+					if(maxsy < (sy + 1))
+						ph += maxsy - sy - 1;
+					pa = pw * ph;
+
+					// Get source pixel and add it to totals, weighted
+					// by covered area and alpha.
+					pxl = src->getPixel((irr::u32)sx, (irr::u32)sy);
+					area += pa;
+					ra += pa * pxl.getRed();
+					ga += pa * pxl.getGreen();
+					ba += pa * pxl.getBlue();
+					aa += pa * pxl.getAlpha();
+				}
+
+			// Set the destination image pixel to the average color.
+			if(area > 0) {
+				pxl.setRed(ra / area + 0.5);
+				pxl.setGreen(ga / area + 0.5);
+				pxl.setBlue(ba / area + 0.5);
+				pxl.setAlpha(aa / area + 0.5);
+			} else {
+				pxl.setRed(0);
+				pxl.setGreen(0);
+				pxl.setBlue(0);
+				pxl.setAlpha(0);
+			}
+			dest->setPixel(dx, dy, pxl);
+		}
+}
+#ifdef __ANDROID__
+bool hasNPotSupport() {
+	auto check = []()->bool {
+		bool isNPOTSupported;
+		if(driver->getDriverType() == irr::video::EDT_OGLES2) {
+			isNPOTSupported = ((irr::video::COGLES2Driver*)driver)->queryOpenGLFeature(irr::video::COGLES2ExtensionHandler::IRR_OES_texture_npot);
+		} else {
+			isNPOTSupported = ((irr::video::COGLES1Driver*)driver)->queryOpenGLFeature(irr::video::COGLES1ExtensionHandler::IRR_OES_texture_npot);
+		}
+		return isNPOTSupported;
+	}
+	static const bool supported = check();
+	return supported;
+}
+#endif
+/* Get a cached, high-quality pre-scaled texture for display purposes.  If the
+ * texture is not already cached, attempt to create it.  Returns a pre-scaled texture,
+ * or the original texture if unable to pre-scale it.
+ */
+irr::video::ITexture* ImageManager::guiScalingResizeCached(irr::video::ITexture *src, const irr::core::rect<irr::s32> &srcrect,
+											const irr::core::rect<irr::s32> &destrect) {
+	static std::map<irr::io::path, irr::video::ITexture*> g_txrCache;
+	static std::map<irr::io::path, irr::video::IImage*> g_imgCache;;
+	if(src == NULL)
+		return src;
+
+	// Calculate scaled texture name.
+	irr::io::path rectstr = fmt::sprintf(EPRO_TEXT("%d:%d:%d:%d:%d:%d"),
+						 srcrect.UpperLeftCorner.X,
+						 srcrect.UpperLeftCorner.Y,
+						 srcrect.getWidth(),
+						 srcrect.getHeight(),
+						 destrect.getWidth(),
+						 destrect.getHeight()).c_str();
+	irr::io::path origname = src->getName().getPath();
+	irr::io::path scalename = origname + "@guiScalingFilter:" + rectstr;
+
+	// Search for existing scaled texture.
+	irr::video::ITexture *scaled = g_txrCache[scalename];
+	if(scaled)
+		return scaled;
+
+	// Try to find the texture converted to an image in the cache.
+	// If the image was not found, try to extract it from the texture.
+	irr::video::IImage* srcimg = g_imgCache[origname];
+	if(srcimg == NULL) {
+		srcimg = driver->createImageFromData(src->getColorFormat(),
+											 src->getSize(), src->lock(), false);
+		src->unlock();
+		g_imgCache[origname] = srcimg;
+	}
+
+	// Create a new destination image and scale the source into it.
+	imageCleanTransparent(srcimg, 0);
+	irr::video::IImage *destimg = driver->createImage(src->getColorFormat(),
+													  irr::core::dimension2d<irr::u32>((irr::u32)destrect.getWidth(),
+													 (irr::u32)destrect.getHeight()));
+	imageScaleNNAAUnthreaded(srcimg, srcrect, destimg);
+
+#ifdef __ANDROID__
+	// Some platforms are picky about textures being powers of 2, so expand
+	// the image dimensions to the next power of 2, if necessary.
+	if(!hasNPotSupport()) {
+		irr::video::IImage *po2img = driver->createImage(src->getColorFormat(),
+													core::dimension2d<u32>(npot2((irr::u32)destrect.getWidth()),
+																		   npot2((irr::u32)destrect.getHeight())));
+		po2img->fill(irr::video::SColor(0, 0, 0, 0));
+		destimg->copyTo(po2img);
+		destimg->drop();
+		destimg = po2img;
+	}
+#endif
+
+	// Convert the scaled image back into a texture.
+	scaled = driver->addTexture(scalename, destimg, NULL);
+	destimg->drop();
+	g_txrCache[scalename] = scaled;
+
+	return scaled;
+}
+void ImageManager::draw2DImageFilterScaled(irr::video::ITexture* txr,
+							 const irr::core::rect<irr::s32>& destrect, const irr::core::rect<irr::s32>& srcrect,
+							 const irr::core::rect<irr::s32>* cliprect, const irr::video::SColor* const colors,
+							 bool usealpha) {
+	// Attempt to pre-scale image in software in high quality.
+	irr::video::ITexture *scaled = guiScalingResizeCached(txr, srcrect, destrect);
+	if(scaled == NULL)
+		return;
+
+	// Correct source rect based on scaled image.
+	const irr::core::rect<irr::s32> mysrcrect = (scaled != txr)
+		? irr::core::rect<irr::s32>(0, 0, destrect.getWidth(), destrect.getHeight())
+		: srcrect;
+
+	driver->draw2DImage(scaled, destrect, mysrcrect, cliprect, colors, usealpha);
+}
+
 }

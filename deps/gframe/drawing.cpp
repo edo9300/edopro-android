@@ -3,7 +3,7 @@
 #include "materials.h"
 #include "image_manager.h"
 #include "deck_manager.h"
-#include "duelclient.h""
+#include "duelclient.h"
 #include "CGUITTFont/CGUITTFont.h"
 #include "CGUIImageButton/CGUIImageButton.h"
 #ifdef __ANDROID__
@@ -171,8 +171,8 @@ void Game::DrawBackGround() {
 	driver->drawVertexPrimitiveList(matManager.vField, 4, matManager.iRectangle, 2);
 	driver->setMaterial(matManager.mBackLine);
 	//select field
-	if(dInfo.curMsg == MSG_SELECT_PLACE || dInfo.curMsg == MSG_SELECT_DISFIELD) {
-		irr::video::SColor outline_color = GetSkinColor(L"DUELFIELD_SELECTABLE_FIELD_OUTLINE", SColor(255, 0, 0, 255));
+	if((dInfo.curMsg == MSG_SELECT_PLACE || dInfo.curMsg == MSG_SELECT_DISFIELD || dInfo.curMsg == MSG_HINT) && dField.selectable_field) {
+		irr::video::SColor outline_color = GetSkinColor(L"DUELFIELD_SELECTABLE_FIELD_OUTLINE", SColor(255, 255, 255, 255));
 		unsigned int filter = 0x1;
 		for (int i = 0; i < 7; ++i, filter <<= 1) {
 			if (dField.selectable_field & filter)
@@ -261,6 +261,8 @@ void Game::DrawBackGround() {
 			selFieldAlpha = 205;
 			selFieldDAlpha = -10;
 		}
+		if(!vertex)
+			return;
 		matManager.mSelField.AmbientColor = GetSkinColor(L"DUELFIELD_HOVERED", SColor(255, 255, 255, 255));
 		matManager.mSelField.DiffuseColor = (int)std::round(selFieldAlpha) << 24;
 		driver->setMaterial(matManager.mSelField);
@@ -626,10 +628,10 @@ void Game::DrawMisc() {
 
 	recti p1size = Resize(335, 31, 629, 50);
 	recti p2size = Resize(986, 31, 986, 50);
-	textFont->draw(dInfo.hostname[dInfo.current_player[0]].c_str(), p1size, 0xffffffff, false, false, 0);
-	auto cld = textFont->getDimension(dInfo.clientname[dInfo.current_player[1]]);
+	textFont->draw(dInfo.hostname[dInfo.current_player[LocalPlayer(0)]].c_str(), p1size, 0xffffffff, false, false, 0);
+	auto cld = textFont->getDimension(dInfo.clientname[dInfo.current_player[LocalPlayer(1)]]);
 	p2size.UpperLeftCorner.X -= cld.Width;
-	textFont->draw(dInfo.clientname[dInfo.current_player[1]].c_str(), p2size, 0xffffffff, false, false, 0);
+	textFont->draw(dInfo.clientname[dInfo.current_player[LocalPlayer(1)]].c_str(), p2size, 0xffffffff, false, false, 0);
 	driver->draw2DRectangle(Resize(632, 10, 688, 30), 0x00000000, 0x00000000, 0xffffffff, 0xffffffff);
 	driver->draw2DRectangle(Resize(632, 30, 688, 50), 0xffffffff, 0xffffffff, 0x00000000, 0x00000000);
 	DrawShadowText(lpcFont, dataManager.GetNumString(dInfo.turn).c_str(), Resize(635, 5, 685, 40), Resize(0, 0, 2, 0), 0x8000ffff, 0x80000000, true);
@@ -1040,10 +1042,44 @@ void Game::DrawSpec() {
 		}
 	}
 }
-void Game::DrawBackImage(irr::video::ITexture* texture) {
+void Game::DrawBackImage(irr::video::ITexture* texture, bool resized) {
+	static irr::video::ITexture* prevbg = nullptr;
+	static recti dest_size = { 0,0,0,0 };
+	static recti bg_size = { 0,0,0,0 };
+	static bool was_scaled = false;
+	if(was_scaled && !gameConf.scale_background) {
+		was_scaled = false;
+		prevbg = nullptr;
+	} else if(!was_scaled && gameConf.scale_background) {
+		was_scaled = true;
+		prevbg = nullptr;
+	}
+	if(resized)
+		prevbg = nullptr;
 	if(!texture)
 		return;
-	driver->draw2DImage(texture, Resize(0, 0, 1024, 640), recti(0, 0, texture->getOriginalSize().Width, texture->getOriginalSize().Height));
+	if(texture != prevbg) {
+		prevbg = texture;
+		dest_size = Resize(0, 0, 1024, 640);
+		bg_size = recti(0, 0, texture->getOriginalSize().Width, texture->getOriginalSize().Height);
+		if(!gameConf.scale_background) {
+			rectf dest_sizef = rectf(0, 0, dest_size.getWidth(), dest_size.getHeight());
+			rectf bg_sizef = rectf(0, 0, bg_size.getWidth(), bg_size.getHeight());
+			float width = ((bg_sizef.getWidth() / bg_sizef.getHeight()) * dest_sizef.getHeight()) - dest_sizef.getWidth();
+			float height = ((bg_sizef.getHeight() / bg_sizef.getWidth()) * dest_sizef.getWidth()) - dest_sizef.getHeight();
+			if(width > 0) {
+				int off = std::ceil(width * 0.5f);
+				dest_size = recti({ -off, 0, dest_size.getWidth() + off, dest_size.getHeight() });
+			} else if(height > 0) {
+				int off = std::ceil(height * 0.5f);
+				dest_size = recti({ 0, -off, dest_size.getWidth(), dest_size.getHeight() + off });
+			}
+		}
+	}
+	if(gameConf.accurate_bg_resize)
+		imageManager.draw2DImageFilterScaled(texture, dest_size, bg_size);
+	else
+		driver->draw2DImage(texture, dest_size, bg_size);
 }
 void Game::ShowElement(irr::gui::IGUIElement * win, int autoframe) {
 	FadingUnit fu;
@@ -1237,7 +1273,7 @@ void Game::DrawDeckBd() {
 	} else {
 		buffer = fmt::to_wstring(deckManager.current_deck.side.size());
 	}
-	numFont->draw(buffer.c_str(), Resize(379, 537, 439, 557), 0xff000000, false, true);
+	numFont->draw(buffer.c_str(), Resize(380, 538, 439, 557), 0xff000000, false, true);
 	numFont->draw(buffer.c_str(), Resize(379, 537, 439, 557), 0xffffffff, false, true);
 	recti sidepos = Resize(310, 537, 797, 557);
 	buffer = fmt::format(L"{} {} {} {} {} {}", dataManager.GetSysString(1312), deckManager.TypeCount(deckManager.current_deck.side, TYPE_MONSTER),

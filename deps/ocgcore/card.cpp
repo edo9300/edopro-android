@@ -1546,7 +1546,7 @@ void card::get_mutual_linked_cards(card_set* cset) {
 	pduel->game_field->get_cards_in_zone(cset, mutual_linked_zone >> 16, 1 - p, LOCATION_ONFIELD);
 }
 int32 card::is_link_state() {
-	if(!(data.type & TYPE_LINK) || !(current.location & LOCATION_ONFIELD))
+	if(!(current.location & LOCATION_ONFIELD))
 		return FALSE;
 	card_set cset;
 	get_linked_cards(&cset);
@@ -2227,8 +2227,8 @@ void card::reset(uint32 id, uint32 reset_type) {
 			}
 		}
 		if(id & RESET_TURN_SET) {
-			effect* peffect = check_control_effect();
-			if(peffect) {
+			effect* peffect = std::get<effect*>(refresh_control_status());
+			if(peffect && (!(peffect->type & EFFECT_TYPE_SINGLE) || peffect->condition)) {
 				effect* new_effect = pduel->new_effect();
 				new_effect->id = peffect->id;
 				new_effect->owner = this;
@@ -2281,8 +2281,9 @@ void card::refresh_disable_status() {
 	if(pre_dis != cur_dis)
 		filter_immune_effect();
 }
-uint8 card::refresh_control_status() {
+std::tuple<uint8, effect*> card::refresh_control_status() {
 	uint8 final = owner;
+	effect* ceffect = nullptr;
 	uint32 last_id = 0;
 	if(pduel->game_field->core.remove_brainwashing && is_affected_by_effect(EFFECT_REMOVE_BRAINWASHING))
 		last_id = pduel->game_field->core.last_control_changed_id;
@@ -2290,10 +2291,12 @@ uint8 card::refresh_control_status() {
 	filter_effect(EFFECT_SET_CONTROL, &eset);
 	if(eset.size()) {
 		effect* peffect = eset.back();
-		if(peffect->id >= last_id)
+		if(peffect->id >= last_id) {
 			final = (uint8)peffect->get_value(this);
+			ceffect = peffect;
+		}
 	}
-	return final;
+	return { final, ceffect };
 }
 void card::count_turn(uint16 ct) {
 	turn_counter = ct;
@@ -3106,45 +3109,6 @@ int32 card::get_card_effect(uint32 code) {
 		}
 	}
 	return i;
-}
-// return the last control-changing continuous effect
-effect* card::check_control_effect() {
-	effect* ret_effect = 0;
-	for (auto& pcard : equiping_cards) {
-		auto rg = pcard->equip_effect.equal_range(EFFECT_SET_CONTROL);
-		for (; rg.first != rg.second; ++rg.first) {
-			effect* peffect = rg.first->second;
-			if(!ret_effect || peffect->id > ret_effect->id)
-				ret_effect = peffect;
-		}
-	}
-	for (auto& pcard : effect_target_owner) {
-		auto rg = pcard->target_effect.equal_range(EFFECT_SET_CONTROL);
-		for (; rg.first != rg.second; ++rg.first) {
-			effect* peffect = rg.first->second;
-			if(!ret_effect || peffect->is_target(pcard) && peffect->id > ret_effect->id)
-				ret_effect = peffect;
-		}
-	}
-	for (auto& pcard : xyz_materials) {
-		auto rg = pcard->xmaterial_effect.equal_range(EFFECT_SET_CONTROL);
-		for (; rg.first != rg.second; ++rg.first) {
-			effect* peffect = rg.first->second;
-			if (peffect->type & EFFECT_TYPE_FIELD)
-				continue;
-			if(!ret_effect || peffect->id > ret_effect->id)
-				ret_effect = peffect;
-		}
-	}
-	auto rg = single_effect.equal_range(EFFECT_SET_CONTROL);
-	for (; rg.first != rg.second; ++rg.first) {
-		effect* peffect = rg.first->second;
-		if(!peffect->condition)
-			continue;
-		if(!ret_effect || peffect->id > ret_effect->id)
-			ret_effect = peffect;
-	}
-	return ret_effect;
 }
 int32 card::fusion_check(group* fusion_m, group* cg, uint32 chkf) {
 	effect* peffect = 0;

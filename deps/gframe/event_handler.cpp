@@ -24,6 +24,8 @@ using namespace gui;
 
 namespace ygo {
 
+std::string showing_repo = "";
+
 bool ClientField::OnEvent(const irr::SEvent& event) {
 #ifdef __ANDROID__
 	irr::SEvent transferEvent;
@@ -988,7 +990,10 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 				if(mcard->code) {
 					mainGame->ShowCardInfo(mcard->code);
 				} else {
-					mainGame->ClearCardInfo(mcard->controler);
+					if(mcard->cover)
+						mainGame->ShowCardInfo(mcard->cover, false, ImageManager::imgType::COVER);
+					else
+						mainGame->ClearCardInfo(mcard->controler);
 				}
 			}
 			if(id >= BUTTON_DISPLAY_0 && id <= BUTTON_DISPLAY_4) {
@@ -1000,7 +1005,10 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 					if(mcard->code) {
 						mainGame->ShowCardInfo(mcard->code);
 					} else {
-						mainGame->ClearCardInfo(mcard->controler);
+						if(mcard->cover)
+							mainGame->ShowCardInfo(mcard->cover, false, ImageManager::imgType::COVER);
+						else
+							mainGame->ClearCardInfo(mcard->controler);
 					}
 				}
 			}
@@ -1567,7 +1575,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 						}
 					} else {
 						should_show_tip = false;
-						mainGame->ClearCardInfo(0);
+						mainGame->ShowCardInfo(mcard->cover, false, ImageManager::imgType::COVER);
 					}
 				}
 				hovered_card = mcard;
@@ -1802,7 +1810,8 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 				irr::gui::IGUIButton* button = (irr::gui::IGUIButton*)event.GUIEvent.Caller;
 				for(auto& repo : mainGame->repoInfoGui) {
 					if(repo.second.history_button1 == button || repo.second.history_button2 == button) {
-						mainGame->stCommitLog->setText(repo.second.commit_history_full.c_str());
+						showing_repo = repo.first;
+						mainGame->stCommitLog->setText(mainGame->chkCommitLogExpand->isChecked() ? repo.second.commit_history_full.c_str() : repo.second.commit_history_partial.c_str());
 						mainGame->SetCentered(mainGame->wCommitsLog);
 						mainGame->PopupElement(mainGame->wCommitsLog);
 						break;
@@ -1813,6 +1822,10 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 			case BUTTON_REPO_CHANGELOG_EXIT: {
 				mainGame->HideElement(mainGame->wCommitsLog);
 				return true;
+			}
+			case BUTTON_RELOAD_SKIN: {
+				mainGame->ApplySkin(EPRO_TEXT(""), true);
+				break;
 			}
 			}
 			break;
@@ -1870,6 +1883,11 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 				mainGame->gameConf.quick_animation = mainGame->chkQuickAnimation->isChecked() ? 1 : 0;
 				return true;
 			}
+			case BUTTON_REPO_CHANGELOG_EXPAND: {
+				auto& repo = mainGame->repoInfoGui[showing_repo];
+				mainGame->stCommitLog->setText(mainGame->chkCommitLogExpand->isChecked() ? repo.commit_history_full.c_str() : repo.commit_history_partial.c_str());
+				return true;
+			}
 			}
 			break;
 		}
@@ -1903,6 +1921,16 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 					mainGame->infosExpanded = 1;
 				}
 				return true;
+			}
+			break;
+		}
+		case EGET_COMBO_BOX_CHANGED: {
+			switch(id) {
+			case COMBOBOX_CURRENT_SKIN: {
+				mainGame->gameConf.skin = Utils::ParseFilename(mainGame->cbCurrentSkin->getItem(mainGame->cbCurrentSkin->getSelected()));
+				mainGame->ApplySkin(mainGame->gameConf.skin);
+				return true;
+			}
 			}
 			break;
 		}

@@ -1272,6 +1272,7 @@ int32 field::process_phase_event(int16 step, int32 phase) {
 		core.quick_f_chain.clear();
 		core.instant_event.clear();
 		core.point_event.clear();
+		core.delayed_activate_event.clear();
 		core.full_event.clear();
 		/*if(core.set_forced_attack) {
 			core.set_forced_attack = false;
@@ -1292,6 +1293,7 @@ int32 field::process_point_event(int16 step, int32 skip_trigger, int32 skip_free
 	case 0: {
 		core.select_chains.clear();
 		core.point_event.splice(core.point_event.end(), core.instant_event);
+		core.full_event.splice(core.full_event.end(), core.delayed_activate_event);
 		if(skip_trigger) {
 			core.units.begin()->step = 7;
 			return FALSE;
@@ -1921,7 +1923,7 @@ int32 field::process_instant_event() {
 			}
 		}
 		// delayed activate effect
-		core.full_event.push_back(ev);
+		core.delayed_activate_event.push_back(ev);
 		// delayed quick effect
 		pr = effects.quick_o_effect.equal_range(ev.event_code);
 		for(auto eit = pr.first; eit != pr.second;) {
@@ -2738,6 +2740,7 @@ int32 field::process_battle_command(uint16 step) {
 		return FALSE;
 	}
 	case 8: {
+		core.attack_cancelable = TRUE;
 		auto message = pduel->new_message(MSG_ATTACK);
 		message->write(core.attacker->get_info_location());
 		if(core.attack_target) {
@@ -2822,6 +2825,7 @@ int32 field::process_battle_command(uint16 step) {
 			add_process(PROCESSOR_SELECT_YESNO, 0, 0, 0, infos.turn_player, 30);
 		else {
 			returns.at<int32>(0) = TRUE;
+			core.attack_cancelable = FALSE;
 		}
 		return FALSE;
 	}
@@ -2830,7 +2834,6 @@ int32 field::process_battle_command(uint16 step) {
 		if(returns.at<int32>(0)) {
 			core.units.begin()->arg1 = TRUE;
 			core.units.begin()->arg3 = FALSE;
-			core.attack_cancelable = TRUE;
 			core.units.begin()->step = 3;
 		}
 		return FALSE;
@@ -3204,6 +3207,8 @@ int32 field::process_battle_command(uint16 step) {
 		message->write<uint8>(HINT_EVENT);
 		message->write<uint8>(1);
 		message->write<uint64>(43);
+		core.hint_timing[0] |= TIMING_BATTLED;
+		core.hint_timing[1] |= TIMING_BATTLED;
 		add_process(PROCESSOR_POINT_EVENT, 0, 0, 0, 0, TRUE);
 		return FALSE;
 	}
@@ -5198,18 +5203,30 @@ int32 field::adjust_step(uint16 step) {
 		//control
 		core.control_adjust_set[0].clear();
 		core.control_adjust_set[1].clear();
+		card_set reason_cards;
 		for(uint8 p = 0; p < 2; ++p) {
 			for(auto& pcard : player[p].list_mzone) {
 				if(!pcard) continue;
 				uint8 cur = pcard->current.controler;
-				uint8 ref = pcard->refresh_control_status();
-				if(cur != ref && pcard->is_capable_change_control())
+				auto res = pcard->refresh_control_status();
+				uint8 ref = std::get<uint8>(res);
+				effect* peffect = std::get<effect*>(res);
+				if(cur != ref && pcard->is_capable_change_control()) {
 					core.control_adjust_set[p].insert(pcard);
+					if(peffect && (!(peffect->type & EFFECT_TYPE_SINGLE) || peffect->condition))
+						reason_cards.insert(peffect->get_handler());
+				}
 			}
 		}
 		if(core.control_adjust_set[0].size() || core.control_adjust_set[1].size()) {
 			core.re_adjust = TRUE;
-			add_process(PROCESSOR_CONTROL_ADJUST, 0, 0, 0, 0, 0);
+			get_control(&core.control_adjust_set[1 - infos.turn_player], 0, PLAYER_NONE, infos.turn_player, 0, 0, 0xff);
+			get_control(&core.control_adjust_set[infos.turn_player], 0, PLAYER_NONE, 1 - infos.turn_player, 0, 0, 0xff);
+			for(auto& rcard : reason_cards) {
+				core.readjust_map[rcard]++;
+				if(core.readjust_map[rcard] > 3)
+					destroy(rcard, 0, REASON_RULE, PLAYER_NONE);
+			}
 		}
 		core.last_control_changed_id = infos.field_id;
 		return FALSE;
@@ -5243,7 +5260,8 @@ int32 field::adjust_step(uint16 step) {
 			core.remove_brainwashing = res;
 			if(core.control_adjust_set[0].size() || core.control_adjust_set[1].size()) {
 				core.re_adjust = TRUE;
-				add_process(PROCESSOR_CONTROL_ADJUST, 0, 0, 0, 0, 0);
+				get_control(&core.control_adjust_set[1 - infos.turn_player], 0, PLAYER_NONE, infos.turn_player, 0, 0, 0xff);
+				get_control(&core.control_adjust_set[infos.turn_player], 0, PLAYER_NONE, 1 - infos.turn_player, 0, 0, 0xff);
 			}
 		}
 		core.units.begin()->step = 7;

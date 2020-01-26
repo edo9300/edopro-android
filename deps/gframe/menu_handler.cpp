@@ -35,7 +35,7 @@ void UpdateDeck() {
 void LoadReplay() {
 	auto& replay = ReplayMode::cur_replay;
 	if(open_file) {
-		bool res = replay.OpenReplay(TEXT("./replay/") + open_file_name);
+		bool res = replay.OpenReplay(EPRO_TEXT("./replay/") + open_file_name);
 		open_file = false;
 		if(!res || (replay.pheader.id == REPLAY_YRP1 && !mainGame->coreloaded)) {
 			if(exit_on_return)
@@ -444,6 +444,12 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				break;
 			}
 			case BUTTON_EXPORT_DECK: {
+				auto sanitize = [](path_string text) {
+					const wchar_t chars[] = L"<>:\"/\\|?*";
+					for(auto& forbid : chars)
+						text.erase(std::remove(text.begin(), text.end(), forbid), text.end());
+					return text;
+				};
 				if(!ReplayMode::cur_replay.IsExportable())
 					break;
 				auto players = ReplayMode::cur_replay.GetPlayerNames();
@@ -454,7 +460,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					break;
 				auto replay_name = Utils::GetFileName(ReplayMode::cur_replay.GetReplayName());
 				for(int i = 0; i < decks.size(); i++) {
-					deckManager.SaveDeck(fmt::format(TEXT("{} player{:02} {}"), replay_name.c_str(), i, Utils::ParseFilename(players[i]).c_str()), decks[i].main_deck, decks[i].extra_deck, std::vector<int>());
+					deckManager.SaveDeck(sanitize(fmt::format(EPRO_TEXT("{} player{:02} {}"), replay_name, i, Utils::ParseFilename(players[i]))), decks[i].main_deck, decks[i].extra_deck, std::vector<int>());
 				}
 				mainGame->stACMessage->setText(dataManager.GetSysString(1335).c_str());
 				mainGame->PopupElement(mainGame->wACMessage, 20);
@@ -519,7 +525,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->HideElement(mainGame->wReplaySave);
 				if(prev_operation == BUTTON_RENAME_REPLAY) {
 					auto oldname = Utils::ParseFilename(mainGame->lstReplayList->getListItem(prev_sel, true));
-					auto oldpath = oldname.substr(0, oldname.find_last_of(TEXT("/"))) + TEXT("/");
+					auto oldpath = oldname.substr(0, oldname.find_last_of(EPRO_TEXT("/"))) + EPRO_TEXT("/");
 					if(Replay::RenameReplay(oldname, oldpath + Utils::ParseFilename(mainGame->ebRSName->getText()))) {
 						mainGame->lstReplayList->refreshList();
 					} else {
@@ -737,7 +743,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			}
 			case EDITBOX_TEAM_COUNT: {
 				auto elem = static_cast<irr::gui::IGUIEditBox*>(event.GUIEvent.Caller);
-				wchar_t* min = L"1";
+				auto min = L"1";
 				if(elem == mainGame->ebOnlineTeam1 || elem == mainGame->ebOnlineTeam2)
 					min = L"0";
 				auto text = elem->getText();
