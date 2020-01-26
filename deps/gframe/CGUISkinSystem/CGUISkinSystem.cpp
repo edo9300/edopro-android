@@ -1,13 +1,13 @@
 #include "CGUISkinSystem.h"
 
-CGUISkinSystem::CGUISkinSystem(core::string<char*> path,IrrlichtDevice *dev) {
+CGUISkinSystem::CGUISkinSystem(io::path path,IrrlichtDevice *dev) {
+	loaded_skin = nullptr;
 	device = dev;
 	skinsPath = path;
 	fs = dev->getFileSystem();	
 	this->loadSkinList();
-	
-	
 }
+
 core::array<io::path> CGUISkinSystem::listSkins() {
 	return skinsList;
 }
@@ -58,6 +58,7 @@ bool CGUISkinSystem::populateTreeView(gui::IGUITreeView *control,const core::str
 	fs->changeWorkingDirectoryTo(skinsPath);
 	registry = new CXMLRegistry(fs);	
 	if(!registry->loadFile(SKINSYSTEM_SKINFILE,skinname.c_str())) {
+		fs->changeWorkingDirectoryTo(oldpath);
 		return ret;
 	}
 	ret = registry->populateTreeView(control);
@@ -91,13 +92,13 @@ void CGUISkinSystem::ParseGUIElementStyle(gui::SImageGUIElementStyle& elem, cons
 	elem.DstBorder.Left = box.UpperLeftCorner.Y;
 	elem.DstBorder.Bottom = box.LowerRightCorner.X;
 	elem.DstBorder.Right = box.LowerRightCorner.Y;	
-	if(nullcolors) elem.Color = NULL;
+	if(nullcolors) elem.Color = { 0 };
 	col = registry->getValueAsColor((context +"/Color").c_str());
-	if(col != NULL) 
+	if(col.color) 
 		elem.Color = col;
 	else {
 		col = registry->getValueAsColor((context +"/Colour").c_str());
-		if(col != NULL) 
+		if(col.color) 
 			elem.Color = col;
 	}
 }
@@ -164,9 +165,7 @@ gui::CImageGUISkin* CGUISkinSystem::loadSkinFromFile(const fschar_t *skinname) {
 	// If there was no progress bar colors set, set them in the config to the defaults
 	// otherwise their 0,0,0,0. This is neccicary for the old klagui.	
 
-	if(skinConfig.ProgressBar.Color == NULL) 
-		skinConfig.ProgressBar.Color = video::SColor();	
-	if(skinConfig.ProgressBarFilled.Color == NULL) 
+	if(skinConfig.ProgressBarFilled.Color == 0) 
 		skinConfig.ProgressBarFilled.Color = video::SColor(255,255,0,0);
 
 	// Load in the Info
@@ -192,7 +191,7 @@ gui::CImageGUISkin* CGUISkinSystem::loadSkinFromFile(const fschar_t *skinname) {
 	video::SColor newCol = video::SColor();
 	video::SColor oldCol = newCol;
 	x = registry->getValueAsInt(L"guialpha",L"Skin/Global/");
-	if(x && x != NULL) {		
+	if(x) {		
 		i = gui::EGDC_COUNT;
 		while(i--) {
 			oldCol = skin->getColor((gui::EGUI_DEFAULT_COLOR)i);		
@@ -203,26 +202,33 @@ gui::CImageGUISkin* CGUISkinSystem::loadSkinFromFile(const fschar_t *skinname) {
 			skin->setColor((gui::EGUI_DEFAULT_COLOR)i, newCol);	
 		}
 	}
-	checkSkinColor(gui::EGDC_3D_DARK_SHADOW,L"Skin/Global/EGDC_32_DARK_SHADOW",skin);
-	checkSkinColor(gui::EGDC_3D_SHADOW,L"Skin/Global/EGDC_3D_SHADOW",skin);
-	checkSkinColor(gui::EGDC_3D_FACE,L"Skin/Global/EGDC_3D_FACE",skin);	
-	checkSkinColor(gui::EGDC_3D_HIGH_LIGHT,L"Skin/Global/EGDC_3D_HIGH_LIGHT",skin);
-	checkSkinColor(gui::EGDC_3D_LIGHT,L"Skin/Global/EGDC_3D_LIGHT",skin);
-	checkSkinColor(gui::EGDC_ACTIVE_BORDER,L"Skin/Global/EGDC_ACTIVE_BORDER",skin);
-	checkSkinColor(gui::EGDC_ACTIVE_CAPTION,L"Skin/Global/EGDC_ACTIVE_CAPTION",skin);
-	checkSkinColor(gui::EGDC_APP_WORKSPACE,L"Skin/Global/EGDC_APP_WORKSPACE",skin);
-	checkSkinColor(gui::EGDC_BUTTON_TEXT,L"Skin/Global/EGDC_BUTTON_TEXT",skin);
-	checkSkinColor(gui::EGDC_GRAY_TEXT,L"Skin/Global/EGDC_GRAY_TEXT",skin);
-	checkSkinColor(gui::EGDC_HIGH_LIGHT_TEXT,L"Skin/Global/EGDC_HIGH_LIGHT_TEXT",skin);
-	checkSkinColor(gui::EGDC_INACTIVE_BORDER,L"Skin/Global/EGDC_INACTIVE_BORDER",skin);
-	checkSkinColor(gui::EGDC_INACTIVE_CAPTION,L"Skin/Global/EGDC_INACTIVE_CAPTION",skin);
-	checkSkinColor(gui::EGDC_TOOLTIP,L"Skin/Global/EGDC_TOOLTIP",skin);
-	checkSkinColor(gui::EGDC_TOOLTIP_BACKGROUND,L"Skin/Global/EGDC_TOOLTIP_BACKGROUND",skin);
-	checkSkinColor(gui::EGDC_SCROLLBAR,L"Skin/Global/EGDC_SCROLLBAR",skin);
-	checkSkinColor(gui::EGDC_WINDOW,L"Skin/Global/EGDC_WINDOW",skin);
-	checkSkinColor(gui::EGDC_WINDOW_SYMBOL,L"Skin/Global/EGDC_WINDOW_SYMBOL",skin);
-	checkSkinColor(gui::EGDC_ICON,L"Skin/Global/EGDC_ICON",skin);	
-	checkSkinColor(gui::EGDC_ICON_HIGH_LIGHT,L"Skin/Global/EGDC_ICON_HIGH_LIGHT",skin);
+#define CHECKCOLOR(elem) checkSkinColor(gui::elem,L"Skin/Global/"#elem,skin);
+	CHECKCOLOR(EGDC_3D_DARK_SHADOW)
+	CHECKCOLOR(EGDC_3D_SHADOW)
+	CHECKCOLOR(EGDC_3D_FACE)
+	CHECKCOLOR(EGDC_3D_HIGH_LIGHT)
+	CHECKCOLOR(EGDC_3D_LIGHT)
+	CHECKCOLOR(EGDC_ACTIVE_BORDER)
+	CHECKCOLOR(EGDC_ACTIVE_CAPTION)
+	CHECKCOLOR(EGDC_APP_WORKSPACE)
+	CHECKCOLOR(EGDC_BUTTON_TEXT)
+	CHECKCOLOR(EGDC_GRAY_TEXT)
+	CHECKCOLOR(EGDC_HIGH_LIGHT)
+	CHECKCOLOR(EGDC_HIGH_LIGHT_TEXT)
+	CHECKCOLOR(EGDC_INACTIVE_BORDER)
+	CHECKCOLOR(EGDC_INACTIVE_CAPTION)
+	CHECKCOLOR(EGDC_TOOLTIP)
+	CHECKCOLOR(EGDC_TOOLTIP_BACKGROUND)
+	CHECKCOLOR(EGDC_SCROLLBAR)
+	CHECKCOLOR(EGDC_WINDOW)
+	CHECKCOLOR(EGDC_WINDOW_SYMBOL)
+	CHECKCOLOR(EGDC_ICON)
+	CHECKCOLOR(EGDC_ICON_HIGH_LIGHT)
+	CHECKCOLOR(EGDC_GRAY_WINDOW_SYMBOL)
+	CHECKCOLOR(EGDC_EDITABLE)
+	CHECKCOLOR(EGDC_GRAY_EDITABLE)
+	CHECKCOLOR(EGDC_FOCUSED_EDITABLE)
+#undef CHECKCOLOR
 	
 	
 	
@@ -233,19 +239,19 @@ gui::CImageGUISkin* CGUISkinSystem::loadSkinFromFile(const fschar_t *skinname) {
 
 	return skin;
 }
-core:: stringw CGUISkinSystem::getProperty(core::stringw key) {
+core::stringw CGUISkinSystem::getProperty(core::stringw key) {
 	gui::CImageGUISkin* skin = (gui::CImageGUISkin*)device->getGUIEnvironment()->getSkin();
-	return skin->getProperty(key);
+	return loaded_skin == skin ? skin->getProperty(key) : core::stringw("");
 }
 
 video::SColor CGUISkinSystem::getCustomColor(core::stringw key, video::SColor fallback) {
 	gui::CImageGUISkin* skin = (gui::CImageGUISkin*)device->getGUIEnvironment()->getSkin();
-	return skin->getCustomColor(key, fallback);
+	return loaded_skin == skin ? skin->getCustomColor(key, fallback) : fallback;
 }
 
 bool CGUISkinSystem::checkSkinColor(gui::EGUI_DEFAULT_COLOR colToSet,const wchar_t *context,gui::CImageGUISkin *skin) {
 	video::SColor col = registry->getValueAsColor(context);
-	if(col != NULL) {
+	if(col.color) {
 		skin->setColor(colToSet,col);
 		return true;
 	}
@@ -254,7 +260,7 @@ bool CGUISkinSystem::checkSkinColor(gui::EGUI_DEFAULT_COLOR colToSet,const wchar
 
 bool CGUISkinSystem::checkSkinSize(gui::EGUI_DEFAULT_SIZE sizeToSet,const wchar_t *context,const wchar_t *key,gui::CImageGUISkin *skin) {
 	u16 i = registry->getValueAsInt(key,context);
-	if(i != NULL) {
+	if(i) {
 		skin->setSize(sizeToSet,i);
 		return true;
 	}
@@ -278,7 +284,7 @@ bool CGUISkinSystem::loadCustomColors(gui::CImageGUISkin * skin) {
 	for(int i = 0; i < children->size(); i++) {
 		core::stringw tmpchild = (*children)[i];
 		video::SColor color= registry->getValueAsColor((wtmp + tmpchild).c_str());
-		if(color != NULL)
+		if(color.color)
 			skin->setCustomColor(tmpchild, color);
 	}
 	return false;
@@ -287,10 +293,14 @@ bool CGUISkinSystem::applySkin(const fschar_t *skinname) {
 	io::path oldpath = fs->getWorkingDirectory();
 	fs->changeWorkingDirectoryTo(skinsPath);
 	registry = new CXMLRegistry(fs);
+	loaded_skin = nullptr;
 	gui::CImageGUISkin* skin = loadSkinFromFile(skinname);
-    if(skin == NULL) return false;
-	
+	if(skin == NULL) {
+		fs->changeWorkingDirectoryTo(oldpath);
+		return false;
+	}
     device->getGUIEnvironment()->setSkin(skin);
+	loaded_skin = skin;
 	// If we're going to switch skin we need to find all the progress bars and overwrite their colors	
     skin->drop();	
 	delete registry;
