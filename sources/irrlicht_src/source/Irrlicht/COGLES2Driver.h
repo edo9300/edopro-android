@@ -158,6 +158,11 @@ namespace video
 				SColor colorLeftUp, SColor colorRightUp, SColor colorLeftDown, SColor colorRightDown,
 				const core::rect<s32>* clip = 0);
 
+		//!Draws an 2d rectangle with a gradient and proper clip.
+		virtual void draw2DRectangleClip(const core::rect<s32>& pos,
+			SColor colorLeftUp, SColor colorRightUp, SColor colorLeftDown, SColor colorRightDown,
+			const core::rect<s32>* clamp = 0, const core::rect<s32>* clip = 0);
+
 		//! Draws a 2d line.
 		virtual void draw2DLine(const core::position2d<s32>& start,
 				const core::position2d<s32>& end,

@@ -219,6 +219,11 @@ namespace video
 			SColor colorLeftUp, SColor colorRightUp, SColor colorLeftDown, SColor colorRightDown,
 			const core::rect<s32>* clip = 0) _IRR_OVERRIDE_;
 
+		//! Draws a 2d rectangle with a gradient.
+		virtual void draw2DRectangleClip(const core::rect<s32>& pos,
+			SColor colorLeftUp, SColor colorRightUp, SColor colorLeftDown, SColor colorRightDown,
+			const core::rect<s32>* clamp = 0, const core::rect<s32>* clip = 0);
+
 		//! Draws the outline of a 2d rectangle
 		virtual void draw2DRectangleOutline(const core::recti& pos, SColor color=SColor(255,255,255,255)) _IRR_OVERRIDE_;
 
