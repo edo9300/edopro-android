@@ -947,6 +947,12 @@ namespace video
 				SColor colorLeftDown, SColor colorRightDown,
 				const core::rect<s32>* clip =0) =0;
 
+
+		virtual void draw2DRectangleClip(const core::rect<s32>& pos,
+				SColor colorLeftUp, SColor colorRightUp,
+				SColor colorLeftDown, SColor colorRightDown,
+				const core::rect<s32>* clamp =0, const core::rect<s32>* clip =0) =0;
+
 		//! Draws the outline of a 2D rectangle.
 		/** \param pos Position of the rectangle.
 		\param color Color of the rectangle to draw. The alpha component
