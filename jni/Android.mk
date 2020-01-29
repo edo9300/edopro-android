@@ -64,6 +64,7 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
 				$(GFRAME_PATH)/client_card.cpp \
 				$(GFRAME_PATH)/client_field.cpp \
 				$(GFRAME_PATH)/core_utils.cpp \
+				$(GFRAME_PATH)/custom_skin_enum.cpp \
 				$(GFRAME_PATH)/data_manager.cpp \
 				$(GFRAME_PATH)/deck_con.cpp \
 				$(GFRAME_PATH)/deck_manager.cpp \

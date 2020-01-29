@@ -1178,6 +1178,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			mainGame->showcardcode = data;
 			mainGame->showcarddif = 0;
 			mainGame->showcard = 1;
+			PLAY_SOUND(SoundManager::SFX::ACTIVATE);
 			mainGame->WaitFrameSignal(30);
 			break;
 		}
@@ -1411,6 +1412,12 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 				flag = EFFECT_CLIENT_MODE_RESOLVE;
 				code &= 0x7fffffff;
 			}
+			if(!pcard) {
+				pcard = new ClientCard();
+				pcard->code = code;
+				pcard->controler = con;
+				mainGame->dField.limbo_temp.push_back(pcard);
+			}
 			mainGame->dField.activatable_cards.push_back(pcard);
 			mainGame->dField.activatable_descs.push_back(std::make_pair(desc, flag));
 			if(flag == EFFECT_CLIENT_MODE_RESOLVE) {
@@ -1550,6 +1557,12 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			} else if(code & 0x80000000) {
 				flag = EFFECT_CLIENT_MODE_RESOLVE;
 				code &= 0x7fffffff;
+			}
+			if(!pcard) {
+				pcard = new ClientCard();
+				pcard->code = code;
+				pcard->controler = con;
+				mainGame->dField.limbo_temp.push_back(pcard);
 			}
 			mainGame->dField.activatable_cards.push_back(pcard);
 			mainGame->dField.activatable_descs.push_back(std::make_pair(desc, flag));
@@ -1801,6 +1814,12 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			if(!mainGame->dInfo.compat_mode)
 				flag = BufferIO::Read<uint8_t>(pbuf);
 			pcard = mainGame->dField.GetCard(info.controler, info.location, info.sequence, info.position);
+			if(!pcard) {
+				pcard = new ClientCard();
+				pcard->code = code;
+				pcard->controler = info.controler;
+				mainGame->dField.limbo_temp.push_back(pcard);
+			}
 			mainGame->dField.activatable_cards.push_back(pcard);
 			mainGame->dField.activatable_descs.push_back(std::make_pair(desc, flag));
 			pcard->is_selected = false;
@@ -3566,7 +3585,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 		}
 		std::wstring text(dataManager.GetSysString(1624));
 		for (int i = 0; i < count; ++i) {
-			bool res = !!BufferIO::Read<uint8_t>(pbuf);
+			uint8_t res = BufferIO::Read<uint8_t>(pbuf);
 			text += L"[" + fmt::to_wstring(res) + L"]";
 		}
 		mainGame->gMutex.lock();
@@ -4048,12 +4067,18 @@ void DuelClient::SetResponseB(void* respB, unsigned int len) {
 void DuelClient::SendResponse() {
 	switch(mainGame->dInfo.curMsg) {
 	case MSG_SELECT_BATTLECMD: {
+		for(auto cit = mainGame->dField.limbo_temp.begin(); cit != mainGame->dField.limbo_temp.end(); ++cit)
+			delete *cit;
+		mainGame->dField.limbo_temp.clear();
 		mainGame->dField.ClearCommandFlag();
 		mainGame->btnM2->setVisible(false);
 		mainGame->btnEP->setVisible(false);
 		break;
 	}
 	case MSG_SELECT_IDLECMD: {
+		for(auto cit = mainGame->dField.limbo_temp.begin(); cit != mainGame->dField.limbo_temp.end(); ++cit)
+			delete *cit;
+		mainGame->dField.limbo_temp.clear();
 		mainGame->dField.ClearCommandFlag();
 		mainGame->btnBP->setVisible(false);
 		mainGame->btnEP->setVisible(false);
@@ -4069,6 +4094,9 @@ void DuelClient::SendResponse() {
 		break;
 	}
 	case MSG_SELECT_CHAIN: {
+		for(auto cit = mainGame->dField.limbo_temp.begin(); cit != mainGame->dField.limbo_temp.end(); ++cit)
+			delete *cit;
+		mainGame->dField.limbo_temp.clear();
 		mainGame->dField.ClearChainSelect();
 		break;
 	}

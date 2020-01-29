@@ -42,6 +42,7 @@
 #include "CGUIImageButton/CGUIImageButton.h"
 #include "logging.h"
 #include "utils_gui.h"
+#include "custom_skin_enum.h"
 
 #ifdef __ANDROID__
 #define MATERIAL_GUARD(f) do {mainGame->driver->enableMaterial2D(true); f; mainGame->driver->enableMaterial2D(false);} while(false);
@@ -407,7 +408,7 @@ bool Game::Initialize() {
 	btnHostPrepCancel = env->addButton(Scale(350, 280, 460, 305), wHostPrepare, BUTTON_HP_CANCEL, dataManager.GetSysString(1210).c_str());
 	//img
 	wCardImg = env->addStaticText(L"", Scale(1, 1, 1 + CARD_IMG_WIDTH + 20, 1 + CARD_IMG_HEIGHT + 18), true, false, 0, -1, true);
-	wCardImg->setBackgroundColor(GetSkinColor(L"CARDINFO_IMAGE_BACKGROUND", irr::video::SColor(192, 192, 192, 192)));
+	wCardImg->setBackgroundColor(skin::CARDINFO_IMAGE_BACKGROUND_VAL);
 	wCardImg->setVisible(false);
 	imgCard = env->addImage(Scale(10, 9, 10 + CARD_IMG_WIDTH, 9 + CARD_IMG_HEIGHT), wCardImg);
 	imgCard->setImage(imageManager.tCover[0]);
@@ -445,13 +446,13 @@ bool Game::Initialize() {
 	((CGUICustomText*)stName)->setTextAutoScrolling(irr::gui::CGUICustomText::LEFT_TO_RIGHT_BOUNCING, 0, 1.0f, 0, 120, 300);
 	stInfo = irr::gui::CGUICustomText::addCustomText(L"", false, env, tabInfo, -1, Scale(15, 37, 287, 60));
 	stInfo->setWordWrap(true);
-	stInfo->setOverrideColor(GetSkinColor(L"CARDINFO_TYPES_COLOR", irr::video::SColor(255, 0, 0, 255)));
+	stInfo->setOverrideColor(skin::CARDINFO_TYPES_COLOR_VAL);
 	stDataInfo = irr::gui::CGUICustomText::addCustomText(L"", false, env, tabInfo, -1, Scale(15, 60, 287, 83));
 	stDataInfo->setWordWrap(true);
-	stDataInfo->setOverrideColor(GetSkinColor(L"CARDINFO_STATS_COLOR", irr::video::SColor(255, 0, 0, 255)));
+	stDataInfo->setOverrideColor(skin::CARDINFO_STATS_COLOR_VAL);
 	stSetName = irr::gui::CGUICustomText::addCustomText(L"", false, env, tabInfo, -1, Scale(15, 83, 287, 106));
 	stSetName->setWordWrap(true);
-	stSetName->setOverrideColor(GetSkinColor(L"CARDINFO_ARCHETYPE_TEXT_COLOR", irr::video::SColor(255, 0, 0, 255)));
+	stSetName->setOverrideColor(skin::CARDINFO_ARCHETYPE_TEXT_COLOR_VAL);
 	stText = irr::gui::CGUICustomText::addCustomText(L"", false, env, tabInfo, -1, Scale(15, 106, 287, 324));
 	((CGUICustomText*)stText)->enableScrollBar();
 	stText->setWordWrap(true);
@@ -508,7 +509,7 @@ bool Game::Initialize() {
 	scrSoundVolume->setSmallStep(1);
 	chkQuickAnimation = env->addCheckBox(false, Scale(20, 380, 280, 405), tabPanel, CHECKBOX_QUICK_ANIMATION, dataManager.GetSysString(1299).c_str());
 	chkQuickAnimation->setChecked(gameConf.quick_animation != 0);
-	cbCurrentSkin = env->addComboBox(Scale(90, 415, 190, 440), tabPanel, COMBOBOX_CURRENT_SKIN);
+	cbCurrentSkin = env->addComboBox(Scale(90, 415, 270, 440), tabPanel, COMBOBOX_CURRENT_SKIN);
 	int sel_skin = cbCurrentSkin->addItem(L"none");
 	auto skins = skinSystem->listSkins();
 	for(int i = skins.size() - 1; i >= 0; i--) {
@@ -561,8 +562,8 @@ bool Game::Initialize() {
 	wACMessage->setDrawBackground(false);
 	stACMessage = irr::gui::CGUICustomText::addCustomText(L"", true, env, wACMessage, -1, Scale(0, 0, 350, 60), true);
 	stACMessage->setWordWrap(true);
-	stACMessage->setBackgroundColor(GetSkinColor(L"DUELFIELD_ANNOUNCE_TEXT_BACKGROUND_COLOR", irr::video::SColor(192, 192, 192, 192)));
-	auto tmp_color = GetSkinColor(L"DUELFIELD_ANNOUNCE_TEXT_COLOR", 0);
+	stACMessage->setBackgroundColor(skin::DUELFIELD_ANNOUNCE_TEXT_BACKGROUND_COLOR_VAL);
+	auto tmp_color = skin::DUELFIELD_ANNOUNCE_TEXT_COLOR_VAL;
 	if(tmp_color != 0)
 		stACMessage->setOverrideColor(tmp_color);
 	stACMessage->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
@@ -667,8 +668,8 @@ bool Game::Initialize() {
 									  wANRace, CHECK_RACE, dataManager.FormatRace(filter).c_str());
 	//selection hint
 	stHintMsg = env->addStaticText(L"", Scale(500, 60, 820, 90), true, false, 0, -1, false);
-	stHintMsg->setBackgroundColor(GetSkinColor(L"DUELFIELD_TOOLTIP_TEXT_BACKGROUND_COLOR", irr::video::SColor(192, 255, 255, 255)));
-	tmp_color = GetSkinColor(L"DUELFIELD_TOOLTIP_TEXT_COLOR", 0);
+	stHintMsg->setBackgroundColor(skin::DUELFIELD_TOOLTIP_TEXT_BACKGROUND_COLOR_VAL);
+	tmp_color = skin::DUELFIELD_TOOLTIP_TEXT_COLOR_VAL;
 	if(tmp_color != 0)
 		stHintMsg->setOverrideColor(tmp_color);
 	stHintMsg->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
@@ -909,15 +910,15 @@ bool Game::Initialize() {
 	btnRestartSingle->setVisible(false);
 	//tip
 	stTip = env->addStaticText(L"", Scale(0, 0, 150, 150), false, true, 0, -1, true);
-	stTip->setBackgroundColor(GetSkinColor(L"DUELFIELD_TOOLTIP_TEXT_BACKGROUND_COLOR", irr::video::SColor(192, 255, 255, 255)));
-	tmp_color = GetSkinColor(L"DUELFIELD_TOOLTIP_TEXT_COLOR", 0);
+	stTip->setBackgroundColor(skin::DUELFIELD_TOOLTIP_TEXT_BACKGROUND_COLOR_VAL);
+	tmp_color = skin::DUELFIELD_TOOLTIP_TEXT_COLOR_VAL;
 	if(tmp_color != 0)
 		stTip->setOverrideColor(tmp_color);
 	stTip->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	stTip->setVisible(false);
 	//tip for cards in select / display list
 	stCardListTip = env->addStaticText(L"", Scale(0, 0, 150, 150), false, true, wCardSelect, TEXT_CARD_LIST_TIP, true);
-	stCardListTip->setBackgroundColor(GetSkinColor(L"DUELFIELD_TOOLTIP_TEXT_BACKGROUND_COLOR", irr::video::SColor(192, 255, 255, 255)));
+	stCardListTip->setBackgroundColor(skin::DUELFIELD_TOOLTIP_TEXT_BACKGROUND_COLOR_VAL);
 	if(tmp_color != 0)
 		stCardListTip->setOverrideColor(tmp_color);
 	stCardListTip->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
@@ -943,7 +944,7 @@ bool Game::Initialize() {
 	//wRoomListPlaceholder->setAlignment(EGUIA_UPPERLEFT, EGUIA_LOWERRIGHT, EGUIA_UPPERLEFT, EGUIA_LOWERRIGHT);
 	wRoomListPlaceholder->setVisible(false);
 
-	auto roomlistcolor = GetSkinColor(L"ROOMLIST_TEXTS_COLOR", irr::video::SColor(255, 255, 255, 255));
+	auto roomlistcolor = skin::ROOMLIST_TEXTS_COLOR_VAL;
 
 	//server choice dropdownlist
 	irr::gui::IGUIStaticText* statictext = env->addStaticText(dataManager.GetSysString(2041).c_str(), Scale(10, 30, 110, 50), false, false, wRoomListPlaceholder, -1, false); // 2041 = Server:
@@ -1057,7 +1058,7 @@ bool Game::Initialize() {
 	wRoomPassword->getCloseButton()->setVisible(false);
 	wRoomPassword->setVisible(false);
 	wRoomPassword->setAlignment(EGUIA_CENTER, EGUIA_CENTER, EGUIA_CENTER, EGUIA_CENTER);
-	env->addStaticText(dataManager.GetSysString(2042).c_str(), Scale(20, 25, 290, 45), false, false, wRoomPassword);
+	env->addStaticText(dataManager.GetSysString(2038).c_str(), Scale(20, 25, 290, 45), false, false, wRoomPassword);
 	ebRPName = env->addEditBox(L"", Scale(20, 50, 290, 70), true, wRoomPassword, -1);
 	ebRPName->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	btnRPYes = env->addButton(Scale(70, 80, 140, 105), wRoomPassword, BUTTON_ROOMPASSWORD_OK, dataManager.GetSysString(1211).c_str());
@@ -1091,6 +1092,7 @@ bool Game::Initialize() {
 	Utils::CreateResourceFolders();
 
 	LoadGithubRepositories();
+	ApplySkin(EPRO_TEXT(""), true);
 	return true;
 }
 void BuildProjectionMatrix(irr::core::matrix4& mProjection, f32 left, f32 right, f32 bottom, f32 top, f32 znear, f32 zfar) {
@@ -1434,32 +1436,40 @@ void Game::ApplySkin(const path_string& skinname, bool reload) {
 	static path_string prev_skin = EPRO_TEXT("");
 	static bool firstrun = true;
 	auto reapply_colors = [&] () {
-		stInfo->setOverrideColor(GetSkinColor(L"CARDINFO_TYPES_COLOR", irr::video::SColor(255, 0, 0, 255)));
-		stDataInfo->setOverrideColor(GetSkinColor(L"CARDINFO_STATS_COLOR", irr::video::SColor(255, 0, 0, 255)));
-		stSetName->setOverrideColor(GetSkinColor(L"CARDINFO_ARCHETYPE_TEXT_COLOR", irr::video::SColor(255, 0, 0, 255)));
-		stACMessage->setBackgroundColor(GetSkinColor(L"DUELFIELD_ANNOUNCE_TEXT_BACKGROUND_COLOR", irr::video::SColor(192, 192, 192, 192)));
-		auto tmp_color = GetSkinColor(L"DUELFIELD_ANNOUNCE_TEXT_COLOR", 0);
+		stInfo->setOverrideColor(skin::CARDINFO_TYPES_COLOR_VAL);
+		stDataInfo->setOverrideColor(skin::CARDINFO_STATS_COLOR_VAL);
+		stSetName->setOverrideColor(skin::CARDINFO_ARCHETYPE_TEXT_COLOR_VAL);
+		stACMessage->setBackgroundColor(skin::DUELFIELD_ANNOUNCE_TEXT_BACKGROUND_COLOR_VAL);
+		auto tmp_color = skin::DUELFIELD_ANNOUNCE_TEXT_COLOR_VAL;
 		if(tmp_color != 0) {
 			stACMessage->setOverrideColor(tmp_color);
 		} else {
 			stACMessage->enableOverrideColor(false);
 		}
-		stHintMsg->setBackgroundColor(GetSkinColor(L"DUELFIELD_TOOLTIP_TEXT_BACKGROUND_COLOR", irr::video::SColor(192, 255, 255, 255)));
-		tmp_color = GetSkinColor(L"DUELFIELD_TOOLTIP_TEXT_COLOR", 0);
+		stHintMsg->setBackgroundColor(skin::DUELFIELD_TOOLTIP_TEXT_BACKGROUND_COLOR_VAL);
+		tmp_color = skin::DUELFIELD_TOOLTIP_TEXT_COLOR_VAL;
 		if(tmp_color != 0) {
 			stHintMsg->setOverrideColor(tmp_color);
 		} else {
 			stHintMsg->enableOverrideColor(false);
 		}
-		auto roomlistcolor = GetSkinColor(L"ROOMLIST_TEXTS_COLOR", irr::video::SColor(255, 255, 255, 255));
+		stTip->setBackgroundColor(skin::DUELFIELD_TOOLTIP_TEXT_BACKGROUND_COLOR_VAL);
+		tmp_color = skin::DUELFIELD_TOOLTIP_TEXT_COLOR_VAL;
+		if(tmp_color != 0)
+			stTip->setOverrideColor(tmp_color);
+		stCardListTip->setBackgroundColor(skin::DUELFIELD_TOOLTIP_TEXT_BACKGROUND_COLOR_VAL);
+		if(tmp_color != 0)
+			stCardListTip->setOverrideColor(tmp_color);
+		stCardListTip->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
+		auto roomlistcolor = skin::ROOMLIST_TEXTS_COLOR_VAL;
 		stVersus->setOverrideColor(roomlistcolor);
 		stBestof->setOverrideColor(roomlistcolor);
 		ebRoomNameText->setOverrideColor(roomlistcolor);
 		((CGUICustomCheckBox*)chkShowPassword)->setColor(roomlistcolor);
 		((CGUICustomCheckBox*)chkShowActiveRooms)->setColor(roomlistcolor);
 		for(auto& repo : repoInfoGui) {
-			repo.second.progress1->setColors(GetSkinColor(L"PROGRESSBAR_FILL_COLOR", irr::video::SColor(255, 255, 255, 255)), GetSkinColor(L"PROGRESSBAR_EMPTY_COLOR", irr::video::SColor(255, 255, 255, 255)));
-			repo.second.progress2->setColors(GetSkinColor(L"PROGRESSBAR_FILL_COLOR", irr::video::SColor(255, 255, 255, 255)), GetSkinColor(L"PROGRESSBAR_EMPTY_COLOR", irr::video::SColor(255, 255, 255, 255)));
+			repo.second.progress1->setColors(skin::PROGRESSBAR_FILL_COLOR_VAL, skin::PROGRESSBAR_EMPTY_COLOR_VAL);
+			repo.second.progress2->setColors(skin::PROGRESSBAR_FILL_COLOR_VAL, skin::PROGRESSBAR_EMPTY_COLOR_VAL);
 		}
 	};
 	if(!skinSystem || skinname == prev_skin || (reload && prev_skin == EPRO_TEXT("")))
@@ -1470,8 +1480,16 @@ void Game::ApplySkin(const path_string& skinname, bool reload) {
 		auto skin = env->createSkin(gui::EGST_WINDOWS_METALLIC);
 		env->setSkin(skin);
 		skin->drop();
-	} else if(!skinSystem->applySkin(prev_skin.c_str()))
-		return;
+		skin::ResetDefaults();
+	} else {
+		if(!skinSystem->applySkin(prev_skin.c_str()))
+			return;
+#define CLR(val1,val2,val3,val4) irr::video::SColor(val1,val2,val3,val4)
+#define DECLR(what,val) skin::what##_VAL = skinSystem->getCustomColor(skin::what,val);
+#include "custom_skin_enum.inl"
+#undef DECLR
+#undef CLR
+	}
 	auto skin = env->getSkin();
 	skin->setFont(guiFont);
 #define SKIN_SCALE(elem)skin->setSize(elem, Scale(skin->getSize(elem)));
@@ -1487,6 +1505,9 @@ void Game::ApplySkin(const path_string& skinname, bool reload) {
 	SKIN_SCALE(EGDS_TEXT_DISTANCE_Y)
 	SKIN_SCALE(EGDS_MESSAGE_BOX_GAP_SPACE)
 #undef SKIN_SCALE
+	if(wInfos) {
+		wInfos->setTabHeight(skin->getSize(EGDS_BUTTON_HEIGHT));
+	}
 	if(prev_skin == EPRO_TEXT("none")){
 		for (u32 i = 0; i < EGDC_COUNT; ++i) {
 			irr::video::SColor col = skin->getColor((EGUI_DEFAULT_COLOR)i);
@@ -1800,7 +1821,7 @@ void Game::SaveConfig() {
 	conf_file << "quick_animation = "	<< (gameConf.quick_animation ? 1 : 0) << "\n";
 	conf_file << "#shows the unofficial cards in deck edit, which includes anime, customs, etc\n";
 	conf_file << "show_unofficial = "	<< (chkAnime->isChecked() ? 1 : 0) << "\n";
-	conf_file << "dpi_scale = "			<< gameConf.dpi_scale << "\n";
+	conf_file << "dpi_scale = "			<< std::to_string(gameConf.dpi_scale) << "\n";
 	conf_file << "#if skins from the skin folder are in use\n";
 	conf_file << "skin = "				<< Utils::ToUTF8IfNeeded(gameConf.skin) << "\n";
 	conf_file << "scale_background = "  << (gameConf.scale_background ? 1 : 0) << "\n";
@@ -1852,7 +1873,7 @@ void Game::AddGithubRepositoryStatusWindow(const RepoManager::GitRepo& repo) {
 	auto& grepo = repoInfoGui[repo.repo_path];
 	grepo.progress1 = new IProgressBar(env, Scale(5, 20 + 15, 170 + 295, 20 + 30), -1, a);
 	grepo.progress1->addBorder(1);
-	grepo.progress1->setColors(GetSkinColor(L"PROGRESSBAR_FILL_COLOR", irr::video::SColor(255, 255, 255, 255)), GetSkinColor(L"PROGRESSBAR_EMPTY_COLOR", irr::video::SColor(255, 255, 255, 255)));
+	grepo.progress1->setColors(skin::PROGRESSBAR_FILL_COLOR_VAL, skin::PROGRESSBAR_EMPTY_COLOR_VAL);
 	grepo.progress1->drop();
 	((CGUICustomContextMenu*)mRepositoriesInfo)->addItem(a, -1);
 	grepo.history_button1 = env->addButton(Scale(90 + 295, 0, 170 + 295, 20 + 5), a, BUTTON_REPO_CHANGELOG, L"Changelog");
@@ -1866,7 +1887,7 @@ void Game::AddGithubRepositoryStatusWindow(const RepoManager::GitRepo& repo) {
 	env->addStaticText(name.c_str(), Scale(5, 5, 300, 20 + 5), false, false, b);
 	grepo.progress2 = new IProgressBar(env, Scale(5, 20 + 15, 300 - 5, 20 + 30), -1, b);
 	grepo.progress2->addBorder(1);
-	grepo.progress2->setColors(GetSkinColor(L"PROGRESSBAR_FILL_COLOR", irr::video::SColor(255, 255, 255, 255)), GetSkinColor(L"PROGRESSBAR_EMPTY_COLOR", irr::video::SColor(255, 255, 255, 255)));
+	grepo.progress2->setColors(skin::PROGRESSBAR_FILL_COLOR_VAL, skin::PROGRESSBAR_EMPTY_COLOR_VAL);
 	grepo.progress2->drop();
 	((CGUICustomContextMenu*)mTabRepositories)->addItem(b, -1);
 	grepo.history_button2 = env->addButton(Scale(200, 5, 300 - 5, 20 + 10), b, BUTTON_REPO_CHANGELOG, L"Changelog");
@@ -2156,9 +2177,6 @@ void Game::PopupMessage(const std::wstring& text,const std::wstring& caption) {
 	queued_msg = text;
 	queued_caption = caption;
 	popupCheck.unlock();
-}
-irr::video::SColor Game::GetSkinColor(const std::wstring& value, irr::video::SColor fallback) {
-	return mainGame->skinSystem ? (mainGame->skinSystem->getCustomColor(value.c_str(), fallback)) : fallback;
 }
 uint8 Game::LocalPlayer(uint8 player) {
 	return dInfo.isFirst ? player : 1 - player;

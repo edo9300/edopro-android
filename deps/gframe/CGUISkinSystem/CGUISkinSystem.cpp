@@ -1,4 +1,6 @@
 #include "CGUISkinSystem.h"
+#include <map>
+#include <string>
 
 CGUISkinSystem::CGUISkinSystem(io::path path,IrrlichtDevice *dev) {
 	loaded_skin = nullptr;
@@ -44,15 +46,18 @@ bool CGUISkinSystem::loadSkinList() {
 		return false;
 }
 gui::CGUIProgressBar *CGUISkinSystem::addProgressBar(gui::IGUIElement *parent,core::rect<s32> rect, bool bindColorsToSkin) {
+	/*
 	gui::CGUIProgressBar* bar = new gui::CGUIProgressBar(parent,device->getGUIEnvironment(), rect,bindColorsToSkin);
 	//gui::CImageGUISkin* skin = (gui::CImageGUISkin*)device->getGUIEnvironment()->getSkin();
 	parent->addChild(bar);    
 	bar->drop();
-	return bar;
+	return bar;*/
+	return nullptr;
 }
 
 
 bool CGUISkinSystem::populateTreeView(gui::IGUITreeView *control,const core::stringc& skinname) {
+	/*
 	bool ret = false;
 	io::path oldpath = fs->getWorkingDirectory();
 	fs->changeWorkingDirectoryTo(skinsPath);
@@ -64,8 +69,9 @@ bool CGUISkinSystem::populateTreeView(gui::IGUITreeView *control,const core::str
 	ret = registry->populateTreeView(control);
 	delete registry;
 	registry = NULL;
-	fs->changeWorkingDirectoryTo(oldpath);	
-	return ret;
+	fs->changeWorkingDirectoryTo(oldpath);
+	return ret;*/
+	return false;
 }
 
 void CGUISkinSystem::ParseGUIElementStyle(gui::SImageGUIElementStyle& elem, const core::stringc& name, bool nullcolors) {
@@ -79,7 +85,7 @@ void CGUISkinSystem::ParseGUIElementStyle(gui::SImageGUIElementStyle& elem, cons
 	if(!ctmp.size()) 
 		err += "Could not load texture property from skin file";	
 	
-	elem.Texture = device->getVideoDriver()->getTexture(ctmp);	
+	elem.Texture = device->getVideoDriver()->getTexture(workingDir + "/" + ctmp);
 	
 	box = registry->getValueAsRect((context + "/SrcBorder").c_str());
 	elem.SrcBorder.Top = box.UpperLeftCorner.X;
@@ -118,7 +124,7 @@ gui::CImageGUISkin* CGUISkinSystem::loadSkinFromFile(const fschar_t *skinname) {
 	s32 i,x;
 	core::stringc tmp;
 	core::stringw wtmp;
-	core::stringc path = "./";
+	core::stringc path = workingDir + "/./";
 	path += skinname;
 	if(!registry->loadFile(SKINSYSTEM_SKINFILE,path.c_str())) {
 		return NULL;
@@ -141,7 +147,8 @@ gui::CImageGUISkin* CGUISkinSystem::loadSkinFromFile(const fschar_t *skinname) {
 	fallbackSkin->drop();
 
 	skin = new gui::CImageGUISkin(device->getVideoDriver(), device->getGUIEnvironment()->getSkin());
-	fs->changeWorkingDirectoryTo(path.c_str());
+	workingDir = path;
+	//fs->changeWorkingDirectoryTo(path.c_str());
 	ParseGUIElementStyle(skinConfig.Button,"Button");
 	ParseGUIElementStyle(skinConfig.ButtonPressed, "Button/Pressed");
 	ParseGUIElementStyle(skinConfig.ButtonDisabled, "Button/ButtonDisabled");
@@ -232,10 +239,71 @@ gui::CImageGUISkin* CGUISkinSystem::loadSkinFromFile(const fschar_t *skinname) {
 	
 	
 	
-	checkSkinSize(gui::EGDS_WINDOW_BUTTON_WIDTH, L"Skin/Global/WindowButton",L"width",skin);	
+	checkSkinSize(gui::EGDS_WINDOW_BUTTON_WIDTH, L"Skin/Global/WindowButton",L"width",skin);
 	checkSkinSize(gui::EGDS_TITLEBARTEXT_DISTANCE_X, L"Skin/Global/Caption",L"tbardistancex",skin);
 	checkSkinSize(gui::EGDS_TITLEBARTEXT_DISTANCE_Y, L"Skin/Global/Caption",L"tbardistancey",skin);
+
+#define CHECKSIZE(elem) checkSkinSize(gui::elem, L"Skin/Global/"#elem,L"value",skin);
+	CHECKSIZE(EGDS_SCROLLBAR_SIZE)
+	CHECKSIZE(EGDS_MENU_HEIGHT)
+	CHECKSIZE(EGDS_WINDOW_BUTTON_WIDTH)
+	CHECKSIZE(EGDS_CHECK_BOX_WIDTH)
+	CHECKSIZE(EGDS_MESSAGE_BOX_WIDTH)
+	CHECKSIZE(EGDS_MESSAGE_BOX_HEIGHT)
+	CHECKSIZE(EGDS_BUTTON_WIDTH)
+	CHECKSIZE(EGDS_BUTTON_HEIGHT)
+	CHECKSIZE(EGDS_TEXT_DISTANCE_X)
+	CHECKSIZE(EGDS_TEXT_DISTANCE_Y)
+	CHECKSIZE(EGDS_TITLEBARTEXT_DISTANCE_X)
+	CHECKSIZE(EGDS_TITLEBARTEXT_DISTANCE_Y)
+	CHECKSIZE(EGDS_MESSAGE_BOX_GAP_SPACE)
+	CHECKSIZE(EGDS_MESSAGE_BOX_MIN_TEXT_WIDTH)
+	CHECKSIZE(EGDS_MESSAGE_BOX_MAX_TEXT_WIDTH)
+	CHECKSIZE(EGDS_MESSAGE_BOX_MIN_TEXT_HEIGHT)
+	CHECKSIZE(EGDS_MESSAGE_BOX_MAX_TEXT_HEIGHT)
+	CHECKSIZE(EGDS_BUTTON_PRESSED_IMAGE_OFFSET_X)
+	CHECKSIZE(EGDS_BUTTON_PRESSED_IMAGE_OFFSET_Y)
+	CHECKSIZE(EGDS_BUTTON_PRESSED_TEXT_OFFSET_X)
+	CHECKSIZE(EGDS_BUTTON_PRESSED_TEXT_OFFSET_Y)
+#undef CHECKSIZE
 	
+#define CHECKICON(elem) checkSkinIcon(gui::elem, L"Skin/Global/"#elem,skin);
+	CHECKICON(EGDI_WINDOW_MAXIMIZE)
+	CHECKICON(EGDI_WINDOW_RESTORE)
+	CHECKICON(EGDI_WINDOW_CLOSE)
+	CHECKICON(EGDI_WINDOW_MINIMIZE)
+	CHECKICON(EGDI_WINDOW_RESIZE)
+	CHECKICON(EGDI_CURSOR_UP)
+	CHECKICON(EGDI_CURSOR_DOWN)
+	CHECKICON(EGDI_CURSOR_LEFT)
+	CHECKICON(EGDI_CURSOR_RIGHT)
+	CHECKICON(EGDI_MENU_MORE)
+	CHECKICON(EGDI_CHECK_BOX_CHECKED)
+	CHECKICON(EGDI_DROP_DOWN)
+	CHECKICON(EGDI_SMALL_CURSOR_UP)
+	CHECKICON(EGDI_SMALL_CURSOR_DOWN)
+	CHECKICON(EGDI_RADIO_BUTTON_CHECKED)
+	CHECKICON(EGDI_MORE_LEFT)
+	CHECKICON(EGDI_MORE_RIGHT)
+	CHECKICON(EGDI_MORE_UP)
+	CHECKICON(EGDI_MORE_DOWN)
+	CHECKICON(EGDI_EXPAND)
+	CHECKICON(EGDI_COLLAPSE)
+	CHECKICON(EGDI_FILE)
+	CHECKICON(EGDI_DIRECTORY)
+#undef CHECKICON
+	
+	
+#define CHECKTEXT(elem) checkSkinText(gui::elem, L"Skin/Global/"#elem,skin);
+		CHECKTEXT(EGDT_MSG_BOX_OK)
+		CHECKTEXT(EGDT_MSG_BOX_CANCEL)
+		CHECKTEXT(EGDT_MSG_BOX_YES)
+		CHECKTEXT(EGDT_MSG_BOX_NO)
+		CHECKTEXT(EGDT_WINDOW_CLOSE)
+		CHECKTEXT(EGDT_WINDOW_MAXIMIZE)
+		CHECKTEXT(EGDT_WINDOW_MINIMIZE)
+		CHECKTEXT(EGDT_WINDOW_RESTORE)
+#undef CHECKTEXT
 
 	return skin;
 }
@@ -244,7 +312,7 @@ core::stringw CGUISkinSystem::getProperty(core::stringw key) {
 	return loaded_skin == skin ? skin->getProperty(key) : core::stringw("");
 }
 
-video::SColor CGUISkinSystem::getCustomColor(core::stringw key, video::SColor fallback) {
+video::SColor CGUISkinSystem::getCustomColor(ygo::skin::CustomSkinElements key, video::SColor fallback) {
 	gui::CImageGUISkin* skin = (gui::CImageGUISkin*)device->getGUIEnvironment()->getSkin();
 	return loaded_skin == skin ? skin->getCustomColor(key, fallback) : fallback;
 }
@@ -267,6 +335,24 @@ bool CGUISkinSystem::checkSkinSize(gui::EGUI_DEFAULT_SIZE sizeToSet,const wchar_
 	return false;
 }
 
+bool CGUISkinSystem::checkSkinIcon(gui::EGUI_DEFAULT_ICON iconToSet, const wchar_t * context, gui::CImageGUISkin * skin) {
+	u32 i = registry->getValueAsInt(L"index", context);
+	if(i != NULL) {
+		skin->setIcon(iconToSet, i);
+		return true;
+	}
+	return false;
+}
+
+bool CGUISkinSystem::checkSkinText(gui::EGUI_DEFAULT_TEXT textToSet, const wchar_t * context, gui::CImageGUISkin * skin) {
+	auto txt = registry->getValueAsCStr(L"text", context);
+	if(txt != NULL) {
+		skin->setDefaultText(textToSet, txt);
+		return true;
+	}
+	return false;
+}
+
 bool CGUISkinSystem::loadProperty(core::stringw key,gui::CImageGUISkin *skin) {
 	core::stringw wtmp = "Skin/Properties/";
 	wtmp += key;
@@ -278,25 +364,34 @@ bool CGUISkinSystem::loadProperty(core::stringw key,gui::CImageGUISkin *skin) {
 	return false;
 }
 bool CGUISkinSystem::loadCustomColors(gui::CImageGUISkin * skin) {
+	static const std::map<std::wstring, ygo::skin::CustomSkinElements> alias = {
+#define DECLR(what,val) { L""#what, ygo::skin::CustomSkinElements::what },
+#include "../custom_skin_enum.inl"
+#undef DECLR
+		{ L"LAST_PLACEHOLDER", ygo::skin::CustomSkinElements::LAST_PLACEHOLDER }
+	};
 	core::stringw wtmp = "Skin/Custom/";
 	core::array<const wchar_t*>* children = registry->listNodeChildren(L"", wtmp.c_str());
 	if(!children) return false;
 	for(int i = 0; i < children->size(); i++) {
 		core::stringw tmpchild = (*children)[i];
 		video::SColor color= registry->getValueAsColor((wtmp + tmpchild).c_str());
-		if(color.color)
-			skin->setCustomColor(tmpchild, color);
+		if(color.color) {
+			auto found = alias.find(tmpchild.c_str());
+			if(found != alias.end())
+				skin->setCustomColor(found->second, color);
+		}
 	}
 	return false;
 }
 bool CGUISkinSystem::applySkin(const fschar_t *skinname) {
-	io::path oldpath = fs->getWorkingDirectory();
-	fs->changeWorkingDirectoryTo(skinsPath);
+	/*io::path oldpath = fs->getWorkingDirectory();
+	fs->changeWorkingDirectoryTo(skinsPath);*/
+	workingDir = skinsPath;
 	registry = new CXMLRegistry(fs);
 	loaded_skin = nullptr;
 	gui::CImageGUISkin* skin = loadSkinFromFile(skinname);
 	if(skin == NULL) {
-		fs->changeWorkingDirectoryTo(oldpath);
 		return false;
 	}
     device->getGUIEnvironment()->setSkin(skin);
@@ -305,7 +400,7 @@ bool CGUISkinSystem::applySkin(const fschar_t *skinname) {
     skin->drop();	
 	delete registry;
 	registry = NULL;
-	fs->changeWorkingDirectoryTo(oldpath);
+	//fs->changeWorkingDirectoryTo(oldpath);
 	
 	return true;
 }
