@@ -438,8 +438,8 @@ void field::swap_card(card* pcard1, card* pcard2, uint8 new_sequence1, uint8 new
 	loc_info info1 = pcard1->get_info_location(), info2 = pcard2->get_info_location();
 	if(!(l1 & LOCATION_ONFIELD) || !(l2 & LOCATION_ONFIELD))
 		return;
-	if(new_sequence1 != s1 && !is_location_useable(p1, l1, new_sequence1)
-		|| new_sequence2 != s2 && !is_location_useable(p2, l2, new_sequence2))
+	if((new_sequence1 != s1 && !is_location_useable(p1, l1, new_sequence1))
+		|| (new_sequence2 != s2 && !is_location_useable(p2, l2, new_sequence2)))
 		return;
 	if(p1 == p2 && l1 == l2 && (new_sequence1 == s2 || new_sequence2 == s1))
 		return;
@@ -725,7 +725,6 @@ int32 field::get_useable_count_fromex_rule4(card* pcard, uint8 playerid, uint8 u
 int32 field::get_spsummonable_count_fromex_rule4(card* pcard, uint8 playerid, uint8 uplayer, uint32 zone, uint32* list) {
 	uint32 flag = player[playerid].disabled_location | player[playerid].used_location;
 	flag |= ~get_forced_zones(pcard, playerid, LOCATION_MZONE, uplayer, LOCATION_REASON_TOFIELD);
-	uint32 linked_zone = get_linked_zone(playerid) | (1u << 5) | (1u << 6);
 	if(player[playerid].list_mzone[5] && is_location_useable(playerid, LOCATION_MZONE, 6)
 		&& check_extra_link(playerid, pcard, 6)) {
 		flag |= 1u << 5;
@@ -1031,13 +1030,21 @@ void field::swap_deck_and_grave(uint8 playerid) {
 		pcard->cancel_field_effect();
 	}
 	player[playerid].list_grave.swap(player[playerid].list_main);
+	auto message = pduel->new_message(MSG_SWAP_GRAVE_DECK);
+	message->write<uint8>(playerid);
+	message->write<uint32>(player[playerid].list_main.size());
 	card_vector ex;
-	for(auto clit = player[playerid].list_main.begin(); clit != player[playerid].list_main.end(); ) {
+	ProgressiveBuffer buff;
+	int i = 0;
+	for(auto clit = player[playerid].list_main.begin(); clit != player[playerid].list_main.end(); i++) {
 		if((*clit)->is_extra_deck_monster()) {
+			buff.bitSet(i);
 			ex.push_back(*clit);
 			clit = player[playerid].list_main.erase(clit);
-		} else
+		} else {
+			buff.bitSet(i, false);
 			++clit;
+		}
 	}
 	for(auto& pcard : player[playerid].list_grave) {
 		pcard->current.location = LOCATION_GRAVE;
@@ -1069,8 +1076,8 @@ void field::swap_deck_and_grave(uint8 playerid) {
 	player[playerid].list_extra.insert(player[playerid].list_extra.end(), ex.begin(), ex.end());
 	reset_sequence(playerid, LOCATION_GRAVE);
 	reset_sequence(playerid, LOCATION_EXTRA);
-	auto message = pduel->new_message(MSG_SWAP_GRAVE_DECK);
-	message->write<uint8>(playerid);
+	message->write<uint32>(buff.data.size());
+	message->write(buff.data.data(), buff.data.size());
 	shuffle(playerid, LOCATION_DECK);
 }
 void field::reverse_deck(uint8 playerid) {
@@ -2975,7 +2982,7 @@ int32 field::check_cteffect_hint(effect* peffect, uint8 playerid) {
 		if(!feffect->in_range(phandler))
 			continue;
 		uint32 code = efit.first;
-		if(code == EVENT_FREE_CHAIN || code == EVENT_PHASE + infos.phase) {
+		if(code == EVENT_FREE_CHAIN || code == (EVENT_PHASE | infos.phase)) {
 			nil_event.event_code = code;
 			if(get_cteffect_evt(feffect, playerid, nil_event, FALSE)
 				&& (code != EVENT_FREE_CHAIN || check_hint_timing(feffect)))

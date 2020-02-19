@@ -63,6 +63,7 @@ int ReplayMode::ReplayThread() {
 	mainGame->dInfo.isReplay = true;
 	const ReplayHeader& rh = cur_replay.pheader;
 	mainGame->dInfo.isFirst = true;
+	mainGame->dInfo.isTeam1 = true;
 	mainGame->dInfo.isRelay = !!(rh.flag & REPLAY_RELAY);
 	mainGame->dInfo.isSingleMode = !!(rh.flag & REPLAY_SINGLE_MODE);
 	mainGame->dInfo.compat_mode = !(rh.flag & REPLAY_LUA64);
@@ -73,10 +74,10 @@ int ReplayMode::ReplayThread() {
 	if(!mainGame->dInfo.isRelay)
 		mainGame->dInfo.current_player[1] = mainGame->dInfo.team2 - 1;
 	auto names = ReplayMode::cur_replay.GetPlayerNames();
-	mainGame->dInfo.hostname.clear();
-	mainGame->dInfo.clientname.clear();
-	mainGame->dInfo.hostname.insert(mainGame->dInfo.hostname.end(), names.begin(), names.begin() + mainGame->dInfo.team1);
-	mainGame->dInfo.clientname.insert(mainGame->dInfo.clientname.end(), names.begin() + mainGame->dInfo.team1, names.end());
+	mainGame->dInfo.selfnames.clear();
+	mainGame->dInfo.opponames.clear();
+	mainGame->dInfo.selfnames.insert(mainGame->dInfo.selfnames.end(), names.begin(), names.begin() + mainGame->dInfo.team1);
+	mainGame->dInfo.opponames.insert(mainGame->dInfo.opponames.end(), names.begin() + mainGame->dInfo.team1, names.end());
 	int opt = cur_replay.params.duel_flags;
 	mainGame->dInfo.duel_field = opt & 0xff;
 	mainGame->dInfo.extraval = ((opt >> 8) & DUEL_SPEED) ? 1 : 0;
@@ -88,7 +89,7 @@ int ReplayMode::ReplayThread() {
 	}
 	mainGame->dInfo.isInDuel = true;
 	mainGame->dInfo.isStarted = true;
-	mainGame->SetMesageWindow();
+	mainGame->SetMessageWindow();
 	mainGame->dInfo.turn = 0;
 	mainGame->dInfo.isCatchingUp = (skip_turn > 0);
 	is_continuing = true;
@@ -112,7 +113,7 @@ int ReplayMode::ReplayThread() {
 				mainGame->dInfo.isStarted = true;
 				mainGame->dInfo.isCatchingUp = false;
 				mainGame->dField.RefreshAllCards();
-				mainGame->SetMesageWindow();
+				mainGame->SetMessageWindow();
 				mainGame->gMutex.unlock();
 			}
 			skip_step = step;
@@ -134,7 +135,7 @@ void ReplayMode::EndDuel() {
 	if(!is_closing) {
 		mainGame->actionSignal.Reset();
 		mainGame->gMutex.lock();
-		mainGame->stMessage->setText(dataManager.GetSysString(1501).c_str());
+		mainGame->stMessage->setText(gDataManager->GetSysString(1501).c_str());
 		if(mainGame->wCardSelect->isVisible())
 			mainGame->HideElement(mainGame->wCardSelect);
 		mainGame->PopupElement(mainGame->wMessage);
@@ -153,9 +154,9 @@ void ReplayMode::EndDuel() {
 		mainGame->closeSignal.unlock();
 		mainGame->gMutex.lock();
 		mainGame->ShowElement(mainGame->wReplay);
-		mainGame->SetMesageWindow();
+		mainGame->SetMessageWindow();
 		mainGame->stTip->setVisible(false);
-		mainGame->soundManager->StopSounds();
+		gSoundManager->StopSounds();
 		mainGame->device->setEventReceiver(&mainGame->menuHandler);
 		mainGame->gMutex.unlock();
 		if(exit_on_return)
@@ -221,7 +222,7 @@ bool ReplayMode::ReplayAnalyze(ReplayPacket p) {
 				mainGame->gMutex.unlock();
 			}
 			mainGame->gMutex.lock();
-			mainGame->stMessage->setText(L"Error occurs.");
+			mainGame->stMessage->setText(gDataManager->GetSysString(1434).c_str());
 			mainGame->PopupElement(mainGame->wMessage);
 			mainGame->gMutex.unlock();
 			mainGame->actionSignal.Reset();
@@ -283,7 +284,7 @@ bool ReplayMode::ReplayAnalyze(ReplayPacket p) {
 			std::string namebuf;
 			namebuf.resize(len);
 			memcpy(&namebuf[0], begin, len + 1);
-			mainGame->dInfo.clientname[0] = BufferIO::DecodeUTF8s(namebuf);
+			mainGame->dInfo.opponames[0] = BufferIO::DecodeUTF8s(namebuf);
 			return true;
 		}
 		case OLD_REPLAY_MODE:

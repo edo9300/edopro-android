@@ -140,7 +140,7 @@ void duel::write_buffer(void* data, size_t size) {
 void duel::clear_buffer() {
 	buff.clear();
 }
-void duel::set_response(byte* resp, size_t len) {
+void duel::set_response(const void* resp, size_t len) {
 	game_field->returns.clear();
 	game_field->returns.data.resize(len);
 	if(len)
@@ -153,7 +153,7 @@ duel::duel_message* duel::new_message(uint32_t message) {
 	messages.emplace_back(message);
 	return &(*messages.rbegin());
 }
-const card_data* const duel::read_card(uint32_t code, card_data* copyable) {
+card_data const* duel::read_card(uint32_t code, card_data* copyable) {
 	card_data* ret;
 	auto search = data_cache.find(code);
 	if(search != data_cache.end()) {
@@ -162,7 +162,7 @@ const card_data* const duel::read_card(uint32_t code, card_data* copyable) {
 		OCG_CardData data;
 		read_card_api(read_card_payload, code, &data);
 		ret = &(data_cache.emplace(code, &data).first->second);
-		read_card_done(read_card_done_payload);
+		read_card_done(read_card_done_payload, &data);
 	}
 	if(copyable)
 		*copyable = *ret;

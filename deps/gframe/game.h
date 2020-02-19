@@ -16,10 +16,9 @@
 #include "deck_con.h"
 #include "menu_handler.h"
 #include "discord_wrapper.h"
-#include "repo_manager.h"
-#include "sound_manager.h"
 #include "windbot_panel.h"
 #include "ocgapi_types.h"
+#include "settings_window.h"
 
 class CGUISkinSystem;
 class IProgressBar;
@@ -59,50 +58,7 @@ namespace irr {
 }
 namespace ygo {
 
-class SoundManager;
-
-struct Config {
-	bool use_d3d;
-	bool use_vsync;
-	float dpi_scale;
-	int max_fps;
-	int game_version;
-	bool fullscreen;
-	unsigned short antialias;
-	std::wstring serverport;
-	unsigned char textfontsize;
-	std::wstring lasthost;
-	std::wstring lastport;
-	std::wstring nickname;
-	std::wstring gamename;
-	std::wstring lastdeck;
-	unsigned int lastlflist;
-	unsigned int lastallowedcards;
-	std::wstring textfont;
-	std::wstring numfont;
-	std::wstring roompass;
-	//settings
-	bool chkMAutoPos;
-	bool chkSTAutoPos;
-	bool chkRandomPos;
-	bool chkAutoChain;
-	bool chkWaitChain;
-	bool chkIgnore1;
-	bool chkIgnore2;
-	bool chkHideSetname;
-	bool chkHideHintButton;
-	bool draw_field_spell;
-	bool quick_animation;
-
-	bool scale_background;
-	bool accurate_bg_resize;
-	bool chkAnime;
-	bool enablemusic;
-	bool enablesound;
-	double musicVolume;
-	double soundVolume;
-	path_string skin;
-};
+class GitRepo;
 
 struct DuelInfo {
 	bool isInDuel;
@@ -111,6 +67,7 @@ struct DuelInfo {
 	bool isOldReplay;
 	bool isCatchingUp;
 	bool isFirst;
+	bool isTeam1;
 	bool isRelay;
 	bool isInLobby;
 	bool isSingleMode;
@@ -127,8 +84,8 @@ struct DuelInfo {
 	int team1;
 	int team2;
 	int best_of;
-	std::vector<std::wstring> clientname;
-	std::vector<std::wstring> hostname;
+	std::vector<std::wstring> selfnames;
+	std::vector<std::wstring> opponames;
 	std::wstring strLP[2];
 	std::wstring vic_string;
 	unsigned char player_type;
@@ -155,11 +112,10 @@ class Game {
 
 public:
 	bool Initialize();
-	void MainLoop();
-	void ApplySkin(const path_string& skin, bool reload = false);
+	bool MainLoop();
+	path_string NoSkinLabel();
+	bool ApplySkin(const path_string& skin, bool reload = false, bool firstrun = false);
 	void LoadZipArchives();
-	void LoadExpansionDB();
-	void LoadArchivesDB();
 	void RefreshDeck(irr::gui::IGUIComboBox* cbDeck);
 	void RefreshLFLists();
 	void RefreshAiDecks();
@@ -186,13 +142,23 @@ public:
 	void WaitFrameSignal(int frame);
 	void DrawThumb(CardDataC* cp, irr::core::position2di pos, LFList* lflist, bool drag = false, irr::core::recti* cliprect = nullptr, bool loadimage = true);
 	void DrawDeckBd();
-	void LoadConfig();
 	void SaveConfig();
 	void LoadPicUrls();
-	void AddGithubRepositoryStatusWindow(const RepoManager::GitRepo& repo);
+	struct RepoGui {
+		std::string path;
+		IProgressBar* progress1;
+		IProgressBar* progress2;
+		irr::gui::IGUIButton* history_button1;
+		irr::gui::IGUIButton* history_button2;
+		std::wstring commit_history_full;
+		std::wstring commit_history_partial;
+	};
+	RepoGui* AddGithubRepositoryStatusWindow(const GitRepo* repo);
 	void LoadGithubRepositories();
+	void UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo);
 	void LoadServers();
 	void ShowCardInfo(int code, bool resize = false, ImageManager::imgType type = ImageManager::imgType::ART);
+	void RefreshCardInfoTextPositions();
 	void ClearCardInfo(int player = 0);
 	void AddChatMsg(const std::wstring& msg, int player, int type);
 	void AddLog(const std::wstring& msg, int param = 0);
@@ -203,14 +169,15 @@ public:
 	void PopupMessage(const std::wstring& text, const std::wstring& caption = L"");
 
 	uint8 LocalPlayer(uint8 player);
-	std::wstring LocalName(int local_player);
 	void UpdateDuelParam();
 	void UpdateExtraRules();
 	int GetMasterRule(uint32 param, uint32 forbidden, int* truerule = 0);
 	void SetPhaseButtons();
-	void SetMesageWindow();
+	void SetMessageWindow();
 
 	bool HasFocus(irr::gui::EGUI_ELEMENT_TYPE type) const;
+
+	void ReloadElementsStrings();
 
 	void OnResize();
 	template<typename T>
@@ -232,7 +199,7 @@ public:
 	irr::core::vector2d<irr::s32> Resize(irr::s32 x, irr::s32 y, bool reverse = false);
 	irr::core::recti ResizeElem(irr::s32 x, irr::s32 y, irr::s32 x2, irr::s32 y2, bool scale = true);
 	irr::core::recti ResizePhaseHint(irr::s32 x, irr::s32 y, irr::s32 x2, irr::s32 y2, irr::s32 width);
-	irr::core::recti ResizeWinFromCenter(irr::s32 x, irr::s32 y, irr::s32 x2, irr::s32 y2);
+	irr::core::recti ResizeWinFromCenter(irr::s32 x, irr::s32 y, irr::s32 x2, irr::s32 y2, irr::s32 xoff = 0, irr::s32 yoff = 0);
 	irr::core::recti ResizeWin(irr::s32 x, irr::s32 y, irr::s32 x2, irr::s32 y2, bool chat = false);
 	void SetCentered(irr::gui::IGUIElement* elem);
 	void ValidateName(irr::gui::IGUIElement* box);
@@ -244,8 +211,6 @@ public:
 	static int ScriptReader(void* payload, OCG_Duel duel, const char* name);
 	static void MessageHandler(void* payload, const char* string, int type);
 
-	path_string working_directory;
-	std::unique_ptr<SoundManager> soundManager;
 	std::mutex gMutex;
 	std::mutex analyzeMutex;
 	Signal frameSignal;
@@ -253,26 +218,16 @@ public:
 	Signal replaySignal;
 	std::mutex closeSignal;
 	Signal closeDoneSignal;
-	Config gameConf;
 	DuelInfo dInfo;
 	DiscordWrapper discord;
+	ImageManager imageManager;
 #ifdef YGOPRO_BUILD_DLL
 	void* ocgcore;
 #endif
 	bool coreloaded;
-	bool is_fullscreen;
 	std::list<FadingUnit> fadingList;
 	std::vector<int> logParam;
 	std::wstring chatMsg[8];
-	struct RepoGui {
-		std::string path;
-		IProgressBar* progress1;
-		IProgressBar* progress2;
-		irr::gui::IGUIButton* history_button1;
-		irr::gui::IGUIButton* history_button2;
-		std::wstring commit_history_full;
-		std::wstring commit_history_partial;
-	};
 	std::map<std::string, RepoGui> repoInfoGui;
 
 	uint32 delta_time;
@@ -312,6 +267,7 @@ public:
 	uint32 duel_param;
 	uint32 showingcard;
 	bool cardimagetextureloading;
+	float dpi_scale;
 
 
 	irr::core::dimension2d<irr::u32> window_size;
@@ -333,6 +289,9 @@ public:
 	std::vector<path_string> cover_dirs;
 	std::vector<path_string> script_dirs;
 	std::vector<path_string> cores_to_load;
+	void PopulateLocales();
+	void ApplyLocale(int index, bool forced = false);
+	std::vector<path_string> locales;
 	std::mutex popupCheck;
 	std::wstring queued_msg;
 	std::wstring queued_caption;
@@ -358,9 +317,9 @@ public:
 	irr::gui::IGUIStaticText* stInfo;
 	irr::gui::IGUIStaticText* stDataInfo;
 	irr::gui::IGUIStaticText* stSetName;
+	irr::gui::IGUIStaticText* stPasscodeScope;
 	irr::gui::IGUIStaticText* stText;
-	irr::gui::IGUIStaticText* stMusicVolume;
-	irr::gui::IGUIStaticText* stSoundVolume;
+
 	irr::gui::IGUITab* tabLog;
 	irr::gui::IGUIListBox* lstLog;
 	irr::gui::IGUITab* tabChat;
@@ -370,23 +329,13 @@ public:
 	irr::gui::IGUIButton* btnClearChat;
 	irr::gui::IGUIButton* btnExpandChat;
 	irr::gui::IGUIButton* btnSaveLog;
-	irr::gui::IGUIButton* btnReloadSkin;
 	irr::gui::IGUITab* tabRepositories;
 	irr::gui::IGUIContextMenu* mTabRepositories;
 	irr::gui::Panel* tabSystem;
-	irr::gui::IGUICheckBox* chkMAutoPos;
-	irr::gui::IGUICheckBox* chkSTAutoPos;
-	irr::gui::IGUICheckBox* chkRandomPos;
-	irr::gui::IGUICheckBox* chkAutoChain;
-	irr::gui::IGUICheckBox* chkWaitChain;
-	irr::gui::IGUICheckBox* chkQuickAnimation;
-	irr::gui::IGUICheckBox* chkHideSetname;
-	irr::gui::IGUICheckBox* chkHideHintButton;
-	irr::gui::IGUICheckBox* chkEnableSound;
-	irr::gui::IGUICheckBox* chkEnableMusic;
-	irr::gui::IGUIScrollBar* scrMusicVolume;
-	irr::gui::IGUIScrollBar* scrSoundVolume;
-	irr::gui::IGUIComboBox* cbCurrentSkin;
+	SettingsPane tabSettings;
+	irr::gui::IGUIButton* btnTabShowSettings;
+
+	SettingsWindow gSettings;
 	//main menu
 	irr::gui::IGUIWindow* wMainMenu;
 	irr::gui::IGUIWindow* wCommitsLog;
@@ -436,7 +385,7 @@ public:
 	irr::gui::IGUIEditBox* ebServerPass;
 	irr::gui::IGUIButton* btnRuleCards;
 	irr::gui::IGUIWindow* wRules;
-	irr::gui::IGUICheckBox* chkRules[13];
+	irr::gui::IGUICheckBox* chkRules[14];
 	irr::gui::IGUIButton* btnRulesOK;
 	irr::gui::IGUIComboBox* cbDuelRule;
 	irr::gui::IGUIButton* btnCustomRule;
@@ -569,8 +518,6 @@ public:
 	irr::gui::IGUIWindow* wChat;
 	irr::gui::IGUIListBox* lstChatLog;
 	irr::gui::IGUIEditBox* ebChatInput;
-	irr::gui::IGUICheckBox* chkIgnore1;
-	irr::gui::IGUICheckBox* chkIgnore2;
 	//phase button
 	irr::gui::IGUIStaticText* wPhase;
 	irr::gui::IGUIButton* btnDP;
@@ -682,9 +629,9 @@ public:
 	irr::gui::IGUIButton* btnRPNo;
 	irr::gui::IGUIButton* btnJoinHost2;
 	irr::gui::IGUIButton* btnJoinCancel2;
+	irr::gui::IGUIStaticText* fpsCounter;
 
 #ifdef __ANDROID__
-	ANDROID_APP appMain;
 	int glversion;
 	bool isPSEnabled;
 	bool isNPOTSupported;
@@ -692,15 +639,15 @@ public:
 	irr::s32 ogles2TrasparentAlpha;
 	irr::s32 ogles2BlendTexture;
 	Signal externalSignal;
-	irr::gui::IGUIStaticText* fpsCounter;
 #endif
+	std::vector<std::pair<irr::gui::IGUIElement*, int32>> defaultStrings;
 };
 
-extern Game* mainGame;
+extern std::shared_ptr<Game> mainGame;
 
 template<typename T>
 inline irr::core::vector2d<T> Game::Scale(irr::core::vector2d<T> vec) {
-	return irr::core::vector2d<T>(vec.X * gameConf.dpi_scale, vec.Y * gameConf.dpi_scale );
+	return irr::core::vector2d<T>(vec.X * dpi_scale, vec.Y * dpi_scale );
 }
 template<typename T>
 inline T Game::ResizeX(T x) {
@@ -712,15 +659,15 @@ inline T Game::ResizeY(T y) {
 }
 template<typename T, typename T2>
 inline irr::core::vector2d<T> Game::Scale(T x, T2 y) {
-	return irr::core::vector2d<T>((T)(x * gameConf.dpi_scale), (T)(y * gameConf.dpi_scale));
+	return irr::core::vector2d<T>((T)(x * dpi_scale), (T)(y * dpi_scale));
 }
 template<typename T>
 inline T Game::Scale(T val) {
-	return T(val * gameConf.dpi_scale);
+	return T(val * dpi_scale);
 }
 template<typename T, typename T2, typename T3, typename T4>
 irr::core::rect<T> Game::Scale(T x, T2 y, T3 x2, T4 y2) {
-	auto& scale = gameConf.dpi_scale;
+	auto& scale = dpi_scale;
 	return { (T)std::roundf(x * scale),(T)std::roundf(y * scale), (T)std::roundf(x2 * scale), (T)std::roundf(y2 * scale) };
 }
 template<typename T>

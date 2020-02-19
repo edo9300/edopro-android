@@ -8,30 +8,59 @@
 struct sqlite3;
 struct sqlite3_stmt;
 
+#define SCOPE_OCG        0x1
+#define SCOPE_TCG        0x2
+#define SCOPE_ANIME      0x4
+#define SCOPE_ILLEGAL    0x8
+#define SCOPE_VIDEO_GAME 0x10
+#define SCOPE_CUSTOM     0x20
+#define SCOPE_PRERELEASE 0x100
+#define SCOPE_HIDDEN     0x1000
+
+#define SCOPE_OCG_TCG    (SCOPE_OCG | SCOPE_TCG)
+#define SCOPE_OFFICIAL   (SCOPE_OCG | SCOPE_TCG | SCOPE_PRERELEASE)
+
+#define TYPE_SKILL       0x8000000
+#define TYPE_ACTION      0x10000000
+
 namespace ygo {
+
+class CardDataM {
+public:
+	CardDataC _data{};
+	const CardString* GetStrings() {
+		if(_locale_strings)
+			return _locale_strings;
+		return &_strings;
+	}
+	CardDataM(){}
+	CardDataM(CardDataC&& data, CardString&& strings, CardString* locale_strings = nullptr):
+		_data(std::move(data)), _strings(std::move(strings)), _locale_strings(locale_strings){}
+	CardString _strings{};
+	CardString* _locale_strings = nullptr;
+};
 
 class DataManager {
 public:
-	DataManager() {}
-	~DataManager() {
-		for(auto& card : _datas) {
-			if(card.second) {
-				delete card.second;
-			}
-		}
+	DataManager() {
+		cards.reserve(10000);
+		locales.reserve(10000);
 	}
+	~DataManager() {}
+	void ClearLocaleTexts();
+	bool LoadLocaleDB(const path_string& file, bool usebuffer = false);
 	bool LoadDB(const path_string& file, bool usebuffer = false);
 	bool LoadDBFromBuffer(const std::vector<char>& buffer);
-	bool ParseDB(sqlite3* pDB);
 	bool LoadStrings(const path_string& file);
-	bool Error(sqlite3* pDB, sqlite3_stmt* pStmt = 0);
+	bool LoadLocaleStrings(const path_string& file);
+	void ClearLocaleStrings();
 	bool GetData(int code, CardData* pData);
 	CardDataC* GetCardData(int code);
 	bool GetString(int code, CardString* pStr);
 	std::wstring GetName(int code);
 	std::wstring GetText(int code);
 	std::wstring GetDesc(uint64 strCode, bool compat);
-	std::wstring GetSysString(uint64 code);
+	std::wstring GetSysString(uint32 code);
 	std::wstring GetVictoryString(int code);
 	std::wstring GetCounterName(int code);
 	std::wstring GetSetName(int code);
@@ -39,25 +68,53 @@ public:
 	std::wstring GetNumString(int num, bool bracket = false);
 	std::wstring FormatLocation(int location, int sequence);
 	std::wstring FormatAttribute(int attribute);
-	std::wstring FormatRace(int race);
+	std::wstring FormatRace(int race, bool isSkill = false);
 	std::wstring FormatType(int type);
+	std::wstring FormatScope(int scope, bool hideOCGTCG = false);
 	std::wstring FormatSetName(unsigned long long setcode);
 	std::wstring FormatSetName(std::vector<uint16> setcodes);
 	std::wstring FormatLinkMarker(int link_marker);
 
-	std::unordered_map<unsigned int, CardDataC*> _datas;
-	std::unordered_map<unsigned int, CardString> _strings;
-	std::unordered_map<unsigned int, std::wstring> _counterStrings;
-	std::unordered_map<unsigned int, std::wstring> _victoryStrings;
-	std::unordered_map<unsigned int, std::wstring> _setnameStrings;
-	std::unordered_map<unsigned int, std::wstring> _sysStrings;
+	std::unordered_map<unsigned int, CardDataM> cards;
 
 	static const wchar_t* unknown_string;
 	static void CardReader(void* payload, int code, CardData* data);
+private:
+	template<typename T1, typename T2 = T1>
+	using indexed_map = std::map<unsigned int, std::pair<T1, T2>>;
 
+	class LocaleStringHelper {
+	public:
+		indexed_map<std::wstring> map{};
+		const wchar_t* GetLocale(unsigned int code) {
+			auto search = map.find(code);
+			if(search == map.end() || search->second.first.empty())
+				return nullptr;
+			return search->second.second.size() ? search->second.second.c_str() : search->second.first.c_str();
+		}
+		void ClearLocales() {
+			for(auto& elem : map)
+				elem.second.second.clear();
+		}
+		void SetMain(unsigned int code, const std::wstring& val) {
+			map[code].first = val;
+		}
+		void SetLocale(unsigned int code, const std::wstring& val) {
+			map[code].second = val;
+		}
+	};
+	bool ParseDB(sqlite3* pDB);
+	bool ParseLocaleDB(sqlite3* pDB);
+	bool Error(sqlite3* pDB, sqlite3_stmt* pStmt = 0);
+	std::unordered_map<unsigned int, CardString> locales;
+	indexed_map<CardDataM*, CardString*> indexes;
+	LocaleStringHelper _counterStrings;
+	LocaleStringHelper _victoryStrings;
+	LocaleStringHelper _setnameStrings;
+	LocaleStringHelper _sysStrings;
 };
 
-extern DataManager dataManager;
+extern std::shared_ptr<DataManager> gDataManager;
 
 }
 

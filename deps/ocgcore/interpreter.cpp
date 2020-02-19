@@ -332,6 +332,13 @@ static const struct luaL_Reg effectlib[] = {
 };
 
 static const struct luaL_Reg grouplib[] = {
+	{ "__band", scriptlib::group_band },
+	{ "__add", scriptlib::group_add },
+	{ "__sub", scriptlib::group_sub_const },
+	{ "__len", scriptlib::group_len },
+	{ "__eq", scriptlib::group_equal_size },
+	{ "__lt", scriptlib::group_less_than },
+	{ "__le", scriptlib::group_less_equal_than },
 	{ "CreateGroup", scriptlib::group_new },
 	{ "KeepAlive", scriptlib::group_keep_alive },
 	{ "DeleteGroup", scriptlib::group_delete },
@@ -359,6 +366,7 @@ static const struct luaL_Reg grouplib[] = {
 	{ "GetMinGroup", scriptlib::group_get_min_group },
 	{ "GetMaxGroup", scriptlib::group_get_max_group },
 	{ "GetSum", scriptlib::group_get_sum },
+	{ "GetClass", scriptlib::group_get_class },
 	{ "GetClassCount", scriptlib::group_get_class_count },
 	{ "Remove", scriptlib::group_remove },
 	{ "Merge", scriptlib::group_merge },
@@ -366,6 +374,8 @@ static const struct luaL_Reg grouplib[] = {
 	{ "Equal", scriptlib::group_equal },
 	{ "IsContains", scriptlib::group_is_contains },
 	{ "SearchCard", scriptlib::group_search_card },
+	{ "Split", scriptlib::group_split },
+	{ "Includes", scriptlib::group_includes },
 	{ NULL, NULL }
 };
 
@@ -780,13 +790,13 @@ int32 interpreter::load_card_script(uint32 code) {
 	}
 	return OPERATION_SUCCESS;
 }
-void interpreter::add_param(void *param, int32 type, bool front) {
+void interpreter::add_param(void* param, int32 type, bool front) {
 	if(front)
-		params.emplace_front((uintptr_t)param, type);
+		params.emplace_front((lua_Integer)param, type);
 	else
-		params.emplace_back((uintptr_t)param, type);
+		params.emplace_back((lua_Integer)param, type);
 }
-void interpreter::add_param(uintptr_t param, int32 type, bool front) {
+void interpreter::add_param(lua_Integer param, int32 type, bool front) {
 	if(front)
 		params.emplace_front(param, type);
 	else
@@ -798,13 +808,13 @@ void interpreter::push_param(lua_State* L, bool is_coroutine) {
 		uint32 type = it.second;
 		switch(type) {
 		case PARAM_TYPE_INT:
-			lua_pushinteger(L, (int32) it.first);
+			lua_pushinteger(L, it.first);
 			break;
 		case PARAM_TYPE_STRING:
-			lua_pushstring(L, (const char *) it.first);
+			lua_pushstring(L, (const char*)it.first);
 			break;
 		case PARAM_TYPE_BOOLEAN:
-			lua_pushboolean(L, (int32) it.first);
+			lua_pushboolean(L, (int32)it.first);
 			break;
 		case PARAM_TYPE_CARD: {
 			if (it.first)
@@ -828,7 +838,7 @@ void interpreter::push_param(lua_State* L, bool is_coroutine) {
 			break;
 		}
 		case PARAM_TYPE_FUNCTION: {
-			function2value(L, (uintptr_t)it.first);
+			function2value(L, it.first);
 			break;
 		}
 		case PARAM_TYPE_INDEX: {

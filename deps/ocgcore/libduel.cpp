@@ -3390,10 +3390,8 @@ int32 scriptlib::duel_select_option(lua_State * L) {
 	int32 playerid = lua_tointeger(L, 1);
 	if(playerid != 0 && playerid != 1)
 		return 0;
-	uint32 sel_hint = TRUE;
 	uint32 i = 0;
 	if(lua_isboolean(L, 2)) {
-		sel_hint = lua_toboolean(L, 2);
 		i++;
 	}
 	duel* pduel = interpreter::get_duel_info(L);
@@ -3405,7 +3403,6 @@ int32 scriptlib::duel_select_option(lua_State * L) {
 		duel* pduel = (duel*)ctx;
 		int32 playerid = lua_tointeger(L, 1);
 		uint32 sel_hint = TRUE;
-		uint32 i = 0;
 		if(lua_isboolean(L, 2)) {
 			sel_hint = lua_toboolean(L, 2);
 		}
@@ -3702,7 +3699,7 @@ int32 scriptlib::duel_announce_type(lua_State * L) {
 		auto message = pduel->new_message(MSG_HINT);
 		message->write<uint8>(HINT_OPSELECTED);
 		message->write<uint8>(playerid);
-		message->write<uint32>(pduel->game_field->core.select_options[pduel->game_field->returns.at<int32>(0)]);
+		message->write<uint64>(pduel->game_field->core.select_options[pduel->game_field->returns.at<int32>(0)]);
 		lua_pushinteger(L, pduel->game_field->returns.at<int32>(0));
 		return 1;
 	});
@@ -3738,7 +3735,7 @@ int32 scriptlib::duel_announce_coin(lua_State * L) {
 		auto message = pduel->new_message(MSG_HINT);
 		message->write<uint8>(HINT_OPSELECTED);
 		message->write<uint8>(playerid);
-		message->write<uint32>(pduel->game_field->core.select_options[pduel->game_field->returns.at<int32>(0)]);
+		message->write<uint64>(pduel->game_field->core.select_options[pduel->game_field->returns.at<int32>(0)]);
 		lua_pushinteger(L, pduel->game_field->returns.at<int32>(0));
 		return 1;
 	});
@@ -4420,7 +4417,7 @@ int32 scriptlib::duel_assume_reset(lua_State *L) {
 }
 int32 scriptlib::duel_get_card_from_fieldid(lua_State * L) {
 	check_param_count(L, 1);
-	int32 fieldid = lua_tointeger(L, 1);
+	uint32 fieldid = static_cast<uint32>(lua_tointeger(L, 1));
 	duel* pduel = interpreter::get_duel_info(L);
 	for(auto& pcard : pduel->cards) {
 		if(pcard->fieldid_r == fieldid) {

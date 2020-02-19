@@ -8,7 +8,7 @@
 
 void DefaultLogHandler(void* payload, const char* string, int type);
 
-void DefaultCardReaderDone(void* payload);
+void DefaultCardReaderDone(void* payload, OCG_CardData* data);
 
 OCGAPI void OCG_GetVersion(int* major, int* minor) {
 	if(major)
@@ -153,8 +153,8 @@ OCGAPI void* OCG_DuelGetMessage(OCG_Duel duel, uint32_t* length) {
 	return DUEL->buff.data();
 }
 
-OCGAPI void OCG_DuelSetResponse(OCG_Duel duel, void* buffer, uint32_t length) {
-	DUEL->set_response(static_cast<uint8_t*>(buffer), length);
+OCGAPI void OCG_DuelSetResponse(OCG_Duel duel, const void* buffer, uint32_t length) {
+	DUEL->set_response(buffer, length);
 }
 
 OCGAPI int OCG_LoadScript(OCG_Duel duel, const char* buffer, uint32_t length, const char* name) {
@@ -310,5 +310,5 @@ OCGAPI void * OCG_DuelQueryField(OCG_Duel duel, uint32_t * length) {
 void DefaultLogHandler(void* payload, const char* string, int type) {
 }
 
-void DefaultCardReaderDone(void* payload) {
+void DefaultCardReaderDone(void * payload, OCG_CardData * data) {
 }

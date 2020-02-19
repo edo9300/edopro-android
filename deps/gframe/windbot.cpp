@@ -1,7 +1,7 @@
 #include "windbot.h"
 #include "utils.h"
 #ifdef _WIN32
-#include <windows.h>
+#include <Windows.h>
 #else
 #include <unistd.h>
 #endif
@@ -10,10 +10,15 @@
 #endif
 #include <fmt/format.h>
 #include "bufferio.h"
+#include "logging.h"
 
 namespace ygo {
 
-bool WindBot::Launch(int port, bool chat, int hand) const {
+#if defined(_WIN32) || defined(__ANDROID__)
+int WindBot::Launch(int port, bool chat, int hand) const {
+#else
+pid_t WindBot::Launch(int port, bool chat, int hand) const {
+#endif
 #ifdef _WIN32
 	auto args = fmt::format(
 		L"./WindBot/WindBot.exe Deck=\"{}\" Port={} Version={} name=\"[AI] {}\" Chat={} {}",
@@ -28,7 +33,7 @@ bool WindBot::Launch(int port, bool chat, int hand) const {
 	si.cb = sizeof(si);
 	si.dwFlags = STARTF_USESHOWWINDOW;
 	si.wShowWindow = SW_HIDE;
-	if (CreateProcess(NULL, (TCHAR*)Utils::ParseFilename(args).c_str(), NULL, NULL, FALSE, 0, NULL, executablePath.c_str(), &si, &pi)) {
+	if (CreateProcess(NULL, (TCHAR*)Utils::ToPathString(args).c_str(), NULL, NULL, FALSE, 0, NULL, executablePath.c_str(), &si, &pi)) {
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
 		return true;
@@ -39,7 +44,7 @@ bool WindBot::Launch(int port, bool chat, int hand) const {
 	porting::launchWindbot(param);
 	return true;
 #else
-	int pid = fork();
+	pid_t pid = fork();
 	if (pid == 0) {
 		std::string argDeck = fmt::format("Deck={}", BufferIO::EncodeUTF8s(deck).c_str());
 		std::string argPort = fmt::format("Port={}", port);
@@ -48,13 +53,19 @@ bool WindBot::Launch(int port, bool chat, int hand) const {
 		std::string argChat = fmt::format("Chat={}", chat);
 		std::string argHand = fmt::format("Hand={}", hand);
 		chdir("WindBot");
+		if (executablePath.length()) {
+			std::string envPath = getenv("PATH") + (":" + executablePath);
+			setenv("PATH", envPath.c_str(), true);
+		}
 		execlp("mono", "WindBot.exe", "WindBot.exe", 
 			argDeck.c_str(), argPort.c_str(), argVersion.c_str(), argName.c_str(), argChat.c_str(),
 			hand ? argHand.c_str() : nullptr, nullptr);
-		perror("Failed to start WindBot");
+		auto message = fmt::format("Failed to start WindBot Ignite: {}", strerror(errno));
+		chdir("..");
+		ErrorLog(message);
 		exit(EXIT_FAILURE);
 	}
-	return pid > 0;
+	return pid;
 #endif
 }
 

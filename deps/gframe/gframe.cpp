@@ -6,11 +6,13 @@
 #include <event2/thread.h>
 #include <IrrlichtDevice.h>
 #include <IGUIButton.h>
+#include <IGUICheckBox.h>
 #include <IGUIEditBox.h>
 #include <IGUIWindow.h>
 #include "config.h"
+#include "data_handler.h"
+#include "logging.h"
 #include "game.h"
-#include "data_manager.h"
 #include "log.h"
 #ifdef __APPLE__
 #import <CoreFoundation/CoreFoundation.h>
@@ -25,25 +27,137 @@ bool exit_on_return = false;
 bool is_from_discord = false;
 bool open_file = false;
 path_string open_file_name = EPRO_TEXT("");
+std::shared_ptr<ygo::Game> ygo::mainGame = nullptr;
+std::shared_ptr<ygo::ImageDownloader> ygo::gImageDownloader = nullptr;
+std::shared_ptr<ygo::DataManager> ygo::gDataManager = nullptr;
+std::shared_ptr<ygo::SoundManager> ygo::gSoundManager = nullptr;
+std::shared_ptr<ygo::GameConfig> ygo::gGameConfig = nullptr;
+std::shared_ptr<ygo::RepoManager> ygo::gRepoManager = nullptr;
 
-void ClickButton(irr::gui::IGUIElement* btn) {
+inline void TriggerEvent(irr::gui::IGUIElement* target, irr::gui::EGUI_EVENT_TYPE type) {
 	irr::SEvent event;
 	event.EventType = irr::EET_GUI_EVENT;
-	event.GUIEvent.EventType = irr::gui::EGET_BUTTON_CLICKED;
-	event.GUIEvent.Caller = btn;
+	event.GUIEvent.EventType = type;
+	event.GUIEvent.Caller = target;
 	ygo::mainGame->device->postEventFromUser(event);
 }
+
+inline void ClickButton(irr::gui::IGUIElement* btn) {
+	TriggerEvent(btn, irr::gui::EGET_BUTTON_CLICKED);
+}
+
+inline void SetCheckbox(irr::gui::IGUICheckBox* chk, bool state) {
+	chk->setChecked(state);
+	TriggerEvent(chk, irr::gui::EGET_CHECKBOX_CHANGED);
+}
+
+
+void CheckArguments(int argc, path_char* argv[]) {
+	bool keep_on_return = false;
+	for(int i = 1; i < argc; ++i) {
+		path_string parameter(argv[i]);
+#define PARAM_CHECK(x) if(parameter == EPRO_TEXT(x))
+#define RUN_IF(x,y) PARAM_CHECK(x) {i++; if(i < argc) {y;} continue;}
+#define SET_TXT(elem) ygo::mainGame->elem->setText(ygo::Utils::ToUnicodeIfNeeded(parameter).c_str())
+		// Extra database
+		RUN_IF("-e", ygo::gDataManager->LoadDB(parameter))
+		// Nickname
+		else RUN_IF("-n", SET_TXT(ebNickName))
+		// Host address
+		else RUN_IF("-h", SET_TXT(ebJoinHost))
+		// Host Port
+		else RUN_IF("-h", SET_TXT(ebJoinPort))
+		// Host password
+		else RUN_IF("-h", SET_TXT(ebJoinPass))
+#undef RUN_IF
+#undef SET_TXT
+		else PARAM_CHECK("-k") { // Keep on return
+			exit_on_return = false;
+			keep_on_return = true;
+		} else PARAM_CHECK("-m") { // Mute
+			SetCheckbox(ygo::mainGame->tabSettings.chkEnableSound, false);
+			SetCheckbox(ygo::mainGame->tabSettings.chkEnableMusic, false);
+		} else PARAM_CHECK("-d") { // Deck
+			++i;
+			if(i + 1 < argc) { // select deck
+				ygo::gGameConfig->lastdeck = ygo::Utils::ToUnicodeIfNeeded(parameter);
+				continue;
+			} else { // open deck
+				exit_on_return = !keep_on_return;
+				if(i < argc) {
+					open_file = true;
+					open_file_name = std::move(parameter);
+				}
+				ClickButton(ygo::mainGame->btnDeckEdit);
+				break;
+			}
+		} else PARAM_CHECK("-c") { // Create host
+			exit_on_return = !keep_on_return;
+			ygo::mainGame->HideElement(ygo::mainGame->wMainMenu);
+			ClickButton(ygo::mainGame->btnHostConfirm);
+			break;
+		} else PARAM_CHECK("-j") { // Join host
+			exit_on_return = !keep_on_return;
+			ygo::mainGame->HideElement(ygo::mainGame->wMainMenu);
+			ClickButton(ygo::mainGame->btnJoinHost);
+			break;
+		} else PARAM_CHECK("-r") { // Replay
+			exit_on_return = !keep_on_return;
+			++i;
+			if(i < argc) {
+				open_file = true;
+				open_file_name = std::move(parameter);
+			}
+			ClickButton(ygo::mainGame->btnReplayMode);
+			if(open_file)
+				ClickButton(ygo::mainGame->btnLoadReplay);
+			break;
+		} else PARAM_CHECK("-s") { // Single
+			exit_on_return = !keep_on_return;
+			++i;
+			if(i < argc) {
+				open_file = true;
+				open_file_name = std::move(parameter);
+			}
+			ClickButton(ygo::mainGame->btnSingleMode);
+			if(open_file)
+				ClickButton(ygo::mainGame->btnLoadSinglePlay);
+			break;
+		} else if(argc == 2 && path_string(argv[1]).size() >= 4) {
+			auto extension = ygo::Utils::GetFileExtension(parameter);
+			if(extension == EPRO_TEXT("ydk")) {
+				open_file = true;
+				open_file_name = std::move(parameter);
+				exit_on_return = !keep_on_return;
+				ClickButton(ygo::mainGame->btnDeckEdit);
+				break;
+			}
+			if(extension == EPRO_TEXT("yrp") || extension == EPRO_TEXT("yrpx")) {
+				open_file = true;
+				open_file_name = std::move(parameter);
+				exit_on_return = !keep_on_return;
+				ClickButton(ygo::mainGame->btnReplayMode);
+				ClickButton(ygo::mainGame->btnLoadReplay);
+				break;
+			}
+		}
+#undef ELEM
+#undef PARAM_CHECK
+	}
+}
+
+
 #ifdef _WIN32
+#define Cleanup WSACleanup();
+#else
+#define Cleanup
+#endif //_WIN32
+
+
 #ifdef UNICODE
-#pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:wmainCRTStartup") 
 int wmain(int argc, wchar_t* argv[]) {
 #else
-#pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup") 
 int main(int argc, char* argv[]) {
-#endif
-#else
-int main(int argc, char* argv[]) {
-	setlocale(LC_CTYPE, "UTF-8");
 #endif
 #ifdef __ANDROID__
 	porting::initAndroid();
@@ -90,113 +204,47 @@ int main(int argc, char* argv[]) {
 	WSAStartup(wVersionRequested, &wsaData);
 	evthread_use_windows_threads();
 #else
+	setlocale(LC_CTYPE, "UTF-8");
 	evthread_use_pthreads();
 #endif //_WIN32
-	ygo::Game _game;
-	ygo::mainGame = &_game;
-#ifdef __ANDROID__
-	ygo::mainGame->appMain = porting::app_global;
-	ygo::mainGame->working_directory = porting::working_directory;
-#else
-	ygo::mainGame->working_directory = EPRO_TEXT("./");
-#endif
-	if(!ygo::mainGame->Initialize())
-		return EXIT_FAILURE;
-#ifdef __APPLE__
-	EDOPRO_SetupMenuBar(&_game.is_fullscreen);
-#endif
-	bool keep_on_return = false;
-	for(int i = 1; i < argc; ++i) {
-		path_string parameter(argv[i]);
-#define PARAM_CHECK(x) if(parameter == EPRO_TEXT(x))
-#define RUN_IF(x,y) PARAM_CHECK(x) {i++; if(i < argc) {y;} continue;}
-#define SET_TXT(elem,txt) ygo::mainGame->elem->setText(ygo::Utils::ToUnicodeIfNeeded(txt).c_str())
-		// Extra database
-		RUN_IF("-e", ygo::dataManager.LoadDB(argv[i]))
-		// Nickname
-		else RUN_IF("-n", SET_TXT(ebNickName,argv[i]))
-		// Host address
-		else RUN_IF("-h", SET_TXT(ebJoinHost, argv[i]))
-		// Host Port
-		else RUN_IF("-h", SET_TXT(ebJoinPort, argv[i]))
-		// Host password
-		else RUN_IF("-h", SET_TXT(ebJoinPass, argv[i]))
-#undef RUN_IF
-#undef SET_TXT
-		else PARAM_CHECK("-k") { // Keep on return
-			exit_on_return = false;
-			keep_on_return = true;
-		} else PARAM_CHECK("-d") { // Deck
-			++i;
-			if(i + 1 < argc) { // select deck
-				ygo::mainGame->gameConf.lastdeck = ygo::Utils::ToUnicodeIfNeeded(argv[i]);
-				continue;
-			} else { // open deck
-				exit_on_return = !keep_on_return;
-				if(i < argc) {
-					open_file = true;
-					open_file_name = argv[i];
-				}
-				ClickButton(ygo::mainGame->btnDeckEdit);
-				break;
-			}
-		} else PARAM_CHECK("-c") { // Create host
-			exit_on_return = !keep_on_return;
-			ygo::mainGame->HideElement(ygo::mainGame->wMainMenu);
-			ClickButton(ygo::mainGame->btnHostConfirm);
-			break;
-		} else PARAM_CHECK("-j") { // Join host
-			exit_on_return = !keep_on_return;
-			ygo::mainGame->HideElement(ygo::mainGame->wMainMenu);
-			ClickButton(ygo::mainGame->btnJoinHost);
-			break;
-		} else PARAM_CHECK("-r") { // Replay
-			exit_on_return = !keep_on_return;
-			++i;
-			if(i < argc) {
-				open_file = true;
-				open_file_name = argv[i];
-			}
-			ClickButton(ygo::mainGame->btnReplayMode);
-			if(open_file)
-				ClickButton(ygo::mainGame->btnLoadReplay);
-			break;
-		} else PARAM_CHECK("-s") { // Single
-			exit_on_return = !keep_on_return;
-			++i;
-			if(i < argc) {
-				open_file = true;
-				open_file_name = argv[i];
-			}
-			ClickButton(ygo::mainGame->btnSingleMode);
-			if(open_file)
-				ClickButton(ygo::mainGame->btnLoadSinglePlay);
-			break;
-		} else if(argc == 2 && path_string(argv[1]).size() >= 4) {
-			path_string name(argv[i]);
-			auto extension = ygo::Utils::GetFileExtension(name);
-			if(extension == EPRO_TEXT("ydk")) {
-				open_file = true;
-				open_file_name = name;
-				exit_on_return = !keep_on_return;
-				ClickButton(ygo::mainGame->btnDeckEdit);
-				break;
-			}
-			if(extension == EPRO_TEXT("yrp") || extension == EPRO_TEXT("yrpx")) {
-				open_file = true;
-				open_file_name = name;
-				exit_on_return = !keep_on_return;
-				ClickButton(ygo::mainGame->btnReplayMode);
-				ClickButton(ygo::mainGame->btnLoadReplay);
-				break;
-			}
-		}
-#undef ELEM
-#undef PARAM_CHECK
+	std::shared_ptr<ygo::DataHandler> data = nullptr;
+	try {
+		data = std::make_shared<ygo::DataHandler>();
+		ygo::gImageDownloader = data->imageDownloader;
+		ygo::gDataManager = data->dataManager;
+		ygo::gSoundManager = data->sounds;
+		ygo::gGameConfig = data->configs;
+		ygo::gRepoManager = data->gitManager;
 	}
-	ygo::mainGame->MainLoop();
+	catch(std::exception e) {
+		ygo::ErrorLog(e.what());
+		Cleanup
+		return EXIT_FAILURE;
+	}
 #ifdef _WIN32
-	WSACleanup();
-#endif //_WIN32
+	if(!data->configs->showConsole)
+		FreeConsole();
+#endif
+#ifdef __APPLE__
+	EDOPRO_SetupMenuBar([]() {
+		ygo::gGameConfig->fullscreen = !ygo::gGameConfig->fullscreen;
+		ygo::mainGame->gSettings.chkFullscreen->setChecked(ygo::gGameConfig->fullscreen);
+	});
+#endif
+	bool reset = false;
+	bool firstlaunch = false;
+	do {
+		ygo::mainGame = std::make_shared<ygo::Game>();
+		if(!ygo::mainGame->Initialize()) {
+			Cleanup
+			return EXIT_FAILURE;
+		}
+		if(firstlaunch) {
+			firstlaunch = false;
+			CheckArguments(argc, argv);
+		}
+		reset = ygo::mainGame->MainLoop();
+	} while(reset);
+	Cleanup
 	return EXIT_SUCCESS;
 }

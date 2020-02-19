@@ -203,7 +203,7 @@ void card::get_infos(int32 query_flag) {
 	}
 	CHECK_AND_INSERT_T(QUERY_OWNER, owner, uint8);
 	CHECK_AND_INSERT(QUERY_STATUS, status);
-	CHECK_AND_INSERT_T(QUERY_IS_PUBLIC, is_position(POS_FACEUP) ? 1 : 0, uint8);
+	CHECK_AND_INSERT_T(QUERY_IS_PUBLIC, (is_position(POS_FACEUP) || (current.location == LOCATION_HAND && is_affected_by_effect(EFFECT_PUBLIC))) ? 1 : 0, uint8);
 	CHECK_AND_INSERT(QUERY_LSCALE, get_lscale());
 	CHECK_AND_INSERT(QUERY_RSCALE, get_rscale());
 	if(query_flag & QUERY_LINK) {
@@ -277,7 +277,7 @@ uint32 card::get_another_code() {
 		return otcode;
 	return 0;
 }
-uint32 card::get_summon_code(card* scard, uint32 sumtype, uint8 playerid) {
+uint32 card::get_summon_code(card* scard, uint64 sumtype, uint8 playerid) {
 	std::set<uint32> codes;
 	effect_set eset;
 	bool changed = false;
@@ -386,7 +386,7 @@ int32 card::is_pre_set_card(uint32 set_code) {
 	}
 	return FALSE;
 }
-int32 card::is_sumon_set_card(uint32 set_code, card * scard, uint32 sumtype, uint8 playerid) {
+int32 card::is_sumon_set_card(uint32 set_code, card* scard, uint64 sumtype, uint8 playerid) {
 	uint32 settype = set_code & 0xfff;
 	uint32 setsubtype = set_code & 0xf000;
 	effect_set eset;
@@ -481,7 +481,6 @@ std::set<uint16_t> card::get_origin_set_card() {
 uint32 card::get_pre_set_card() {
 	uint32 count = 0;
 	uint32 code = previous.code;
-	uint64 setcode = 0;
 	std::set<uint16> setcodes = data.setcodes;
 	if(code != data.code) {
 		setcodes = pduel->read_card(code)->setcodes;
@@ -505,7 +504,7 @@ uint32 card::get_pre_set_card() {
 	}
 	return count;
 }
-uint32 card::get_summon_set_card(card* scard, uint32 sumtype, uint8 playerid) {
+uint32 card::get_summon_set_card(card* scard, uint64 sumtype, uint8 playerid) {
 	effect_set eset;
 	std::set<uint32> codes;
 	bool changed = false;
@@ -563,7 +562,7 @@ uint32 card::get_summon_set_card(card* scard, uint32 sumtype, uint8 playerid) {
 		count += get_set_card();
 	return count;
 }
-uint32 card::get_type(card* scard, uint32 sumtype, uint8 playerid) {
+uint32 card::get_type(card* scard, uint64 sumtype, uint8 playerid) {
 	if(assume.find(ASSUME_TYPE) != assume.end())
 		return assume[ASSUME_TYPE];
 	if(!(current.location & (LOCATION_ONFIELD | LOCATION_HAND | LOCATION_GRAVE)))
@@ -642,7 +641,7 @@ int32 card::get_base_attack() {
 	std::sort(eset.begin(), eset.end(), effect_sort_id);
 	// calculate continuous effects of this first
 	for(effect_set::size_type i = 0; i < eset.size();) {
-		if((eset[i]->type & EFFECT_TYPE_SINGLE) && eset[i]->is_flag(EFFECT_FLAG_SINGLE_RANGE)) {
+		if(!(eset[i]->type & EFFECT_TYPE_SINGLE) || eset[i]->is_flag(EFFECT_FLAG_SINGLE_RANGE)) {
 			switch(eset[i]->code) {
 			case EFFECT_SET_BASE_ATTACK:
 				batk = eset[i]->get_value(this);
@@ -719,7 +718,7 @@ int32 card::get_attack() {
 		rev = TRUE;
 	effect_set effects_atk, effects_atk_r;
 	for(effect_set::size_type i = 0; i < eset.size();) {
-		if((eset[i]->type & EFFECT_TYPE_SINGLE) && eset[i]->is_flag(EFFECT_FLAG_SINGLE_RANGE)) {
+		if(!(eset[i]->type & EFFECT_TYPE_SINGLE) || eset[i]->is_flag(EFFECT_FLAG_SINGLE_RANGE)) {
 			switch(eset[i]->code) {
 			case EFFECT_SET_BASE_ATTACK:
 				batk = eset[i]->get_value(this);
@@ -839,7 +838,7 @@ int32 card::get_base_defense() {
 		filter_effect(EFFECT_SET_BASE_ATTACK, &eset, FALSE);
 	std::sort(eset.begin(), eset.end(), effect_sort_id);
 	for(effect_set::size_type i = 0; i < eset.size();) {
-		if((eset[i]->type & EFFECT_TYPE_SINGLE) && eset[i]->is_flag(EFFECT_FLAG_SINGLE_RANGE)) {
+		if(!(eset[i]->type & EFFECT_TYPE_SINGLE) || eset[i]->is_flag(EFFECT_FLAG_SINGLE_RANGE)) {
 			switch(eset[i]->code) {
 			case EFFECT_SET_BASE_ATTACK:
 				batk = eset[i]->get_value(this);
@@ -916,7 +915,7 @@ int32 card::get_defense() {
 		rev = TRUE;
 	effect_set effects_def, effects_def_r;
 	for(effect_set::size_type i = 0; i < eset.size();) {
-		if((eset[i]->type & EFFECT_TYPE_SINGLE) && eset[i]->is_flag(EFFECT_FLAG_SINGLE_RANGE)) {
+		if(!(eset[i]->type & EFFECT_TYPE_SINGLE) || eset[i]->is_flag(EFFECT_FLAG_SINGLE_RANGE)) {
 			switch(eset[i]->code) {
 			case EFFECT_SET_BASE_ATTACK:
 				batk = eset[i]->get_value(this);
@@ -1217,7 +1216,7 @@ uint32 card::check_xyz_level(card* pcard, uint32 lv) {
 	return lev == lv;
 }
 // see get_level()
-uint32 card::get_attribute(card* scard, uint32 sumtype, uint8 playerid) {
+uint32 card::get_attribute(card* scard, uint64 sumtype, uint8 playerid) {
 	if (assume.find(ASSUME_ATTRIBUTE) != assume.end())
 		return assume[ASSUME_ATTRIBUTE];
 	if(!(data.type & TYPE_MONSTER) && !(get_type() & TYPE_MONSTER) && !is_affected_by_effect(EFFECT_PRE_MONSTER))
@@ -1267,7 +1266,7 @@ uint32 card::get_attribute(card* scard, uint32 sumtype, uint8 playerid) {
 	return attribute;
 }
 // see get_level()
-uint32 card::get_race(card* scard, uint32 sumtype, uint8 playerid) {
+uint32 card::get_race(card* scard, uint64 sumtype, uint8 playerid) {
 	if (assume.find(ASSUME_RACE) != assume.end())
 		return assume[ASSUME_RACE];
 	if(!(data.type & TYPE_MONSTER) && !(get_type() & TYPE_MONSTER) && !is_affected_by_effect(EFFECT_PRE_MONSTER) && !sumtype)
@@ -2296,7 +2295,7 @@ std::tuple<uint8, effect*> card::refresh_control_status() {
 			ceffect = peffect;
 		}
 	}
-	return { final, ceffect };
+	return std::make_tuple(final, ceffect);
 }
 void card::count_turn(uint16 ct) {
 	turn_counter = ct;

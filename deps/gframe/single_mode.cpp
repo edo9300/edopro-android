@@ -65,8 +65,8 @@ restart:
 	mainGame->dInfo.startlp = start_lp;
 	mainGame->dInfo.strLP[0] = fmt::to_wstring(mainGame->dInfo.lp[0]);
 	mainGame->dInfo.strLP[1] = fmt::to_wstring(mainGame->dInfo.lp[1]);
-	mainGame->dInfo.hostname = { mainGame->ebNickName->getText() };
-	mainGame->dInfo.clientname = { L"" };
+	mainGame->dInfo.selfnames = { mainGame->ebNickName->getText() };
+	mainGame->dInfo.opponames = { L"" };
 	mainGame->dInfo.player_type = 0;
 	mainGame->dInfo.turn = 0;
 	bool loaded = true;
@@ -137,15 +137,16 @@ restart:
 	mainGame->wCardImg->setVisible(true);
 	mainGame->wInfos->setVisible(true);
 	mainGame->btnLeaveGame->setVisible(true);
-	mainGame->btnLeaveGame->setText(dataManager.GetSysString(1210).c_str());
+	mainGame->btnLeaveGame->setText(gDataManager->GetSysString(1210).c_str());
 	mainGame->btnRestartSingle->setVisible(true);
 	mainGame->wPhase->setVisible(true);
 	mainGame->dField.Clear();
 	mainGame->dInfo.isFirst = true;
+	mainGame->dInfo.isTeam1 = true;
 	mainGame->dInfo.isInDuel = true;
 	mainGame->dInfo.isStarted = true;
 	mainGame->dInfo.isCatchingUp = false;
-	mainGame->SetMesageWindow();
+	mainGame->SetMessageWindow();
 	mainGame->device->setEventReceiver(&mainGame->dField);
 	mainGame->gMutex.unlock();
 	std::vector<uint8> duelBuffer;
@@ -162,10 +163,10 @@ restart:
 		replay_stream.clear();
 	}
 	unsigned short buffer[20];
-	BufferIO::CopyWStr(mainGame->dInfo.hostname[0].c_str(), buffer, 20);
+	BufferIO::CopyWStr(mainGame->dInfo.selfnames[0].c_str(), buffer, 20);
 	last_replay.WriteData(buffer, 40, false);
 	new_replay.WriteData(buffer, 40, false);
-	BufferIO::CopyWStr(mainGame->dInfo.clientname[0].c_str(), buffer, 20);
+	BufferIO::CopyWStr(mainGame->dInfo.opponames[0].c_str(), buffer, 20);
 	last_replay.WriteData(buffer, 40, false);
 	new_replay.WriteData(buffer, 40, false);
 	last_replay.Write<uint32_t>(start_lp, false);
@@ -214,20 +215,20 @@ restart:
 		mainGame->gMutex.unlock();
 		return 0;
 	}
-	mainGame->soundManager->StopSounds();
+	gSoundManager->StopSounds();
 	bool was_in_replay = false;
 	if(!hand_test && !is_restarting) {
 		was_in_replay = true;
 		auto now = std::time(nullptr);
 		mainGame->gMutex.lock();
 		mainGame->ebRSName->setText(fmt::format(L"{:%Y-%m-%d %H-%M-%S}", *std::localtime(&now)).c_str());
-		mainGame->wReplaySave->setText(dataManager.GetSysString(1340).c_str());
+		mainGame->wReplaySave->setText(gDataManager->GetSysString(1340).c_str());
 		mainGame->PopupElement(mainGame->wReplaySave);
 		mainGame->gMutex.unlock();
 		mainGame->replaySignal.Reset();
 		mainGame->replaySignal.Wait();
 		if(mainGame->saveReplay)
-			new_replay.SaveReplay(Utils::ParseFilename(mainGame->ebRSName->getText()));
+			new_replay.SaveReplay(Utils::ToPathString(mainGame->ebRSName->getText()));
 	}
 	new_replay.Reset();
 	last_replay.Reset();
@@ -275,7 +276,7 @@ restart:
 			mainGame->ShowElement(mainGame->wSinglePlay);
 			mainGame->stTip->setVisible(false);
 		}
-		mainGame->SetMesageWindow();
+		mainGame->SetMessageWindow();
 		mainGame->device->setEventReceiver(&mainGame->menuHandler);
 		mainGame->gMutex.unlock();
 		if(exit_on_return)
@@ -338,7 +339,7 @@ bool SingleMode::SinglePlayAnalyze(CoreUtils::Packet packet) {
 			std::string namebuf;
 			namebuf.resize(len);
 			memcpy(&namebuf[0], begin, len + 1);
-			mainGame->dInfo.clientname[0] = BufferIO::DecodeUTF8s(namebuf);
+			mainGame->dInfo.opponames[0] = BufferIO::DecodeUTF8s(namebuf);
 			break;
 		}
 		case MSG_SHOW_HINT: {
@@ -388,6 +389,12 @@ bool SingleMode::SinglePlayAnalyze(CoreUtils::Packet packet) {
 		case MSG_ANNOUNCE_CARD:
 		case MSG_ANNOUNCE_NUMBER: {
 			record = false;
+			if(mainGame->dInfo.curMsg == MSG_SELECT_CHAIN) {
+				SinglePlayRefresh(0, LOCATION_MZONE);
+				SinglePlayRefresh(1, LOCATION_MZONE);
+				SinglePlayRefresh(0, LOCATION_SZONE);
+				SinglePlayRefresh(1, LOCATION_SZONE);
+			}
 			if(!ANALYZE) {
 				singleSignal.Reset();
 				singleSignal.Wait();

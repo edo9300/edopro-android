@@ -1,4 +1,5 @@
 #include <fmt/chrono.h>
+#include "game_config.h"
 #include "config.h"
 #include "menu_handler.h"
 #include "netserver.h"
@@ -19,7 +20,7 @@
 namespace ygo {
 
 void UpdateDeck() {
-	mainGame->gameConf.lastdeck = mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected());
+	gGameConfig->lastdeck = mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected());
 	char deckbuf[1024];
 	char* pdeck = deckbuf;
 	BufferIO::Write<int32_t>(pdeck, deckManager.current_deck.main.size() + deckManager.current_deck.extra.size());
@@ -45,7 +46,7 @@ void LoadReplay() {
 	} else {
 		if(mainGame->lstReplayList->getSelected() == -1)
 			return;
-		if(!replay.OpenReplay(Utils::ParseFilename(mainGame->lstReplayList->getListItem(mainGame->lstReplayList->getSelected(), true))) || (replay.pheader.id == REPLAY_YRP1 && !mainGame->coreloaded))
+		if(!replay.OpenReplay(Utils::ToPathString(mainGame->lstReplayList->getListItem(mainGame->lstReplayList->getSelected(), true))) || (replay.pheader.id == REPLAY_YRP1 && !mainGame->coreloaded))
 			return;
 	}
 	if(mainGame->chkYrp->isChecked() && !replay.yrp)
@@ -135,7 +136,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			}
 			case BUTTON_JOIN_HOST2: {
 				if(wcslen(mainGame->ebNickNameOnline->getText()) <= 0) {
-					mainGame->env->addMessageBox(L"Nickname empty", L"Please enter a nickname", true, irr::gui::EMBF_OK, 0, 0);
+					mainGame->PopupMessage(L"Please enter a nickname", L"Nickname empty");
 					break;
 				}
 				if(mainGame->roomListTable->getSelected() >= 0) {
@@ -171,8 +172,8 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			case BUTTON_JOIN_HOST: {
 				try {
 					auto parsed = DuelClient::ResolveServer(mainGame->ebJoinHost->getText(), mainGame->ebJoinPort->getText());
-					mainGame->gameConf.lasthost = mainGame->ebJoinHost->getText();
-					mainGame->gameConf.lastport = mainGame->ebJoinPort->getText();
+					gGameConfig->lasthost = mainGame->ebJoinHost->getText();
+					gGameConfig->lastport = mainGame->ebJoinPort->getText();
 					mainGame->dInfo.secret.pass = BufferIO::EncodeUTF8s(mainGame->ebJoinPass->getText());
 					if(DuelClient::StartClient(parsed.first, parsed.second, 0, false)) {
 						mainGame->btnCreateHost->setEnabled(false);
@@ -182,9 +183,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					break;
 				}
 				catch(...) {
-					mainGame->gMutex.lock();
-					mainGame->env->addMessageBox(L"", dataManager.GetSysString(1412).c_str());
-					mainGame->gMutex.unlock();
+					mainGame->PopupMessage(gDataManager->GetSysString(1412));
 					break;
 				}
 			}
@@ -269,8 +268,8 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					catch(...) {
 						break;
 					}
-					mainGame->gameConf.gamename = mainGame->ebServerName->getText();
-					mainGame->gameConf.serverport = mainGame->ebHostPort->getText();
+					gGameConfig->gamename = mainGame->ebServerName->getText();
+					gGameConfig->serverport = mainGame->ebHostPort->getText();
 					if(!NetServer::StartServer(host_port))
 						break;
 					if(!DuelClient::StartClient(0x7f000001, host_port)) {
@@ -279,7 +278,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					}
 					mainGame->btnHostConfirm->setEnabled(false);
 					mainGame->btnHostCancel->setEnabled(false);
-					mainGame->gBot.Refresh(mainGame->cbDuelRule->getSelected() + 1);
+					mainGame->gBot.Refresh(gGameConfig->filterBot * (mainGame->cbDuelRule->getSelected() + 1));
 				}
 				break;
 			}
@@ -309,7 +308,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			}
 			case BUTTON_HP_KICK: {
 				int id = 0;
-				while(id < 4) {
+				while(id < 6) {
 					if(mainGame->btnHostPrepKick[id] == caller)
 						break;
 					id++;
@@ -322,9 +321,9 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			case BUTTON_HP_READY: {
 				bool check = false;
 				if(!mainGame->cbDeckSelect2->isVisible())
-					check = (mainGame->cbDeckSelect->getSelected() == -1 || !deckManager.LoadDeck(Utils::ParseFilename(mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected()))));
+					check = (mainGame->cbDeckSelect->getSelected() == -1 || !deckManager.LoadDeck(Utils::ToPathString(mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected()))));
 				else
-					check = (mainGame->cbDeckSelect->getSelected() == -1 || mainGame->cbDeckSelect2->getSelected() == -1 || !deckManager.LoadDeckDouble(Utils::ParseFilename(mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected())), Utils::ParseFilename(mainGame->cbDeckSelect2->getItem(mainGame->cbDeckSelect2->getSelected()))));
+					check = (mainGame->cbDeckSelect->getSelected() == -1 || mainGame->cbDeckSelect2->getSelected() == -1 || !deckManager.LoadDeckDouble(Utils::ToPathString(mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected())), Utils::ToPathString(mainGame->cbDeckSelect2->getItem(mainGame->cbDeckSelect2->getSelected()))));
 				if(check)
 					break;
 				UpdateDeck();
@@ -389,8 +388,8 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				break;
 			}
 			case BUTTON_LOAD_REPLAY: {
-				if(mainGame->lstSinglePlayList->isDirectory(mainGame->lstReplayList->getSelected()))
-					mainGame->lstSinglePlayList->enterDirectory(mainGame->lstReplayList->getSelected());
+				if(mainGame->lstReplayList->isDirectory(mainGame->lstReplayList->getSelected()))
+					mainGame->lstReplayList->enterDirectory(mainGame->lstReplayList->getSelected());
 				else
 					LoadReplay();
 				break;
@@ -400,7 +399,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				if(sel == -1)
 					break;
 				mainGame->gMutex.lock();
-				mainGame->stQMessage->setText(fmt::format(L"{}\n{}", mainGame->lstReplayList->getListItem(sel), dataManager.GetSysString(1363)).c_str());
+				mainGame->stQMessage->setText(fmt::format(L"{}\n{}", mainGame->lstReplayList->getListItem(sel), gDataManager->GetSysString(1363)).c_str());
 				mainGame->PopupElement(mainGame->wQuery);
 				mainGame->gMutex.unlock();
 				prev_operation = id;
@@ -412,7 +411,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				if(sel == -1)
 					break;
 				mainGame->gMutex.lock();
-				mainGame->wReplaySave->setText(dataManager.GetSysString(1362).c_str());
+				mainGame->wReplaySave->setText(gDataManager->GetSysString(1362).c_str());
 				mainGame->ebRSName->setText(mainGame->lstReplayList->getListItem(sel));
 				mainGame->PopupElement(mainGame->wReplaySave);
 				mainGame->gMutex.unlock();
@@ -436,7 +435,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			}
 			case BUTTON_BOT_ADD: {
 				try {
-					int port = std::stoi(mainGame->gameConf.serverport);
+					int port = std::stoi(gGameConfig->serverport);
 					mainGame->gBot.LaunchSelected(port);
 				}
 				catch(...) {
@@ -460,9 +459,9 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					break;
 				auto replay_name = Utils::GetFileName(ReplayMode::cur_replay.GetReplayName());
 				for(int i = 0; i < decks.size(); i++) {
-					deckManager.SaveDeck(sanitize(fmt::format(EPRO_TEXT("{} player{:02} {}"), replay_name, i, Utils::ParseFilename(players[i]))), decks[i].main_deck, decks[i].extra_deck, std::vector<int>());
+					deckManager.SaveDeck(sanitize(fmt::format(EPRO_TEXT("{} player{:02} {}"), replay_name, i, Utils::ToPathString(players[i]))), decks[i].main_deck, decks[i].extra_deck, std::vector<int>());
 				}
-				mainGame->stACMessage->setText(dataManager.GetSysString(1335).c_str());
+				mainGame->stACMessage->setText(gDataManager->GetSysString(1335).c_str());
 				mainGame->PopupElement(mainGame->wACMessage, 20);
 				break;
 			}
@@ -492,7 +491,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					mainGame->cbDBDecks->setSelected(-1);
 					open_file = false;
 				} else if(mainGame->cbDBDecks->getSelected() != -1) {
-					deckManager.LoadDeck(Utils::ParseFilename(mainGame->cbDBDecks->getItem(mainGame->cbDBDecks->getSelected())));
+					deckManager.LoadDeck(Utils::ToPathString(mainGame->cbDBDecks->getItem(mainGame->cbDBDecks->getSelected())));
 					mainGame->ebDeckname->setText(L"");
 				}
 				mainGame->HideElement(mainGame->wMainMenu);
@@ -506,7 +505,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			case BUTTON_YES: {
 				mainGame->HideElement(mainGame->wQuery);
 				if(prev_operation == BUTTON_DELETE_REPLAY) {
-					if(Replay::DeleteReplay(Utils::ParseFilename(mainGame->lstReplayList->getListItem(prev_sel, true)))) {
+					if(Replay::DeleteReplay(Utils::ToPathString(mainGame->lstReplayList->getListItem(prev_sel, true)))) {
 						mainGame->stReplayInfo->setText(L"");
 						mainGame->lstReplayList->refreshList();
 					}
@@ -524,12 +523,12 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			case BUTTON_REPLAY_SAVE: {
 				mainGame->HideElement(mainGame->wReplaySave);
 				if(prev_operation == BUTTON_RENAME_REPLAY) {
-					auto oldname = Utils::ParseFilename(mainGame->lstReplayList->getListItem(prev_sel, true));
+					auto oldname = Utils::ToPathString(mainGame->lstReplayList->getListItem(prev_sel, true));
 					auto oldpath = oldname.substr(0, oldname.find_last_of(EPRO_TEXT("/"))) + EPRO_TEXT("/");
-					if(Replay::RenameReplay(oldname, oldpath + Utils::ParseFilename(mainGame->ebRSName->getText()))) {
+					if(Replay::RenameReplay(oldname, oldpath + Utils::ToPathString(mainGame->ebRSName->getText()))) {
 						mainGame->lstReplayList->refreshList();
 					} else {
-						mainGame->env->addMessageBox(L"", dataManager.GetSysString(1365).c_str());
+						mainGame->PopupMessage(gDataManager->GetSysString(1365));
 					}
 				}
 				prev_operation = 0;
@@ -564,16 +563,16 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->btnDeleteReplay->setEnabled(false);
 				mainGame->btnRenameReplay->setEnabled(false);
 				mainGame->btnExportDeck->setEnabled(false);
-				mainGame->btnLoadReplay->setText(dataManager.GetSysString(1348).c_str());
+				mainGame->btnLoadReplay->setText(gDataManager->GetSysString(1348).c_str());
 				if(sel == -1)
 					break;
 				if(mainGame->lstReplayList->isDirectory(sel)) {
-					mainGame->btnLoadReplay->setText(dataManager.GetSysString(1359).c_str());
+					mainGame->btnLoadReplay->setText(gDataManager->GetSysString(1359).c_str());
 					mainGame->btnLoadReplay->setEnabled(true);
 					break;
 				}
 				auto& replay = ReplayMode::cur_replay;
-				if(!replay.OpenReplay(Utils::ParseFilename(mainGame->lstReplayList->getListItem(sel, true))))
+				if(!replay.OpenReplay(Utils::ToPathString(mainGame->lstReplayList->getListItem(sel, true))))
 					break;
 				bool has_yrp = (replay.pheader.id == REPLAY_YRPX) && (replay.yrp != nullptr);
 				if(!(replay.pheader.id == REPLAY_YRP1 && (!mainGame->coreloaded || !(replay.pheader.flag & REPLAY_NEWREPLAY))))
@@ -602,11 +601,11 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->btnLoadSinglePlay->setEnabled(false);
 				int sel = mainGame->lstSinglePlayList->getSelected();
 				mainGame->stSinglePlayInfo->setText(L"");
-				mainGame->btnLoadSinglePlay->setText(dataManager.GetSysString(1357).c_str());
+				mainGame->btnLoadSinglePlay->setText(gDataManager->GetSysString(1357).c_str());
 				if(sel == -1)
 					break;
 				if(mainGame->lstSinglePlayList->isDirectory(sel)) {
-					mainGame->btnLoadSinglePlay->setText(dataManager.GetSysString(1359).c_str());
+					mainGame->btnLoadSinglePlay->setText(gDataManager->GetSysString(1359).c_str());
 					mainGame->btnLoadSinglePlay->setEnabled(true);
 					break;
 				}
@@ -626,8 +625,8 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					break;
 				try {
 					auto parsed = DuelClient::ResolveServer(mainGame->ebJoinHost->getText(), mainGame->ebJoinPort->getText());
-					mainGame->gameConf.lasthost = mainGame->ebJoinHost->getText();
-					mainGame->gameConf.lastport = mainGame->ebJoinPort->getText();
+					gGameConfig->lasthost = mainGame->ebJoinHost->getText();
+					gGameConfig->lastport = mainGame->ebJoinPort->getText();
 					mainGame->dInfo.secret.pass = BufferIO::EncodeUTF8s(mainGame->ebJoinPass->getText());
 					if(DuelClient::StartClient(parsed.first, parsed.second, 0, false)) {
 						mainGame->btnCreateHost->setEnabled(false);
@@ -637,15 +636,13 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					break;
 				}
 				catch(...) {
-					mainGame->gMutex.lock();
-					mainGame->env->addMessageBox(L"", dataManager.GetSysString(1412).c_str());
-					mainGame->gMutex.unlock();
+					mainGame->PopupMessage(gDataManager->GetSysString(1412));
 					break;
 				}
 			}
 			case LISTBOX_REPLAY_LIST: {
-				if(mainGame->lstSinglePlayList->isDirectory(mainGame->lstReplayList->getSelected()))
-					mainGame->lstSinglePlayList->enterDirectory(mainGame->lstReplayList->getSelected());
+				if(mainGame->lstReplayList->isDirectory(mainGame->lstReplayList->getSelected()))
+					mainGame->lstReplayList->enterDirectory(mainGame->lstReplayList->getSelected());
 				else
 					LoadReplay();
 				break;
@@ -681,9 +678,9 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				if(static_cast<irr::gui::IGUICheckBox*>(caller)->isChecked()) {
 					bool check = false;
 					if (!mainGame->cbDeckSelect2->isVisible())
-						check = (mainGame->cbDeckSelect->getSelected() == -1 || !deckManager.LoadDeck(Utils::ParseFilename(mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected()))));
+						check = (mainGame->cbDeckSelect->getSelected() == -1 || !deckManager.LoadDeck(Utils::ToPathString(mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected()))));
 					else
-						check = (mainGame->cbDeckSelect->getSelected() == -1 || mainGame->cbDeckSelect2->getSelected() == -1 || !deckManager.LoadDeckDouble(Utils::ParseFilename(mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected())), Utils::ParseFilename(mainGame->cbDeckSelect2->getItem(mainGame->cbDeckSelect2->getSelected()))));
+						check = (mainGame->cbDeckSelect->getSelected() == -1 || mainGame->cbDeckSelect2->getSelected() == -1 || !deckManager.LoadDeckDouble(Utils::ToPathString(mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected())), Utils::ToPathString(mainGame->cbDeckSelect2->getItem(mainGame->cbDeckSelect2->getSelected()))));
 					if(check) {
 						static_cast<irr::gui::IGUICheckBox*>(caller)->setChecked(false);
 						break;
@@ -793,7 +790,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			switch(id) {
 			case TABLE_ROOMLIST: {
 				if(wcslen(mainGame->ebNickNameOnline->getText()) <= 0) {
-					mainGame->env->addMessageBox(L"Nickname empty", L"Please enter a nickname", true, irr::gui::EMBF_OK, 0, 0);
+					mainGame->PopupMessage(gDataManager->GetSysString(1257), gDataManager->GetSysString(1256));
 					break;
 				}
 				if(mainGame->roomListTable->getSelected() >= 0) {

@@ -162,7 +162,7 @@ void DiscordWrapper::Connect() {
 	handlers.joinGame = OnJoin;
 	handlers.spectateGame = OnSpectate;
 	handlers.joinRequest = OnJoinRequest;
-	handlers.payload = ygo::mainGame;
+	handlers.payload = &(*ygo::mainGame);
 	Discord_Initialize(DISCORD_APP_ID, &handlers, 0, nullptr);
 #endif
 }
@@ -217,7 +217,7 @@ void DiscordWrapper::OnJoin(const char* secret, void* payload) {
 		host.pass = json["pass"].get<std::string>();
 	}
 	catch(std::exception& e) {
-		ygo::ErrorLog(std::string("Exception ocurred: ") + e.what());
+		ygo::ErrorLog(std::string("Exception occurred: ") + e.what());
 		return;
 	}
 	game->isHostingOnline = true;

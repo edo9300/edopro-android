@@ -61,7 +61,8 @@ void NetServer::StopServer() {
 		return;
 	if(duel_mode)
 		duel_mode->EndDuel();
-	event_base_loopexit(net_evbase, 0);
+	timeval time{ 0,1 };
+	event_base_loopexit(net_evbase, &time);
 }
 void NetServer::StopBroadcast() {
 	if(!net_evbase || !broadcast_ev)
@@ -178,7 +179,7 @@ void NetServer::HandleCTOSPacket(DuelPlayer* dp, char* data, unsigned int len) {
 		return;
 	switch(pktType) {
 	case CTOS_RESPONSE: {
-		if(!dp->game || !duel_mode->pduel)
+		if(!dp->game || (!duel_mode->pduel && !duel_mode->seeking_rematch))
 			return;
 		duel_mode->GetResponse(dp, pdata, len - 1);
 		break;

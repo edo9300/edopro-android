@@ -66,6 +66,7 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
 				$(GFRAME_PATH)/core_utils.cpp \
 				$(GFRAME_PATH)/custom_skin_enum.cpp \
 				$(GFRAME_PATH)/data_manager.cpp \
+				$(GFRAME_PATH)/data_handler.cpp \
 				$(GFRAME_PATH)/deck_con.cpp \
 				$(GFRAME_PATH)/deck_manager.cpp \
 				$(GFRAME_PATH)/discord_wrapper.cpp \
@@ -74,8 +75,10 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
 				$(GFRAME_PATH)/duelclient.cpp \
 				$(GFRAME_PATH)/event_handler.cpp \
 				$(GFRAME_PATH)/game.cpp \
+				$(GFRAME_PATH)/game_config.cpp \
 				$(GFRAME_PATH)/generic_duel.cpp \
 				$(GFRAME_PATH)/gframe.cpp \
+				$(GFRAME_PATH)/image_downloader.cpp \
 				$(GFRAME_PATH)/image_manager.cpp \
 				$(GFRAME_PATH)/logging.cpp \
 				$(GFRAME_PATH)/materials.cpp \

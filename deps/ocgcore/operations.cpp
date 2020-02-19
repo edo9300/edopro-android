@@ -2485,7 +2485,7 @@ int32 field::sset_g(uint16 step, uint8 setplayer, uint8 toplayer, group* ptarget
  		for(auto& pcard : *set_cards) {
 			eset.clear();
 			pcard->filter_effect(EFFECT_SSET_COST, &eset);
-			for(int32 i = 0; i < eset.size(); ++i) {
+			for(uint32 i = 0; i < eset.size(); ++i) {
 				if(eset[i]->operation) {
 					core.sub_solving_event.push_back(nil_event);
 					add_process(PROCESSOR_EXECUTE_OPERATION, 0, eset[i], 0, setplayer, 0);
@@ -3935,7 +3935,7 @@ int32 field::send_to(uint16 step, group * targets, effect * reason_effect, uint3
 				if(core.deck_reversed || (ptop->current.position == POS_FACEUP_DEFENSE)) {
 					auto message = pduel->new_message(MSG_DECK_TOP);
 					message->write<uint8>(0);
-					message->write<uint8>(d0 - s0);
+					message->write<uint32>(d0 - s0);
 					message->write<uint32>(ptop->data.code);
 					message->write<uint32>(ptop->current.position);
 				}
@@ -3945,7 +3945,7 @@ int32 field::send_to(uint16 step, group * targets, effect * reason_effect, uint3
 				if(core.deck_reversed || (ptop->current.position == POS_FACEUP_DEFENSE)) {
 					auto message = pduel->new_message(MSG_DECK_TOP);
 					message->write<uint8>(1);
-					message->write<uint8>(d1 - s1);
+					message->write<uint32>(d1 - s1);
 					message->write<uint32>(ptop->data.code);
 					message->write<uint32>(ptop->current.position);
 				}
@@ -4104,7 +4104,7 @@ int32 field::send_to(uint16 step, group * targets, effect * reason_effect, uint3
 				card* ptop = *player[0].list_main.rbegin();
 				auto message = pduel->new_message(MSG_DECK_TOP);
 				message->write<uint8>(0);
-				message->write<uint8>(0);
+				message->write<uint32>(0);
 				message->write<uint32>(ptop->data.code);
 				message->write<uint32>(ptop->current.position);
 			}
@@ -4112,7 +4112,7 @@ int32 field::send_to(uint16 step, group * targets, effect * reason_effect, uint3
 				card* ptop = *player[1].list_main.rbegin();
 				auto message = pduel->new_message(MSG_DECK_TOP);
 				message->write<uint8>(1);
-				message->write<uint8>(0);
+				message->write<uint32>(0);
 				message->write<uint32>(ptop->data.code);
 				message->write<uint32>(ptop->current.position);
 			}
@@ -4283,7 +4283,7 @@ int32 field::discard_deck(uint16 step, uint8 playerid, uint8 count, uint32 reaso
 				if(core.deck_reversed || (ptop->current.position == POS_FACEUP_DEFENSE)) {
 					auto message = pduel->new_message(MSG_DECK_TOP);
 					message->write<uint8>(playerid);
-					message->write<uint8>(count);
+					message->write<uint32>(count);
 					message->write<uint32>(ptop->data.code);
 					message->write<uint32>(ptop->current.position);
 				}
@@ -4442,7 +4442,7 @@ int32 field::move_to_field(uint16 step, card* target, uint32 enable, uint32 ret,
 			}
 			if(ct <= 0 || ~flag == 0)
 				return TRUE;
-			if((zone & zone - 1) == 0) {
+			if((zone & (zone - 1)) == 0) {
 				for(uint8 seq = 0; seq < 8; seq++) {
 					if((1 << seq) & zone) {
 						returns.at<int8>(2) = seq;
@@ -4527,7 +4527,7 @@ int32 field::move_to_field(uint16 step, card* target, uint32 enable, uint32 ret,
 					if(core.deck_reversed || (ptop->current.position == POS_FACEUP_DEFENSE)) {
 						auto message = pduel->new_message(MSG_DECK_TOP);
 						message->write<uint8>(curp);
-						message->write<uint8>(1);
+						message->write<uint32>(1);
 						message->write<uint32>(ptop->data.code);
 						message->write<uint32>(ptop->current.position);
 					}
@@ -4677,7 +4677,7 @@ int32 field::change_position(uint16 step, group * targets, effect * reason_effec
 					npos = POS_FACEUP_DEFENSE;
 				pcard->previous.position = opos;
 				pcard->current.position = npos;
-				if(npos & POS_DEFENSE)
+				if((npos & POS_DEFENSE) && !pcard->is_affected_by_effect(EFFECT_DEFENSE_ATTACK))
 					pcard->set_status(STATUS_ATTACK_CANCELED, TRUE);
 				pcard->set_status(STATUS_JUST_POS, TRUE);
 				auto message = pduel->new_message(MSG_POS_CHANGE);
@@ -5366,6 +5366,20 @@ int32 field::toss_coin(uint16 step, effect * reason_effect, uint8 reason_player,
 			}
 		}
 		if(!peffect) {
+			auto pr = effects.continuous_effect.equal_range(EFFECT_TOSS_COIN_CHOOSE);
+			for(auto eit = pr.first; eit != pr.second;) {
+				effect* pe = eit->second;
+				++eit;
+				if(pe->is_activateable(pe->get_handler_player(), e)) {
+					peffect = pe;
+					break;
+				}
+			}
+			if(peffect) {
+				solve_continuous(peffect->get_handler_player(), peffect, e);
+				core.units.begin()->step = 2;
+				return FALSE;
+			}
 			auto message = pduel->new_message(MSG_TOSS_COIN);
 			message->write<uint8>(playerid);
 			message->write<uint8>(count);
@@ -5377,7 +5391,7 @@ int32 field::toss_coin(uint16 step, effect * reason_effect, uint8 reason_player,
 			process_instant_event();
 		} else {
 			solve_continuous(peffect->get_handler_player(), peffect, e);
-			core.units.begin()->step = 1;
+			return TRUE;
 		}
 		return FALSE;
 	}
@@ -5386,10 +5400,17 @@ int32 field::toss_coin(uint16 step, effect * reason_effect, uint8 reason_player,
 		process_instant_event();
 		return TRUE;
 	}
-	case 2: {
-		for(uint8 i = 0; i < 5; ++i)
-			core.coin_result[i] = (returns.at<int32>(0) >> (i * 4)) & 0xf;
-		return TRUE;
+	case 3: {
+		core.units.begin()->step = 0;
+		auto message = pduel->new_message(MSG_TOSS_COIN);
+		message->write<uint8>(playerid);
+		message->write<uint8>(count);
+		for(int32 i = 0; i < count; ++i) {
+			message->write<uint8>(core.coin_result[i]);
+		}
+		raise_event((card*)0, EVENT_TOSS_COIN_NEGATE, reason_effect, 0, reason_player, playerid, count);
+		process_instant_event();
+		return FALSE;
 	}
 	}
 	return TRUE;
@@ -5418,6 +5439,20 @@ int32 field::toss_dice(uint16 step, effect * reason_effect, uint8 reason_player,
 			}
 		}
 		if(!peffect) {
+			auto pr = effects.continuous_effect.equal_range(EFFECT_TOSS_DICE_CHOOSE);
+			for(auto eit = pr.first; eit != pr.second;) {
+				effect* pe = eit->second;
+				++eit;
+				if(pe->is_activateable(pe->get_handler_player(), e)) {
+					peffect = pe;
+					break;
+				}
+			}
+			if(peffect) {
+				solve_continuous(peffect->get_handler_player(), peffect, e);
+				core.units.begin()->step = 2;
+				return FALSE;
+			}
 			auto message = pduel->new_message(MSG_TOSS_DICE);
 			message->write<uint8>(playerid);
 			message->write<uint8>(count1);
@@ -5438,7 +5473,7 @@ int32 field::toss_dice(uint16 step, effect * reason_effect, uint8 reason_player,
 			process_instant_event();
 		} else {
 			solve_continuous(peffect->get_handler_player(), peffect, e);
-			core.units.begin()->step = 1;
+			return TRUE;
 		}
 		return FALSE;
 	}
@@ -5447,10 +5482,25 @@ int32 field::toss_dice(uint16 step, effect * reason_effect, uint8 reason_player,
 		process_instant_event();
 		return TRUE;
 	}
-	case 2: {
-		for(uint8 i = 0; i < 5; ++i)
-			core.dice_result[i] = (returns.at<int32>(0) >> (i * 4)) & 0xf;
-		return TRUE;
+	case 3: {
+		core.units.begin()->step = 0;
+		auto message = pduel->new_message(MSG_TOSS_DICE);
+		message->write<uint8>(playerid);
+		message->write<uint8>(count1);
+		for(int32 i = 0; i < count1; ++i) {
+			message->write<uint8>(core.dice_result[i]);
+		}
+		if(count2 > 0) {
+			auto mmessage = pduel->new_message(MSG_TOSS_DICE);
+			mmessage->write<uint8>(1 - playerid);
+			mmessage->write<uint8>(count2);
+			for(int32 i = 0; i < count2; ++i) {
+				mmessage->write<uint8>(core.dice_result[count1 + i]);
+			}
+		}
+		raise_event((card*)0, EVENT_TOSS_DICE_NEGATE, reason_effect, 0, reason_player, playerid, count1 + (count2 << 16));
+		process_instant_event();
+		return FALSE;
 	}
 	}
 	return TRUE;

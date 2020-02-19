@@ -67,7 +67,7 @@ bool DeckManager::LoadLFListSingle(const path_string& path) {
 bool DeckManager::LoadLFListFolder(path_string path) {
 	path = Utils::NormalizePath(path);
 	bool loaded = false;
-	auto lflists = Utils::FindfolderFiles(path, std::vector<path_string>({ EPRO_TEXT("conf") }));
+	auto lflists = Utils::FindFiles(path, std::vector<path_string>({ EPRO_TEXT("conf") }));
 	for (const auto& lflist : lflists) {
 		loaded = LoadLFListSingle(path + lflist);
 	}
@@ -78,7 +78,7 @@ void DeckManager::LoadLFList() {
 	LoadLFListSingle(EPRO_TEXT("./lflist.conf"));
 	LoadLFListFolder(EPRO_TEXT("./lflists/"));
 	LFList nolimit;
-	nolimit.listName = L"N/A";
+	nolimit.listName = gDataManager->GetSysString(1442); // N/A
 	nolimit.hash = 0;
 	nolimit.content.clear();
 	nolimit.whitelist = false;
@@ -90,13 +90,14 @@ void DeckManager::RefreshLFList() {
 	if(null_lflist_index != -1 && null_lflist_index != _lfList.size() -1) {
 		auto it = _lfList.begin() + null_lflist_index;
 		std::rotate(it, it + 1, _lfList.end());
+		null_lflist_index = _lfList.size() - 1;
 	}
 }
 std::wstring DeckManager::GetLFListName(int lfhash) {
 	auto it = std::find_if(_lfList.begin(), _lfList.end(), [lfhash](LFList list){return list.hash == (unsigned int)lfhash; });
 	if(it != _lfList.end())
 		return (*it).listName.c_str();
-	return dataManager.unknown_string;
+	return gDataManager->unknown_string;
 }
 int DeckManager::TypeCount(std::vector<CardDataC*> cards, int type) {
 	int count = 0;
@@ -250,26 +251,26 @@ int DeckManager::LoadDeck(Deck& deck, std::vector<int> mainlist, std::vector<int
 	int errorcode = 0;
 	CardData cd;
 	for(auto code : mainlist) {
-		if(!dataManager.GetData(code, &cd)) {
+		if(!gDataManager->GetData(code, &cd)) {
 			errorcode = code;
 			continue;
 		}
 		if(cd.type & TYPE_TOKEN)
 			continue;
 		else if((cd.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ) || (cd.type & TYPE_LINK && cd.type & TYPE_MONSTER))) {
-			deck.extra.push_back(dataManager.GetCardData(code));
+			deck.extra.push_back(gDataManager->GetCardData(code));
 		} else {
-			deck.main.push_back(dataManager.GetCardData(code));
+			deck.main.push_back(gDataManager->GetCardData(code));
 		}
 	}
 	for(auto code : sidelist) {
-		if(!dataManager.GetData(code, &cd)) {
+		if(!gDataManager->GetData(code, &cd)) {
 			errorcode = code;
 			continue;
 		}
 		if(cd.type & TYPE_TOKEN)
 			continue;
-		deck.side.push_back(dataManager.GetCardData(code));	//verified by GetData()
+		deck.side.push_back(gDataManager->GetCardData(code));	//verified by GetData()
 	}
 	return errorcode;
 }
@@ -397,9 +398,9 @@ bool DeckManager::SaveDeck(const path_string& name, std::vector<int> mainlist, s
 	return true;
 }
 bool DeckManager::DeleteDeck(Deck& deck, const path_string& name) {
-	return Utils::Deletefile(fmt::format(EPRO_TEXT("./deck/{}.ydk"), name.c_str()));
+	return Utils::FileDelete(fmt::format(EPRO_TEXT("./deck/{}.ydk"), name.c_str()));
 }
 bool DeckManager::RenameDeck(const path_string& oldname, const path_string& newname) {
-	return Utils::Movefile(EPRO_TEXT("./deck/") + oldname + EPRO_TEXT(".ydk"), EPRO_TEXT("./deck/") + newname + EPRO_TEXT(".ydk"));
+	return Utils::FileMove(EPRO_TEXT("./deck/") + oldname + EPRO_TEXT(".ydk"), EPRO_TEXT("./deck/") + newname + EPRO_TEXT(".ydk"));
 }
 }

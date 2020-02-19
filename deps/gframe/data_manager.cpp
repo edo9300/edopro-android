@@ -7,7 +7,22 @@
 namespace ygo {
 
 const wchar_t* DataManager::unknown_string = L"???";
-DataManager dataManager;
+
+void DataManager::ClearLocaleTexts() {
+	for(auto& val : indexes) {
+		val.second.second = nullptr;
+		if(val.second.first)
+			val.second.first->_locale_strings = nullptr;
+	}
+	locales.clear();
+}
+
+bool DataManager::LoadLocaleDB(const path_string & file, bool usebuffer) {
+	sqlite3* pDB;
+	if(sqlite3_open_v2(Utils::ToUTF8IfNeeded(file).c_str(), &pDB, SQLITE_OPEN_READONLY, 0) != SQLITE_OK)
+		return Error(pDB);
+	return ParseLocaleDB(pDB);
+}
 
 bool DataManager::LoadDB(const path_string& file, bool usebuffer) {
 	if(usebuffer) {
@@ -29,51 +44,50 @@ bool DataManager::LoadDBFromBuffer(const std::vector<char>& buffer) {
 }
 bool DataManager::ParseDB(sqlite3 * pDB) {
 	sqlite3_stmt* pStmt;
-	const char* sql = "select * from datas,texts where datas.id=texts.id";
+	const char* sql = "select * from datas,texts where datas.id=texts.id ORDER BY texts.id";
 	if(sqlite3_prepare_v2(pDB, sql, -1, &pStmt, 0) != SQLITE_OK)
 		return Error(pDB);
-	CardString cs;
+	auto indexesiterator = indexes.begin();
 	int step = 0;
 	do {
 		step = sqlite3_step(pStmt);
 		if(step == SQLITE_BUSY || step == SQLITE_ERROR || step == SQLITE_MISUSE)
 			return Error(pDB, pStmt);
 		else if(step == SQLITE_ROW) {
-			CardDataC* cd = new CardDataC();
-			cd->code = sqlite3_column_int(pStmt, 0);
-			cd->ot = sqlite3_column_int(pStmt, 1);
-			cd->alias = sqlite3_column_int(pStmt, 2);
-			cd->setcodes_p = nullptr;
+			CardString cs{};
+			CardDataC cd{};
+			cd.code = sqlite3_column_int(pStmt, 0);
+			cd.ot = sqlite3_column_int(pStmt, 1);
+			cd.alias = sqlite3_column_int(pStmt, 2);
+			cd.setcodes_p = nullptr;
 			auto setcodes = sqlite3_column_int64(pStmt, 3);
 			for(int i = 0; i < 4; i++) {
 				uint16_t setcode = (setcodes >> (i * 16)) & 0xffff;
 				if(setcode)
-					cd->setcodes.push_back(setcode);
+					cd.setcodes.push_back(setcode);
 			}
-			if(cd->setcodes.size()) {
-				cd->setcodes.push_back(0);
-				cd->setcodes_p = cd->setcodes.data();
+			if(cd.setcodes.size()) {
+				cd.setcodes.push_back(0);
+				cd.setcodes_p = cd.setcodes.data();
 			}
-			cd->type = sqlite3_column_int(pStmt, 4);
-			cd->attack = sqlite3_column_int(pStmt, 5);
-			cd->defense = sqlite3_column_int(pStmt, 6);
-			if(cd->type & TYPE_LINK) {
-				cd->link_marker = cd->defense;
-				cd->defense = 0;
+			cd.type = sqlite3_column_int(pStmt, 4);
+			cd.attack = sqlite3_column_int(pStmt, 5);
+			cd.defense = sqlite3_column_int(pStmt, 6);
+			if(cd.type & TYPE_LINK) {
+				cd.link_marker = cd.defense;
+				cd.defense = 0;
 			} else
-				cd->link_marker = 0;
+				cd.link_marker = 0;
 			int level = sqlite3_column_int(pStmt, 7);
 			if(level < 0) {
-				cd->level = -(level & 0xff);
+				cd.level = -(level & 0xff);
 			} else
-				cd->level = level & 0xff;
-			cd->lscale = (level >> 24) & 0xff;
-			cd->rscale = (level >> 16) & 0xff;
-			cd->race = sqlite3_column_int(pStmt, 8);
-			cd->attribute = sqlite3_column_int(pStmt, 9);
-			cd->category = sqlite3_column_int(pStmt, 10);
-			auto search = _datas.find(cd->code);
-			_datas[cd->code] = cd;
+				cd.level = level & 0xff;
+			cd.lscale = (level >> 24) & 0xff;
+			cd.rscale = (level >> 16) & 0xff;
+			cd.race = sqlite3_column_int(pStmt, 8);
+			cd.attribute = sqlite3_column_int(pStmt, 9);
+			cd.category = sqlite3_column_int(pStmt, 10);
 			if(const char* text = (const char*)sqlite3_column_text(pStmt, 12)) {
 				cs.name = BufferIO::DecodeUTF8s(text);
 			}
@@ -85,7 +99,58 @@ bool DataManager::ParseDB(sqlite3 * pDB) {
 					cs.desc[i] = BufferIO::DecodeUTF8s(text);
 				}
 			}
-			_strings.emplace(cd->code, cs);
+			CardString* localestring = nullptr;
+			if(indexesiterator != indexes.end()) {
+				while(indexesiterator != indexes.end() && indexesiterator->first < cd.code)
+					indexesiterator++;
+				if(indexesiterator != indexes.end() && indexesiterator->first == cd.code)
+					localestring = indexesiterator->second.second;
+			}
+			auto ptr = &(cards[cd.code] = { std::move(cd), std::move(cs), localestring });
+			indexes[cd.code] = { ptr, localestring };
+		}
+	} while(step != SQLITE_DONE);
+	sqlite3_finalize(pStmt);
+	sqlite3_close(pDB);
+	return true;
+}
+bool DataManager::ParseLocaleDB(sqlite3 * pDB) {
+	sqlite3_stmt* pStmt;
+	const char* sql = "select * from texts ORDER BY texts.id";
+	if(sqlite3_prepare_v2(pDB, sql, -1, &pStmt, 0) != SQLITE_OK)
+		return Error(pDB);
+	auto indexesiterator = indexes.begin();
+	int step = 0;
+	do {
+		step = sqlite3_step(pStmt);
+		if(step == SQLITE_BUSY || step == SQLITE_ERROR || step == SQLITE_MISUSE)
+			return Error(pDB, pStmt);
+		else if(step == SQLITE_ROW) {
+			CardString cs{};
+			auto code = sqlite3_column_int(pStmt, 0);
+			if(const char* text = (const char*)sqlite3_column_text(pStmt, 1)) {
+				cs.name = BufferIO::DecodeUTF8s(text);
+			}
+			if(const char* text = (const char*)sqlite3_column_text(pStmt, 2)) {
+				cs.text = BufferIO::DecodeUTF8s(text);
+			}
+			for(int i = 0; i < 16; ++i) {
+				if(const char* text = (const char*)sqlite3_column_text(pStmt, i + 3)) {
+					cs.desc[i] = BufferIO::DecodeUTF8s(text);
+				}
+			}
+			CardDataM* card_data = nullptr;
+			if(indexesiterator != indexes.end()) {
+				while(indexesiterator != indexes.end() && indexesiterator->first < code)
+					indexesiterator++;
+				if(indexesiterator != indexes.end() && indexesiterator->first == code)
+					card_data = indexesiterator->second.first;
+			}
+			auto ptr = &(locales[code] = std::move(cs));
+			if(card_data) {
+				card_data->_locale_strings = ptr;
+			}
+			indexes[code] = { card_data,ptr };
 		}
 	} while(step != SQLITE_DONE);
 	sqlite3_finalize(pStmt);
@@ -111,19 +176,67 @@ bool DataManager::LoadStrings(const path_string& file) {
 		auto value = str.substr(0, pos);
 		str = str.substr(pos + 1);
 		try {
-			if(type == "system")
-				_sysStrings[std::stoi(value)] = BufferIO::DecodeUTF8s(str);
-			else if(type == "victory")
-				_victoryStrings[std::stoi(value, 0, 16)] = BufferIO::DecodeUTF8s(str);
-			else if(type == "counter")
-				_counterStrings[std::stoi(value, 0, 16)] = BufferIO::DecodeUTF8s(str);
-			else if(type == "setname")
-				_setnameStrings[std::stoi(value, 0, 16)] = BufferIO::DecodeUTF8s(str);
+			if(type == "system") {
+				_sysStrings.SetMain(std::stoi(value), BufferIO::DecodeUTF8s(str));
+			} else {
+				LocaleStringHelper* obj = nullptr;
+				if(type == "victory")
+					obj = &_victoryStrings;
+				else if(type == "counter")
+					obj = &_counterStrings;
+				else if(type == "setname")
+					obj = &_setnameStrings;
+				obj->SetMain(std::stoi(value, 0, 16), BufferIO::DecodeUTF8s(str));
+			}
 		}
 		catch(...) {}
 	}
 	string_file.close();
 	return true;
+}
+bool DataManager::LoadLocaleStrings(const path_string & file) {
+	std::ifstream string_file(file, std::ifstream::in);
+	if(!string_file.is_open())
+		return false;
+	std::string str;
+	while(std::getline(string_file, str)) {
+		auto pos = str.find_first_of("\n\r");
+		if(str.size() && pos != std::string::npos)
+			str = str.substr(0, pos);
+		if(str.empty() || str.at(0) != '!') {
+			continue;
+		}
+		pos = str.find(' ');
+		auto type = str.substr(1, pos - 1);
+		str = str.substr(pos + 1);
+		pos = str.find(' ');
+		auto value = str.substr(0, pos);
+		str = str.substr(pos + 1);
+		try {
+			if(type == "system") {
+				_sysStrings.SetLocale(std::stoi(value), BufferIO::DecodeUTF8s(str));
+			} else {
+				LocaleStringHelper* obj = nullptr;
+				if(type == "victory")
+					obj = &_victoryStrings;
+				else if(type == "counter")
+					obj = &_counterStrings;
+				else if(type == "setname")
+					obj = &_setnameStrings;
+				if(obj)
+					obj->SetLocale(std::stoi(value, 0, 16), BufferIO::DecodeUTF8s(str));
+			}
+		}
+		catch(...) {}
+	}
+	string_file.close();
+	return true;
+}
+void DataManager::ClearLocaleStrings() {
+	_sysStrings.ClearLocales();
+	_victoryStrings.ClearLocales();
+	_counterStrings.ClearLocales();
+	_setnameStrings.ClearLocales();
 }
 bool DataManager::Error(sqlite3* pDB, sqlite3_stmt* pStmt) {
 	auto error = sqlite3_errmsg(pDB);
@@ -134,40 +247,40 @@ bool DataManager::Error(sqlite3* pDB, sqlite3_stmt* pStmt) {
 	return false;
 }
 bool DataManager::GetData(int code, CardData* pData) {
-	auto cdit = _datas.find(code);
-	if(cdit == _datas.end())
+	auto cdit = cards.find(code);
+	if(cdit == cards.end())
 		return false;
 	if(pData)
-		*pData = *((CardData*)cdit->second);
+		*pData = *((CardData*)&cdit->second._data);
 	return true;
 }
 CardDataC* DataManager::GetCardData(int code) {
-	auto it = _datas.find(code);
-	if(it != _datas.end())
-		return it->second;
+	auto it = cards.find(code);
+	if(it != cards.end())
+		return &it->second._data;
 	return nullptr;
 }
 bool DataManager::GetString(int code, CardString* pStr) {
-	auto csit = _strings.find(code);
-	if(csit == _strings.end()) {
+	auto csit = cards.find(code);
+	if(csit == cards.end()) {
 		pStr->name = unknown_string;
 		pStr->text = unknown_string;
 		return false;
 	}
-	*pStr = csit->second;
+	*pStr = *csit->second.GetStrings();
 	return true;
 }
 std::wstring DataManager::GetName(int code) {
-	auto csit = _strings.find(code);
-	if(csit == _strings.end() || csit->second.name.empty())
+	auto csit = cards.find(code);
+	if(csit == cards.end() || csit->second.GetStrings()->name.empty())
 		return unknown_string;
-	return csit->second.name;
+	return csit->second.GetStrings()->name;
 }
 std::wstring DataManager::GetText(int code) {
-	auto csit = _strings.find(code);
-	if(csit == _strings.end() || csit->second.text.empty())
+	auto csit = cards.find(code);
+	if(csit == cards.end() || csit->second.GetStrings()->text.empty())
 		return unknown_string;
-	return csit->second.text;
+	return csit->second.GetStrings()->text;
 }
 std::wstring DataManager::GetDesc(uint64 strCode, bool compat) {
 	uint32 code = 0;
@@ -178,47 +291,48 @@ std::wstring DataManager::GetDesc(uint64 strCode, bool compat) {
 		code = strCode >> 4;
 		stringid = strCode & 0xf;
 	} else {
-		code = strCode >> 32;
-		stringid = strCode & 0xffffffff;
+		code = strCode >> 20;
+		stringid = strCode & 0xfffff;
 	}
 	if(code == 0)
 		return GetSysString(stringid);
-	auto csit = _strings.find(code);
-	if(csit == _strings.end() || csit->second.desc[stringid].empty())
+	auto csit = cards.find(code);
+	if(csit == cards.end() || csit->second.GetStrings()->desc[stringid].empty())
 		return unknown_string;
-	return csit->second.desc[stringid];
+	return csit->second.GetStrings()->desc[stringid];
 }
-std::wstring DataManager::GetSysString(uint64 code) {
-	if(code >> 32)
+std::wstring DataManager::GetSysString(uint32 code) {
+	auto csit = _sysStrings.GetLocale(code);
+	if(!csit)
 		return unknown_string;
-	auto csit = _sysStrings.find(code);
-	if(csit == _sysStrings.end() || csit->second.empty())
-		return unknown_string;
-	return csit->second;
+	return csit;
 }
 std::wstring DataManager::GetVictoryString(int code) {
-	auto csit = _victoryStrings.find(code);
-	if(csit == _victoryStrings.end() || csit->second.empty())
+	auto csit = _victoryStrings.GetLocale(code);
+	if(!csit)
 		return unknown_string;
-	return csit->second;
+	return csit;
 }
 std::wstring DataManager::GetCounterName(int code) {
-	auto csit = _counterStrings.find(code);
-	if(csit == _counterStrings.end() || csit->second.empty())
+	auto csit = _counterStrings.GetLocale(code);
+	if(!csit)
 		return unknown_string;
-	return csit->second;
+	return csit;
 }
 std::wstring DataManager::GetSetName(int code) {
-	auto csit = _setnameStrings.find(code);
-	if(csit == _setnameStrings.end() || csit->second.empty())
+	auto csit = _setnameStrings.GetLocale(code);
+	if(!csit)
 		return L"";
-	return csit->second;
+	return csit;
 }
 std::vector<unsigned int> DataManager::GetSetCode(std::vector<std::wstring>& setname) {
 	std::vector<unsigned int> res;
-	for(auto& string : _setnameStrings) {
-		auto xpos = string.second.find_first_of(L'|');//setname|extra info
-		if(Utils::ContainsSubstring(string.second.substr(0, xpos), setname, true))
+	for(auto& string : _setnameStrings.map) {
+		if(string.second.first.empty())
+			continue;
+		auto str = string.second.second.size() ? string.second.second : string.second.first;
+		auto xpos = str.find_first_of(L'|');//setname|extra info
+		if(Utils::ContainsSubstring(str.substr(0, xpos), setname, true))
 			res.push_back(string.first);
 	}
 	return res;
@@ -261,11 +375,10 @@ std::wstring DataManager::FormatAttribute(int attribute) {
 		return unknown_string;
 	return res;
 }
-std::wstring DataManager::FormatRace(int race) {
+std::wstring DataManager::FormatRace(int race, bool isSkill) {
 	std::wstring res;
 	unsigned filter = 1;
-	int i = 1020;
-	for(; filter != 0x2000000; filter <<= 1, ++i) {
+	for(int i = isSkill ? 2100 : 1020; filter != 0x2000000; filter <<= 1, ++i) {
 		if(race & filter) {
 			if(!res.empty())
 				res += L"|";
@@ -278,9 +391,15 @@ std::wstring DataManager::FormatRace(int race) {
 }
 std::wstring DataManager::FormatType(int type) {
 	std::wstring res;
-	unsigned filter = 1;
+	if(type & TYPE_SKILL)
+		res += GetSysString(1077);
+	if(type & TYPE_ACTION) {
+		if (!res.empty())
+			res += L"|";
+		res += GetSysString(1078);
+	}
 	int i = 1050;
-	for(; filter != 0x8000000; filter <<= 1, ++i) {
+	for(unsigned filter = 1; filter != TYPE_SKILL; filter <<= 1, ++i) {
 		if(type & filter) {
 			if(!res.empty())
 				res += L"|";
@@ -290,6 +409,28 @@ std::wstring DataManager::FormatType(int type) {
 	if(res.empty())
 		return unknown_string;
 	return res;
+}
+std::wstring DataManager::FormatScope(int scope, bool hideOCGTCG) {
+	static const std::map<int, int> SCOPES = {
+		{SCOPE_OCG, 1900},
+		{SCOPE_TCG, 1901},
+		{SCOPE_ANIME, 1265},
+		{SCOPE_ILLEGAL, 1266},
+		{SCOPE_VIDEO_GAME, 1267},
+		{SCOPE_CUSTOM, 1268},
+		{SCOPE_PRERELEASE, 1903}
+	};
+	if (hideOCGTCG && scope == SCOPE_OCG_TCG) return L"";
+	std::wstring buffer;
+	for (const auto& tuple : SCOPES) {
+		if (scope & tuple.first) {
+			if (!buffer.empty()) {
+				buffer += L"/";
+			}
+			buffer.append(GetSysString(tuple.second).c_str());
+		}
+	}
+	return buffer;
 }
 std::wstring DataManager::FormatSetName(unsigned long long setcode) {
 	std::wstring res;

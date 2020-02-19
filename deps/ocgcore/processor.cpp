@@ -701,7 +701,7 @@ int32 field::process() {
 					if(core.deck_reversed || (ptop->current.position == POS_FACEUP_DEFENSE)) {
 						auto message = pduel->new_message(MSG_DECK_TOP);
 						message->write<uint8>(target_player);
-						message->write<uint8>(0);
+						message->write<uint32>(0);
 						message->write<uint32>(ptop->data.code);
 						message->write<uint32>(ptop->current.position);
 					}
@@ -1293,15 +1293,15 @@ int32 field::process_point_event(int16 step, int32 skip_trigger, int32 skip_free
 	case 0: {
 		core.select_chains.clear();
 		core.point_event.splice(core.point_event.end(), core.instant_event);
-		core.full_event.splice(core.full_event.end(), core.delayed_activate_event);
 		if(skip_trigger) {
 			core.units.begin()->step = 7;
 			return FALSE;
 		}
 		core.new_fchain_s.splice(core.new_fchain_s.begin(), core.new_fchain);
 		core.new_ochain_s.splice(core.new_ochain_s.begin(), core.new_ochain);
+		core.full_event.splice(core.full_event.end(), core.delayed_activate_event);
 		core.delayed_quick.clear();
-		core.delayed_quick_break.swap(core.delayed_quick);
+		core.delayed_quick_tmp.swap(core.delayed_quick);
 		core.current_player = infos.turn_player;
 		core.units.begin()->step = 1;
 		return FALSE;
@@ -1485,6 +1485,7 @@ int32 field::process_point_event(int16 step, int32 skip_trigger, int32 skip_free
 	case 10: {
 		core.new_ochain_h.clear();
 		core.full_event.clear();
+		core.delayed_quick.clear();
 		for(auto& ch_lim : core.chain_limit)
 			luaL_unref(pduel->lua->lua_state, LUA_REGISTRYINDEX, ch_lim.function);
 		core.chain_limit.clear();
@@ -1662,7 +1663,7 @@ int32 field::process_quick_effect(int16 step, int32 skip_freechain, uint8 priori
 					effect* peffect = eit->second;
 					++eit;
 					peffect->set_activate_location();
-					if(peffect->is_chainable(priority) && peffect->is_activateable(priority, *evit)) {
+					if(!peffect->is_flag(EFFECT_FLAG_DELAY) && peffect->is_chainable(priority) && peffect->is_activateable(priority, *evit)) {
 						card* phandler = peffect->get_handler();
 						newchain.flag = 0;
 						newchain.chain_id = infos.field_id++;
@@ -1671,8 +1672,6 @@ int32 field::process_quick_effect(int16 step, int32 skip_freechain, uint8 priori
 						newchain.set_triggering_state(phandler);
 						newchain.triggering_player = priority;
 						core.select_chains.push_back(newchain);
-						core.delayed_quick_tmp.erase(std::make_pair(peffect, *evit));
-						core.delayed_quick_break.erase(std::make_pair(peffect, *evit));
 					}
 				}
 			}
@@ -1794,7 +1793,6 @@ int32 field::process_quick_effect(int16 step, int32 skip_freechain, uint8 priori
 			else {
 				core.hint_timing[0] &= TIMING_DAMAGE_STEP | TIMING_DAMAGE_CAL;
 				core.hint_timing[1] &= TIMING_DAMAGE_STEP | TIMING_DAMAGE_CAL;
-				core.delayed_quick.clear();
 			}
 		}
 		core.select_chains.clear();
@@ -2798,7 +2796,7 @@ int32 field::process_battle_command(uint16 step) {
 	case 11: {
 		if(core.attacker->is_affected_by_effect(EFFECT_ATTACK_DISABLED)) {
 			core.attacker->reset(EFFECT_ATTACK_DISABLED, RESET_CODE);
-			auto message = pduel->new_message(MSG_ATTACK_DISABLED);
+			pduel->new_message(MSG_ATTACK_DISABLED);
 			core.attacker->set_status(STATUS_ATTACK_CANCELED, TRUE);
 		}
 		if(is_player_affected_by_effect(infos.turn_player, EFFECT_SKIP_BP)
@@ -3545,8 +3543,8 @@ void field::calculate_battle_damage(effect** pdamchange, card** preason_card, ui
 						core.battle_damage[1] = a - d;
 					bool double_damage = false;
 					//bool half_damage = false;
-					for(int32 i = 0; i < eset.size(); ++i) {
-						if(eset[i]->get_value() == DOUBLE_DAMAGE)
+					for(uint32 i = 0; i < eset.size(); ++i) {
+						if(eset[i]->get_value() == static_cast<int32>(DOUBLE_DAMAGE))
 							double_damage = true;
 						//if(eset[i]->get_value() == HALF_DAMAGE)
 						//	half_damage = true;
@@ -3646,9 +3644,9 @@ void field::calculate_battle_damage(effect** pdamchange, card** preason_card, ui
 								break;
 							} else if(val > 0)
 								dam_value = val;
-							else if(val == DOUBLE_DAMAGE)
+							else if(val == static_cast<int32>(DOUBLE_DAMAGE))
 								double_dam = true;
-							else if(val == HALF_DAMAGE)
+							else if(val == static_cast<int32>(HALF_DAMAGE))
 								half_dam = true;
 						}
 						if(double_dam && half_dam) {
@@ -3691,7 +3689,7 @@ void field::calculate_battle_damage(effect** pdamchange, card** preason_card, ui
 		card* dam_card = (reason_card == core.attacker) ? core.attack_target : core.attacker;
 		bool both = false;
 		if(reason_card->is_affected_by_effect(EFFECT_BOTH_BATTLE_DAMAGE)
-			|| dam_card && dam_card->is_affected_by_effect(EFFECT_BOTH_BATTLE_DAMAGE)) {
+			|| (dam_card && dam_card->is_affected_by_effect(EFFECT_BOTH_BATTLE_DAMAGE))) {
 			core.battle_damage[1 - damp] = core.battle_damage[damp];
 			both = true;
 		}
@@ -3702,7 +3700,7 @@ void field::calculate_battle_damage(effect** pdamchange, card** preason_card, ui
 			reflect[1 - damp] = is_player_affected_by_effect(1 - damp, EFFECT_REFLECT_BATTLE_DAMAGE);
 		bool also[2] = { false, false };
 		if(!both
-			&& (dam_card && dam_card->is_affected_by_effect(EFFECT_ALSO_BATTLE_DAMAGE)
+			&& ((dam_card && dam_card->is_affected_by_effect(EFFECT_ALSO_BATTLE_DAMAGE))
 				|| is_player_affected_by_effect(damp, EFFECT_ALSO_BATTLE_DAMAGE)))
 			also[damp] = true;
 		if(!both
@@ -3766,9 +3764,9 @@ void field::calculate_battle_damage(effect** pdamchange, card** preason_card, ui
 					break;
 				} else if(val > 0)
 					dam_value = val;
-				else if(val == DOUBLE_DAMAGE)
+				else if(val == static_cast<int32>(DOUBLE_DAMAGE))
 					double_dam = true;
-				else if(val == HALF_DAMAGE)
+				else if(val == static_cast<int32>(HALF_DAMAGE))
 					half_dam = true;
 			}
 			if(double_dam && half_dam) {
@@ -3783,10 +3781,10 @@ void field::calculate_battle_damage(effect** pdamchange, card** preason_card, ui
 				core.battle_damage[p] = dam_value;
 		}
 		if(reason_card->is_affected_by_effect(EFFECT_NO_BATTLE_DAMAGE)
-			|| dam_card && dam_card->is_affected_by_effect(EFFECT_AVOID_BATTLE_DAMAGE, reason_card)
+			|| (dam_card && dam_card->is_affected_by_effect(EFFECT_AVOID_BATTLE_DAMAGE, reason_card))
 			|| is_player_affected_by_effect(damp, EFFECT_AVOID_BATTLE_DAMAGE))
 			core.battle_damage[damp] = 0;
-		if(dam_card && dam_card->is_affected_by_effect(EFFECT_NO_BATTLE_DAMAGE)
+		if((dam_card && dam_card->is_affected_by_effect(EFFECT_NO_BATTLE_DAMAGE))
 			|| reason_card->is_affected_by_effect(EFFECT_AVOID_BATTLE_DAMAGE, dam_card)
 			|| is_player_affected_by_effect(1 - damp, EFFECT_AVOID_BATTLE_DAMAGE))
 			core.battle_damage[1 - damp] = 0;
@@ -4870,8 +4868,6 @@ int32 field::break_effect() {
 			core.new_ochain.erase(rm);
 		}
 	}
-	core.delayed_quick_break.insert(core.delayed_quick_tmp.begin(), core.delayed_quick_tmp.end());
-	core.delayed_quick_tmp.clear();
 	core.used_event.splice(core.used_event.end(), core.instant_event);
 	adjust_instant();
 	return 0;
@@ -5371,7 +5367,7 @@ int32 field::adjust_step(uint16 step) {
 						card* ptop = player[0].list_main.back();
 						auto message = pduel->new_message(MSG_DECK_TOP);
 						message->write<uint8>(0);
-						message->write<uint8>(0);
+						message->write<uint32>(0);
 						message->write<uint32>(ptop->data.code);
 						message->write<uint32>(ptop->current.position);
 					}
@@ -5379,7 +5375,7 @@ int32 field::adjust_step(uint16 step) {
 						card* ptop = player[1].list_main.back();
 						auto message = pduel->new_message(MSG_DECK_TOP);
 						message->write<uint8>(1);
-						message->write<uint8>(0);
+						message->write<uint32>(0);
 						message->write<uint32>(ptop->data.code);
 						message->write<uint32>(ptop->current.position);
 					}

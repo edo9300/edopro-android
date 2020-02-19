@@ -31,27 +31,10 @@ public:
 		COVER,
 		THUMB
 	};
-	struct PicSource {
-		std::string url;
-		imgType type;
-	};
 private:
 	using image_path = std::pair<irr::video::IImage*, path_string>;
 	using loading_map = std::map<int, std::future<image_path>>;
 	using chrono_time = unsigned long long;
-	enum downloadStatus {
-		DOWNLOADING,
-		DOWNLOAD_ERROR,
-		DOWNLOADED,
-		NONE
-	};
-	struct downloadParam {
-		int code;
-		imgType type;
-		downloadStatus status;
-		path_string path;
-	};
-	using downloading_map = std::map<int/*code*/, downloadParam>; /*if the value is not found, the download hasn't started yet*/
 	using texture_map = std::unordered_map<int, irr::video::ITexture*>;
 public:
 	ImageManager() {
@@ -61,18 +44,14 @@ public:
 		loading_pics[3] = new loading_map();
 	}
 	~ImageManager() {
-		stop_threads = true;
-		cv.notify_all();
-		for(int i = 0; i < 8; i++) {
-			download_threads[i].join();
-		}
 		delete loading_pics[0];
 		delete loading_pics[1];
 		delete loading_pics[2];
 		delete loading_pics[3];
 	}
-	void AddDownloadResource(PicSource src);
 	bool Initial();
+	void ChangeTextures(const path_string& path);
+	void ResetTextures();
 	void SetDevice(irr::IrrlichtDevice* dev);
 	void ClearTexture(bool resize = false);
 	void RemoveTexture(int code);
@@ -98,49 +77,61 @@ public:
 	texture_map tCovers;
 	irr::IrrlichtDevice* device;
 	irr::video::IVideoDriver* driver;
-	irr::video::ITexture* tCover[2];
-	irr::video::ITexture* tUnknown;
-	irr::video::ITexture* tAct;
-	irr::video::ITexture* tAttack;
-	irr::video::ITexture* tNegated;
-	irr::video::ITexture* tChain;
-	irr::video::ITexture* tNumber;
-	irr::video::ITexture* tLPFrame;
-	irr::video::ITexture* tLPBar;
-	irr::video::ITexture* tMask;
-	irr::video::ITexture* tEquip;
-	irr::video::ITexture* tTarget;
-	irr::video::ITexture* tChainTarget;
-	irr::video::ITexture* tLim;
-	irr::video::ITexture* tHand[3];
-	irr::video::ITexture* tBackGround;
-	irr::video::ITexture* tBackGround_menu;
-	irr::video::ITexture* tBackGround_deck;
-	irr::video::ITexture* tField[2][4];
-	irr::video::ITexture* tFieldTransparent[2][4];
+#define A(what) irr::video::ITexture* what;
+	A(tCover[2])
+	A(tUnknown)
+	A(tAct)
+	A(tAttack)
+	A(tNegated)
+	A(tChain)
+	A(tNumber)
+	A(tLPFrame)
+	A(tLPBar)
+	A(tMask)
+	A(tEquip)
+	A(tTarget)
+	A(tChainTarget)
+	A(tLim)
+	A(tHand[3])
+	A(tBackGround)
+	A(tBackGround_menu)
+	A(tBackGround_deck)
+	A(tField[2][4])
+	A(tFieldTransparent[2][4])
+#undef A
 private:
+#define A(what) irr::video::ITexture* def_##what;
+	A(tCover[2])
+	A(tUnknown)
+	A(tAct)
+	A(tAttack)
+	A(tNegated)
+	A(tChain)
+	A(tNumber)
+	A(tLPFrame)
+	A(tLPBar)
+	A(tMask)
+	A(tEquip)
+	A(tTarget)
+	A(tChainTarget)
+	A(tLim)
+	A(tHand[3])
+	A(tBackGround)
+	A(tBackGround_menu)
+	A(tBackGround_deck)
+	A(tField[2][4])
+	A(tFieldTransparent[2][4])
+#undef A
 	void ClearFutureObjects(loading_map* map1, loading_map* map2, loading_map* map3, loading_map* map4);
-	void DownloadPic();
-	void AddToDownloadQueue(int code, imgType type);
-	downloadStatus GetDownloadStatus(int code, imgType type);
-	path_string GetDownloadPath(int code, imgType type);
+	void RefreshCovers();
 	image_path LoadCardTexture(int code, imgType type, std::atomic<irr::s32>& width, std::atomic<irr::s32>& height, chrono_time timestamp_id, std::atomic<chrono_time>& source_timestamp_id);
 	loading_map* loading_pics[4];
-	downloading_map downloading_images[3];
-	std::queue<downloadParam> to_download;
-	std::vector<downloadParam> downloading;
+	path_string textures_path;
 	std::pair<std::atomic<irr::s32>, std::atomic<irr::s32>> sizes[3];
-	std::mutex pic_download;
-	std::mutex field_download;
-	std::mutex mtx;
-	std::condition_variable cv;
 	std::atomic<chrono_time> timestamp_id;
-	std::atomic<bool> stop_threads;
-	std::vector<PicSource> pic_urls;
-	std::thread download_threads[8];
+	std::map<irr::io::path, irr::video::ITexture*> g_txrCache;
+	std::map<irr::io::path, irr::video::IImage*> g_imgCache;
 };
-
-extern ImageManager imageManager;
 
 #define CARD_IMG_WIDTH		177
 #define CARD_IMG_HEIGHT		254

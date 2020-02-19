@@ -13,6 +13,7 @@ GenericDuel::GenericDuel(int team1, int team2, bool relay, int best_of) :relay(r
 	players.opposing.resize(team2);
 	players.home_size = team1;
 	players.opposing_size = team2;
+	seeking_rematch = false;
 }
 GenericDuel::~GenericDuel() {
 }
@@ -444,7 +445,10 @@ void GenericDuel::StartDuel(DuelPlayer* dp) {
 	OrderPlayers(players.home);
 	OrderPlayers(players.opposing, players.home_size);
 	players.home_iterator = players.home.begin();
-	players.opposing_iterator = players.opposing.begin();
+	if(relay)
+		players.opposing_iterator = players.opposing.begin();
+	else
+		players.opposing_iterator = players.opposing.end() - 1;
 	//NetServer::StopListen();
 	//NetServer::StopBroadcast();
 	ITERATE_PLAYERS(NetServer::SendPacketToPlayer(dueler.player, STOC_DUEL_START);)
@@ -524,7 +528,10 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 			players.opposing[i].player->type = i + players.home_size;
 		}
 		players.home_iterator = players.home.begin();
-		players.opposing_iterator = players.opposing.begin();
+		if(relay)
+			players.opposing_iterator = players.opposing.begin();
+		else
+			players.opposing_iterator = players.opposing.end() - 1;
 		swapped = true;
 	}
 	turn_count = 0;
@@ -589,7 +596,7 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 		extracards.push_back(511004014);
 	if(host_info.extra_rules & DUELIST_KINGDOM)
 		extracards.push_back(511002621);
-	if(host_info.extra_rules & DIMENSTION_DUEL)
+	if(host_info.extra_rules & DIMENSION_DUEL)
 		extracards.push_back(511600002);
 	if(host_info.extra_rules & TURBO_DUEL)
 		extracards.push_back(302);
@@ -599,6 +606,8 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 		extracards.push_back(300);
 	if(host_info.extra_rules & DESTINY_DRAW)
 		extracards.push_back(511004000);
+	if(host_info.extra_rules & ACTION_DUEL)
+		extracards.push_back(301);
 	OCG_NewCardInfo card_info = { 0, 0, 0, 0, 0, 0, POS_FACEDOWN_DEFENSE };
 	for(int32 i = (int32)extracards.size() - 1; i >= 0; --i) {
 		card_info.code = extracards[i];
@@ -704,9 +713,31 @@ void GenericDuel::DuelEndProc() {
 		winc[match_result[i]]++;
 	int minvictories = std::ceil(best_of / 2.0);
 	if(match_kill || (winc[0] >= minvictories || winc[1] >= minvictories) || match_result.size() >= best_of) {
-		NetServer::SendPacketToPlayer(nullptr, STOC_DUEL_END);
-		ITERATE_PLAYERS_AND_OBS(NetServer::ReSendToPlayer(dueler);)
-		duel_stage = DUEL_STAGE_END;
+		seeking_rematch = true;
+		observers_mutex.lock();
+		for(auto& obs : observers) {
+			obs->state = CTOS_LEAVE_GAME;
+			NetServer::ReSendToPlayer(obs);
+		}
+		observers_mutex.unlock();
+		unsigned char rematch[10];
+		rematch[0] = MSG_SELECT_YESNO;
+		rematch[1] = 0;
+		*((uint64_t*)&rematch[2]) = 1989;
+		NetServer::SendBufferToPlayer(nullptr, STOC_GAME_MSG, rematch, sizeof(rematch));
+		for(auto& duelist : players.home) {
+			NetServer::ReSendToPlayer(duelist.player);
+		}
+		rematch[1] = 1;
+		NetServer::SendBufferToPlayer(nullptr, STOC_GAME_MSG, rematch, sizeof(rematch));
+		for(auto& duelist : players.opposing) {
+			NetServer::ReSendToPlayer(duelist.player);
+		}
+		ITERATE_PLAYERS(
+			dueler.player->state = CTOS_RESPONSE;
+			dueler.ready = false;
+		)
+		duel_stage = DUEL_STAGE_BEGIN;
 	} else {
 		ITERATE_PLAYERS(
 			dueler.ready = false;
@@ -741,6 +772,17 @@ void GenericDuel::Surrender(DuelPlayer* dp) {
 void GenericDuel::BeforeParsing(CoreUtils::Packet& packet, int& return_value, bool& record, bool& record_last) {
 	char* pbuf = DATA;
 	switch(packet.message) {
+	case MSG_SELECT_BATTLECMD:
+	case MSG_SELECT_IDLECMD: {
+		RefreshMzone(0);
+		RefreshMzone(1);
+		RefreshSzone(0);
+		RefreshSzone(1);
+		RefreshHand(0);
+		RefreshHand(1);
+		break;
+	}
+	case MSG_SELECT_CHAIN:
 	case MSG_NEW_TURN: {
 		RefreshMzone(0);
 		RefreshMzone(1);
@@ -814,12 +856,6 @@ void GenericDuel::Sending(CoreUtils::Packet& packet, int& return_value, bool& re
 	case MSG_SELECT_BATTLECMD:
 	case MSG_SELECT_IDLECMD: {
 		player = BufferIO::Read<uint8_t>(pbuf);
-		RefreshMzone(0);
-		RefreshMzone(1);
-		RefreshSzone(0);
-		RefreshSzone(1);
-		RefreshHand(0);
-		RefreshHand(1);
 		WaitforResponse(player);
 		SEND(cur_player[player]);
 		return_value = 1;
@@ -943,7 +979,6 @@ void GenericDuel::Sending(CoreUtils::Packet& packet, int& return_value, bool& re
 		for(auto& obs : observers)
 			NetServer::ReSendToPlayer(obs);
 		packets_cache.emplace_back(TO_SEND_BUFFER);
-		RefreshHand(player, 0x3781fff);
 		break;
 	}
 	case MSG_MOVE: {
@@ -1051,7 +1086,8 @@ void GenericDuel::AfterParsing(CoreUtils::Packet& packet, int& return_value, boo
 	int player;
 	char* pbuf = DATA;
 	switch(message) {
-		case MSG_SHUFFLE_HAND: {
+	case MSG_SHUFFLE_HAND:
+	case MSG_DRAW: {
 		player = BufferIO::Read<uint8_t>(pbuf);
 		RefreshHand(player, 0x3781fff);
 		break;
@@ -1192,6 +1228,30 @@ int GenericDuel::Analyze(CoreUtils::Packet packet) {
 	return return_value;
 }
 void GenericDuel::GetResponse(DuelPlayer* dp, void* pdata, unsigned int len) {
+	if(seeking_rematch) {
+		if(len < sizeof(int32_t) || !(*(int32_t*)pdata)) {
+			NetServer::SendPacketToPlayer(nullptr, STOC_DUEL_END);
+			ITERATE_PLAYERS_AND_OBS(NetServer::ReSendToPlayer(dueler);)
+				duel_stage = DUEL_STAGE_END;
+			return;
+		}
+		dp->state = 0xff;
+		auto& dueler = GetAtPos(dp->type);
+		dueler.ready = true;
+		NetServer::SendPacketToPlayer(dp, STOC_DUEL_START);
+		if(CheckReady()) {
+			seeking_rematch = false;
+			match_result.clear();
+			NetServer::SendPacketToPlayer(players.home.front().player, STOC_SELECT_TP);
+			ITERATE_PLAYERS(
+				if(dueler.player != players.home.front().player)
+					dueler.player->state = 0xff;
+			)
+			players.home.front().player->state = CTOS_TP_RESULT;
+			duel_stage = DUEL_STAGE_FIRSTGO;
+		}
+		return;
+	}
 	last_replay.Write<uint8_t>(len);
 	last_replay.WriteData(pdata, len);
 	OCG_DuelSetResponse(pduel, pdata, len);
