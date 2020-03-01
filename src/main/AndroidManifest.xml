@@ -37,6 +37,7 @@
 		</activity>
 		<activity
 			android:name=".SdlLauncher"
+			android:excludeFromRecents="true"
 			android:configChanges="orientation|keyboardHidden|navigation|screenSize"
 			android:launchMode="singleTask"
 			android:screenOrientation="sensorLandscape"
@@ -47,6 +48,7 @@
 		</activity>
 		<activity
 			android:name=".EpNativeActivity"
+			android:excludeFromRecents="true"
 			android:configChanges="orientation|keyboard|keyboardHidden|navigation|screenSize|smallestScreenSize"
 			android:hardwareAccelerated="true"
 			android:launchMode="singleTask"
