@@ -36,15 +36,7 @@
 			</intent-filter>
 		</activity>
 		<activity
-			android:name=".SdlLauncher"
-			android:excludeFromRecents="true"
-			android:configChanges="orientation|keyboardHidden|navigation|screenSize"
-			android:launchMode="singleTask"
-			android:screenOrientation="sensorLandscape"
-			android:theme="@style/AppTheme">
-			<intent-filter>
-				<action android:name="android.intent.action.MAIN" />
-			</intent-filter>
+			android:name=".SdlLauncher">
 		</activity>
 		<activity
 			android:name=".EpNativeActivity"
