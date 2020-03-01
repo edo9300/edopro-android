@@ -79,7 +79,7 @@ public class EpNativeActivity extends NativeActivity {
 				String parameters[] = intent.getStringArrayExtra("args");
 				AlertDialog.Builder builder = new AlertDialog.Builder(EpNativeActivity.this);
 				// Add the buttons
-				builder.setCancelable(false);
+				//builder.setCancelable(false);
 				builder.setItems(parameters, new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int id) {
 						putComboBoxResult(id);
