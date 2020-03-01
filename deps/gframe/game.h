@@ -78,7 +78,6 @@ struct DuelInfo {
 	int startlp;
 	int duel_field;
 	int duel_params;
-	int extraval;
 	int turn;
 	short curMsg;
 	int team1;
@@ -143,7 +142,6 @@ public:
 	void DrawThumb(CardDataC* cp, irr::core::position2di pos, LFList* lflist, bool drag = false, irr::core::recti* cliprect = nullptr, bool loadimage = true);
 	void DrawDeckBd();
 	void SaveConfig();
-	void LoadPicUrls();
 	struct RepoGui {
 		std::string path;
 		IProgressBar* progress1;
@@ -177,6 +175,20 @@ public:
 
 	bool HasFocus(irr::gui::EGUI_ELEMENT_TYPE type) const;
 
+	void RefreshUICoreVersion();
+	std::wstring GetLocalizedExpectedCore();
+	std::wstring GetLocalizedCompatVersion();
+	void ReloadCBSortType();
+	void ReloadCBCardType();
+	void ReloadCBCardType2();
+	void ReloadCBLimit();
+	void ReloadCBAttribute();
+	void ReloadCBRace();
+	void ReloadCBFilterRule();
+	void ReloadCBFilterBanlist();
+	void ReloadCBDuelRule();
+	void ReloadCBRule();
+	void ReloadCBCurrentSkin();
 	void ReloadElementsStrings();
 
 	void OnResize();
@@ -225,6 +237,7 @@ public:
 	void* ocgcore;
 #endif
 	bool coreloaded;
+	bool restart = false;
 	std::list<FadingUnit> fadingList;
 	std::vector<int> logParam;
 	std::wstring chatMsg[8];
@@ -344,6 +357,13 @@ public:
 	irr::gui::IGUIContextMenu* mAbout;
 	irr::gui::IGUIWindow* wAbout;
 	irr::gui::IGUIStaticText* stAbout;
+	irr::gui::IGUIContextMenu* mVersion;
+	irr::gui::IGUIWindow* wVersion;
+	irr::gui::IGUIStaticText* stVersion;
+	irr::gui::IGUIStaticText* stCoreVersion;
+	irr::gui::IGUIStaticText* stExpectedCoreVersion;
+	irr::gui::IGUIStaticText* stCompatVersion;
+	irr::gui::IGUIContextMenu* mBeta;
 	irr::gui::IGUIButton* btnOnlineMode;
 	irr::gui::IGUIButton* btnLanMode;
 	irr::gui::IGUIButton* btnSingleMode;
@@ -643,7 +663,7 @@ public:
 	std::vector<std::pair<irr::gui::IGUIElement*, int32>> defaultStrings;
 };
 
-extern std::shared_ptr<Game> mainGame;
+extern Game* mainGame;
 
 template<typename T>
 inline irr::core::vector2d<T> Game::Scale(irr::core::vector2d<T> vec) {
@@ -702,8 +722,6 @@ irr::core::rect<T> Game::Scale(irr::core::rect<T> rect) {
 #define COMMAND_RESET		0x0200
 
 #define POSITION_HINT		0x8000
-
-#define DEFAULT_DUEL_RULE			5
 
 #define CARD_ARTWORK_VERSIONS_OFFSET	10
 

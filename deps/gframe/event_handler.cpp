@@ -35,8 +35,9 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 		return true;
 	}
 #endif
-	if(OnCommonEvent(event))
-		return false;
+	bool stopPropagation = false;
+	if(OnCommonEvent(event, stopPropagation))
+		return stopPropagation;
 	switch(event.EventType) {
 	case irr::EET_GUI_EVENT: {
 		int id = event.GUIEvent.Caller->getID();
@@ -754,28 +755,34 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 				break;
 			}
 			case BUTTON_CARD_SEL_OK: {
-				mainGame->stCardListTip->setVisible(false);
+				// Space and Return trigger the last focused button so the hide animation can be triggered again
+				// even if it's already hidden along with its child OK button
+				auto HideCardSelectIfVisible = [](bool setAction = false) {
+					if (mainGame->wCardSelect->isVisible())
+						mainGame->HideElement(mainGame->wCardSelect, setAction);
+				};
+ 				mainGame->stCardListTip->setVisible(false);
 				if(mainGame->dInfo.isReplay) {
-					mainGame->HideElement(mainGame->wCardSelect);
+					HideCardSelectIfVisible();
 					break;
 				}
 				if(mainGame->dInfo.curMsg == MSG_SELECT_CARD || mainGame->dInfo.curMsg == MSG_SELECT_SUM) {
 					if(select_ready) {
 						SetResponseSelectedCards();
 						ShowCancelOrFinishButton(0);
-						mainGame->HideElement(mainGame->wCardSelect, true);
+						HideCardSelectIfVisible(true);
 					}
 					break;
 				} else if(mainGame->dInfo.curMsg == MSG_CONFIRM_CARDS) {
-					mainGame->HideElement(mainGame->wCardSelect);
+					HideCardSelectIfVisible();
 					mainGame->actionSignal.Set();
 					break;
 				} else if(mainGame->dInfo.curMsg == MSG_SELECT_UNSELECT_CARD){
 					DuelClient::SetResponseI(-1);
 					ShowCancelOrFinishButton(0);
-					mainGame->HideElement(mainGame->wCardSelect, true);
+					HideCardSelectIfVisible(true);
 				} else {
-					mainGame->HideElement(mainGame->wCardSelect);
+					HideCardSelectIfVisible();
 					if (mainGame->dInfo.curMsg == MSG_SELECT_CHAIN && !chain_forced)
 						ShowCancelOrFinishButton(1);
 					break;
@@ -1588,10 +1595,12 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 			if(mplayer != hovered_player) {
 				if(mplayer >= 0) {
 					std::wstring player_name;
+					auto& self = mainGame->dInfo.isTeam1 ? mainGame->dInfo.selfnames : mainGame->dInfo.opponames;
+					auto& oppo = mainGame->dInfo.isTeam1 ? mainGame->dInfo.opponames : mainGame->dInfo.selfnames;
 					if (mplayer == 0)
-						player_name = mainGame->dInfo.selfnames[mainGame->dInfo.current_player[mplayer]];
+						player_name = self[mainGame->dInfo.current_player[mplayer]];
 					else
-						player_name = mainGame->dInfo.opponames[mainGame->dInfo.current_player[mplayer]];
+						player_name = oppo[mainGame->dInfo.current_player[mplayer]];
 					const auto& player_desc_hints = mainGame->dField.player_desc_hints[mplayer];
 					for(auto iter = player_desc_hints.begin(); iter != player_desc_hints.end(); ++iter) {
 						player_name.append(fmt::format(L"\n*{}", gDataManager->GetDesc(iter->first, mainGame->dInfo.compat_mode)));
@@ -1743,7 +1752,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 	}
 	return false;
 }
-bool ClientField::OnCommonEvent(const irr::SEvent& event) {
+bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation) {
 #ifdef __ANDROID__
 	if(event.EventType == EET_MOUSE_INPUT_EVENT &&
 	   event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN) {
@@ -1783,6 +1792,14 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 			// Set cursor to normal if left an edit box
 			if (event.GUIEvent.Caller->getType() == EGUIET_EDIT_BOX) {
 				GUIUtils::ChangeCursor(mainGame->device, ECI_NORMAL);
+				return true;
+			}
+			break;
+		}
+		case irr::gui::EGET_ELEMENT_CLOSED: {
+			if(event.GUIEvent.Caller == mainGame->gSettings.window) {
+				stopPropagation = true;
+				mainGame->HideElement(mainGame->gSettings.window);
 				return true;
 			}
 			break;
@@ -1838,9 +1855,12 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 					mainGame->ShowElement(mainGame->gSettings.window);
 				break;
 			}
-			case BUTTON_HIDE_SETTINGS: {
-				if (mainGame->gSettings.window->isVisible())
-					mainGame->HideElement(mainGame->gSettings.window);
+			case BUTTON_APPLY_RESTART: {
+				try {
+					gGameConfig->dpi_scale = (std::stoi(mainGame->gSettings.ebDpiScale->getText()) / 100.0);
+					mainGame->restart = true;
+					mainGame->device->closeDevice();
+				} catch(...){}
 				break;
 			}
 			}
@@ -1924,7 +1944,7 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 			}
 			case CHECKBOX_FILTER_BOT: {
 				gGameConfig->filterBot = mainGame->gSettings.chkFilterBot->isChecked();
-				mainGame->gBot.Refresh(gGameConfig->filterBot* (mainGame->cbDuelRule->getSelected() + 1));
+				mainGame->gBot.Refresh(gGameConfig->filterBot * (mainGame->cbDuelRule->getSelected() + 1), gGameConfig->lastBot);
 				return true;
 			}
 			case CHECKBOX_FULLSCREEN: {
@@ -2046,9 +2066,53 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 			}
 			return true;
 		}
+		case irr::KEY_KEY_1: {
+			if (event.KeyInput.Control && !event.KeyInput.PressedDown)
+				mainGame->wInfos->setActiveTab(0);
+			break;
+		}
+		case irr::KEY_KEY_2: {
+			if (event.KeyInput.Control && !event.KeyInput.PressedDown)
+				mainGame->wInfos->setActiveTab(1);
+			break;
+		}
+		case irr::KEY_KEY_3: {
+			if (event.KeyInput.Control && !event.KeyInput.PressedDown)
+				mainGame->wInfos->setActiveTab(2);
+			break;
+		}
+		case irr::KEY_KEY_4: {
+			if (event.KeyInput.Control && !event.KeyInput.PressedDown)
+				mainGame->wInfos->setActiveTab(3);
+			break;
+		}
+		case irr::KEY_KEY_5: {
+			if (event.KeyInput.Control && !event.KeyInput.PressedDown)
+				mainGame->wInfos->setActiveTab(4);
+			break;
+		}
 		default: break;
 		}
 		break;
+	}
+	case irr::EET_MOUSE_INPUT_EVENT: {
+		if (gGameConfig->ctrlClickIsRMB && event.MouseInput.Control) {
+			auto SimulateMouse = [&](irr::EMOUSE_INPUT_EVENT type) {
+				irr::SEvent simulated = event;
+				simulated.MouseInput.Event = type;
+				mainGame->device->postEventFromUser(simulated);
+				return true;
+			};
+			switch (event.MouseInput.Event) {
+#define REMAP(TYPE) case irr::EMIE_LMOUSE_##TYPE: return SimulateMouse(irr::EMIE_RMOUSE_##TYPE)
+				REMAP(PRESSED_DOWN);
+				REMAP(LEFT_UP);
+				REMAP(DOUBLE_CLICK);
+				REMAP(TRIPLE_CLICK);
+#undef REMAP
+			default: break;
+			}
+		}
 	}
 	default: break;
 	}
@@ -2057,13 +2121,13 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event) {
 void ClientField::GetHoverField(int x, int y) {
 	irr::core::recti sfRect(430, 504, 875, 600);
 	irr::core::recti ofRect(531, 135, 800, 191);
-	if(mainGame->dInfo.extraval & 0x1) {
+	if(mainGame->dInfo.duel_params & DUEL_3_COLUMNS_FIELD) {
 		sfRect = recti(509, 504, 796, 600);
 		ofRect = recti(531+ 46, 135, 800- 46, 191);
 	}
 	irr::core::position2di pos(x, y);
 	int field = (mainGame->dInfo.duel_field == 3 || mainGame->dInfo.duel_field == 5) ? 0 : 1;
-	int speed = (mainGame->dInfo.extraval & 0x1) ? 1 : 0;
+	int speed = (mainGame->dInfo.duel_params & DUEL_3_COLUMNS_FIELD) ? 1 : 0;
 	if(sfRect.isPointInside(pos)) {
 		int hc = hand[0].size();
 		int cardSize = 66;
@@ -2231,7 +2295,7 @@ void ClientField::GetHoverField(int x, int y) {
 			int sequence = (boardx - matManager.vFieldMzone[0][0][0].Pos.X) / (matManager.vFieldMzone[0][0][1].Pos.X - matManager.vFieldMzone[0][0][0].Pos.X);
 			if(sequence > 4)
 				sequence = 4;
-			if((mainGame->dInfo.extraval & 0x1) && (sequence == 0 || sequence== 4))
+			if((mainGame->dInfo.duel_params & DUEL_3_COLUMNS_FIELD) && (sequence == 0 || sequence== 4))
 				hovered_location = 0;
 			else if(boardy > matManager.vFieldSzone[0][0][field][speed][0].Pos.Y && boardy <= matManager.vFieldSzone[0][0][field][speed][2].Pos.Y) {
 				hovered_controler = 0;

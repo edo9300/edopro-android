@@ -1641,18 +1641,21 @@ uint32 card::get_column_zone(int32 loc1, int32 left, int32 right) {
 	else if(loc2 & LOCATION_SZONE && (seq == 5 || (seq > 5 && pduel->game_field->is_flag(DUEL_SEPARATE_PZONE))))
 		return 0;
 	if (loc2 & LOCATION_MZONE && (seq == 5 || seq == 6))
-		seq = seq == 5 ? 1 : 3;
+		seq = (seq == 5) ? 1 : 3;
 	else if (loc2 & LOCATION_SZONE && (seq == 6 || seq == 7))
-		seq = seq == 6 ? pduel->game_field->get_pzone_index(0) : pduel->game_field->get_pzone_index(1);
+		seq = (seq == 6) ? pduel->game_field->get_pzone_index(0) : pduel->game_field->get_pzone_index(1);
 	int32 seq1 = seq - left < 0 ? 0 : seq - left;
 	int32 seq2 = seq + right > 4 ? 4 : seq + right;
+	auto chkextra = [seq = current.sequence, mzone = (current.location == LOCATION_MZONE)](int s)->bool { 
+		return !mzone || seq < 5 || seq != s;
+	};
 	if (loc1 & LOCATION_MZONE) {
 		for (int32 s = seq1; s <= seq2; s++) {
 			zones |= (1u << s) | (1u << (16 + (4 - s)));
 			if (pduel->game_field->is_flag(DUEL_EMZONE)) {
-				if (s == 1)
+				if (s == 1 && chkextra(5))
 					zones |= (1u << 5) | (1u << (16 + 6));
-				else if (s == 3)
+				else if (s == 3 && chkextra(6))
 					zones |= (1u << 6) | (1u << (16 + 5));
 			}
 		}
@@ -1661,6 +1664,7 @@ uint32 card::get_column_zone(int32 loc1, int32 left, int32 right) {
 		for (int32 s = seq1; s <= seq2; s++)
 			zones |= (1u << (8 + s)) | (1u << (16 + 8 + (4 - s)));
 	}
+	zones &= ~((1 << current.sequence) << ((loc2 == LOCATION_SZONE) ? 8 : 0));
 	return zones;
 }
 void card::get_column_cards(card_set* cset, int32 left, int32 right) {
@@ -1677,18 +1681,9 @@ int32 card::is_all_column() {
 		return FALSE;
 	card_set cset;
 	get_column_cards(&cset, 0, 0);
-	uint32 full = 4;
-	if(pduel->game_field->is_flag(DUEL_EMZONE)){
-		int32 cs = current.sequence;
-		if (current.location == LOCATION_MZONE && (cs == 1 || cs == 3 || cs > 5))
-			full++;
-		else if (current.location == LOCATION_SZONE) {
-			if (cs == 1 || cs == 3)
-				full++;
-			else if ((cs == 6 || cs == 7) && pduel->game_field->is_flag(DUEL_PZONE) && !pduel->game_field->is_flag(DUEL_SEPARATE_PZONE) && pduel->game_field->is_flag(DUEL_SPEED))
-				full++;
-		}
-	}
+	uint32 full = 3;
+	if(pduel->game_field->is_flag(DUEL_EMZONE) && (current.sequence == 1 || current.sequence == 3))
+		full++;
 	if(cset.size() == full)
 		return TRUE;
 	return FALSE;
@@ -3267,22 +3262,10 @@ int32 card::is_spsummonable(effect* peffect) {
 	pduel->game_field->save_lp_cost();
 	pduel->lua->add_param(peffect, PARAM_TYPE_EFFECT);
 	pduel->lua->add_param(this, PARAM_TYPE_CARD);
+	pduel->lua->add_param(pduel->game_field->core.must_use_mats, PARAM_TYPE_GROUP);
+	pduel->lua->add_param(pduel->game_field->core.only_use_mats, PARAM_TYPE_GROUP);
 	uint32 result = FALSE;
-	uint32 param_count = 2;
-	if(pduel->game_field->core.forced_tuner || pduel->game_field->core.forced_synmat) {
-		pduel->lua->add_param(pduel->game_field->core.forced_tuner, PARAM_TYPE_GROUP);
-		pduel->lua->add_param(pduel->game_field->core.forced_synmat, PARAM_TYPE_GROUP);
-		param_count += 2;
-	} else if(pduel->game_field->core.forced_xyzmat) {
-		pduel->lua->add_param(pduel->game_field->core.forced_xyzmat, PARAM_TYPE_GROUP);
-		param_count++;
-	} else if (pduel->game_field->core.forced_linkmat) {
-		pduel->lua->add_param(pduel->game_field->core.forced_linkmat, PARAM_TYPE_GROUP);
-		param_count++;
-	} else {
-		pduel->lua->add_param(nullptr, PARAM_TYPE_GROUP);
-		param_count++;
-	}
+	uint32 param_count = 4;
 	if(pduel->game_field->core.forced_summon_minc) {
 		pduel->lua->add_param(pduel->game_field->core.forced_summon_minc, PARAM_TYPE_INT);
 		pduel->lua->add_param(pduel->game_field->core.forced_summon_maxc, PARAM_TYPE_INT);
@@ -3459,10 +3442,8 @@ int32 card::is_special_summonable(uint8 playerid, uint32 summon_type) {
 	}
 	effect_set eset;
 	filter_spsummon_procedure(playerid, &eset, summon_type);
-	pduel->game_field->core.forced_tuner = 0;
-	pduel->game_field->core.forced_synmat = 0;
-	pduel->game_field->core.forced_xyzmat = 0;
-	pduel->game_field->core.forced_linkmat = 0;
+	pduel->game_field->core.must_use_mats = nullptr;
+	pduel->game_field->core.only_use_mats = nullptr;
 	pduel->game_field->core.forced_summon_minc = 0;
 	pduel->game_field->core.forced_summon_maxc = 0;
 	pduel->game_field->restore_lp_cost();
@@ -4121,7 +4102,7 @@ int32 card::is_can_be_material(card * scard, uint32 sumtype, uint8 playerid) {
 		if(eset[i]->get_value(scard, 2))
 			return FALSE;
 	}
-	return int32();
+	return TRUE;
 }
 bool card::recreate(uint32 code) {
 	if(!code)

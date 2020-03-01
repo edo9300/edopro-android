@@ -26,11 +26,12 @@ class DataHandler {
 public:
 	DataHandler();
 	~DataHandler();
-	std::shared_ptr<RepoManager> gitManager = nullptr;
-	std::shared_ptr<GameConfig> configs = nullptr;
-	std::shared_ptr<SoundManager> sounds = nullptr;
-	std::shared_ptr<DataManager> dataManager = nullptr;
-	std::shared_ptr<ImageDownloader> imageDownloader = nullptr;
+	irr::IrrlichtDevice* tmp_device;
+	std::unique_ptr<RepoManager> gitManager = nullptr;
+	std::unique_ptr<GameConfig> configs = nullptr;
+	std::unique_ptr<SoundManager> sounds = nullptr;
+	std::unique_ptr<DataManager> dataManager = nullptr;
+	std::unique_ptr<ImageDownloader> imageDownloader = nullptr;
 };
 }
 

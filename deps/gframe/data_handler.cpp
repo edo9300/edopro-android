@@ -75,18 +75,35 @@ void DataHandler::LoadZipArchives() {
 	}
 }
 DataHandler::DataHandler() {
+	configs = std::unique_ptr<GameConfig>(new GameConfig);
+#ifndef __ANDROID__
+	irr::SIrrlichtCreationParameters params = irr::SIrrlichtCreationParameters();
+	params.AntiAlias = configs->antialias;
+#ifdef _IRR_COMPILE_WITH_DIRECT3D_9_
+	if(configs->use_d3d)
+		params.DriverType = irr::video::EDT_DIRECT3D9;
+	else
+#endif
+		params.DriverType = irr::video::EDT_OPENGL;
+	params.WindowSize = irr::core::dimension2d<irr::u32>(1024 * configs->dpi_scale, 640 * configs->dpi_scale);
+	params.Vsync = configs->use_vsync;
+	tmp_device = irr::createDeviceEx(params);
+	if(!tmp_device) {
+		throw std::runtime_error("Failed to create Irrlicht Engine device!");
+	}
+#endif
 	filesystem = new irr::io::CFileSystem();
 	LoadZipArchives();
-	gitManager = std::make_shared<RepoManager>();
-	configs = std::make_shared<GameConfig>();
+	gitManager = std::unique_ptr<RepoManager>(new RepoManager());
 #ifdef __ANDROID__
 	configs->working_directory = porting::working_directory;
 #endif
-	sounds = std::make_shared<SoundManager>(configs->soundVolume, configs->musicVolume, configs->enablesound, configs->enablemusic, configs->working_directory);
+	sounds = std::unique_ptr<SoundManager>(new SoundManager(configs->soundVolume, configs->musicVolume / 100.0, configs->enablesound, configs->enablemusic / 100.0, configs->working_directory));
 	gitManager->LoadRepositoriesFromJson(configs->configs);
-	dataManager = std::make_shared<DataManager>();
-	imageDownloader = std::make_shared<ImageDownloader>();
+	dataManager = std::unique_ptr<DataManager>(new DataManager());
+	imageDownloader = std::unique_ptr<ImageDownloader>(new ImageDownloader());
 	LoadDatabases();
+	LoadPicUrls();
 	auto strings_loaded = dataManager->LoadStrings(EPRO_TEXT("./config/strings.conf"));
 	strings_loaded = dataManager->LoadStrings(EPRO_TEXT("./expansions/strings.conf")) || strings_loaded;
 	if(!strings_loaded) {

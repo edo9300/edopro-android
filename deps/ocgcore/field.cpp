@@ -94,10 +94,8 @@ field::field(duel* pduel) {
 	core.overdraw[0] = FALSE;
 	core.overdraw[1] = FALSE;
 	core.check_level = 0;
-	core.forced_tuner = 0;
-	core.forced_synmat = 0;
-	core.forced_xyzmat = 0;
-	core.forced_linkmat = 0;
+	core.must_use_mats = nullptr;
+	core.only_use_mats = nullptr;
 	core.forced_summon_minc = 0;
 	core.forced_summon_maxc = 0;
 	core.last_control_changed_id = 0;
@@ -832,10 +830,10 @@ int32 field::get_forced_zones(card* pcard, uint8 playerid, uint8 location, uint3
 }
 uint32 field::get_rule_zone_fromex(int32 playerid, card* pcard) {
 	if(is_flag(DUEL_EMZONE)) {
-		if(!is_flag(DUEL_FSX_MMZONE) || !pcard || (pcard->data.type & (TYPE_LINK)) || (pcard->is_position(POS_FACEUP) && (pcard->data.type & TYPE_PENDULUM)))
-			return get_linked_zone(playerid) | (1u << 5) | (1u << 6);
-		else
+		if(is_flag(DUEL_FSX_MMZONE) && pcard && pcard->is_position(POS_FACEDOWN) && (pcard->data.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ)))
 			return 0x7f;
+		else
+			return get_linked_zone(playerid) | (1u << 5) | (1u << 6);
 	} else {
 		return 0x1f;
 	}
@@ -1223,7 +1221,7 @@ int32 field::get_pzone_index(uint8 seq) {
 	if(is_flag(DUEL_SEPARATE_PZONE)) {
 		return seq + 6;
 	}
-	if(is_flag(DUEL_SPEED)) {
+	if(is_flag(DUEL_3_COLUMNS_FIELD)) {
 		if(seq == 0)
 			return 1;
 		return 3;
@@ -1773,6 +1771,9 @@ int32 field::get_summon_release_list(card* target, card_set* release_list, card_
 	return rcount + ex_oneof_max;
 }
 int32 field::get_summon_count_limit(uint8 playerid) {
+	if(is_flag(DUEL_UNLIMITED_SUMMONS)) {
+		return INT32_MAX - 100;
+	}
 	effect_set eset;
 	filter_player_effect(playerid, EFFECT_SET_SUMMON_COUNT_LIMIT, &eset);
 	int32 count = 1;

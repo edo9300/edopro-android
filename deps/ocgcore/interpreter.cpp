@@ -180,6 +180,7 @@ static const struct luaL_Reg cardlib[] = {
 	{ "IsSynchroSummonable", scriptlib::card_is_synchro_summonable },
 	{ "IsXyzSummonable", scriptlib::card_is_xyz_summonable },
 	{ "IsLinkSummonable", scriptlib::card_is_link_summonable },
+	{ "IsProcedureSummonable", scriptlib::card_is_procedure_summonable },
 	{ "IsSummonable", scriptlib::card_is_can_be_summoned },
 	{ "IsMSetable", scriptlib::card_is_msetable },
 	{ "IsSSetable", scriptlib::card_is_ssetable },
@@ -406,6 +407,7 @@ static const struct luaL_Reg duellib[] = {
 	{ "SynchroSummon", scriptlib::duel_synchro_summon },
 	{ "XyzSummon", scriptlib::duel_xyz_summon },
 	{ "LinkSummon", scriptlib::duel_link_summon },
+	{ "ProcedureSummon", scriptlib::duel_procedure_summon },
 	{ "MSet", scriptlib::duel_setm },
 	{ "SSet", scriptlib::duel_sets },
 	{ "CreateToken", scriptlib::duel_create_token },
@@ -1327,11 +1329,14 @@ duel* interpreter::get_duel_info(lua_State * L) {
 
 void interpreter::print_stacktrace(lua_State * L) {
 	const char cmp[]="stack traceback:";
+	static std::vector<char> buffer;
 	duel* pduel = interpreter::get_duel_info(L);
 	luaL_traceback(L, L, NULL, 1);
-	interpreter::sprintf(pduel->strbuffer, "%s", lua_tostring(L, -1));
+	size_t l = lua_rawlen(L, -1);
+	buffer.resize(l + 10);
+	std::snprintf(buffer.data(), l, "%s", lua_tostring(L, -1));
 	/*checks for an empty stack*/
-	if(std::strcmp(pduel->strbuffer, cmp) != 0)
-		pduel->handle_message(pduel->handle_message_payload, pduel->strbuffer, OCG_LOG_TYPE_FOR_DEBUG);
+	if(std::strcmp(buffer.data(), cmp) != 0)
+		pduel->handle_message(pduel->handle_message_payload, buffer.data(), OCG_LOG_TYPE_FOR_DEBUG);
 	lua_pop(L, 1);
 }

@@ -22,12 +22,6 @@
 DiscordWrapper::DiscordWrapper(): connected(false){
 }
 
-DiscordWrapper::~DiscordWrapper() {
-#ifdef DISCORD_APP_ID
-	Disconnect();
-#endif
-}
-
 bool DiscordWrapper::Initialize(path_string workingDir) {
 #ifdef DISCORD_APP_ID
 #if defined(_WIN32) || defined(__linux__)
@@ -66,7 +60,18 @@ void DiscordWrapper::UpdatePresence(PresenceType type) {
 		running = true;
 		return;
 	}
-	if(type == TERMINATE && running) {
+	if((type == TERMINATE || type == DISCONNECT) && running) {
+		if(type == TERMINATE) {
+			DiscordEventHandlers handlers = {};
+			handlers.ready = nullptr;
+			handlers.disconnected = nullptr;
+			handlers.errored = nullptr;
+			handlers.joinGame = nullptr;
+			handlers.spectateGame = nullptr;
+			handlers.joinRequest = nullptr;
+			handlers.payload = nullptr;
+			Discord_UpdateHandlers(&handlers);
+		}
 		Disconnect();
 		running = false;
 		return;
@@ -104,7 +109,7 @@ void DiscordWrapper::UpdatePresence(PresenceType type) {
 					discordPresence.details = "Side decking";
 				else
 					discordPresence.details = "Dueling";
-				discordPresence.spectateSecret = "look";
+				//discordPresence.spectateSecret = "look";
 			}
 			if(((ygo::mainGame->dInfo.team1 + ygo::mainGame->dInfo.team2) > 2) || ygo::mainGame->dInfo.isRelay)
 				presenceState = fmt::format("{}: {} vs {}", ygo::mainGame->dInfo.isRelay ? "Relay" : "Tag", ygo::mainGame->dInfo.team1, ygo::mainGame->dInfo.team2).c_str();
@@ -194,7 +199,7 @@ void DiscordWrapper::OnReady(const DiscordUser* connectedUser, void* payload) {
 	static_cast<ygo::Game*>(payload)->discord.connected = true;
 }
 
-void DiscordWrapper::OnDisconnected(int errcode, const char * message, void* payload) {
+void DiscordWrapper::OnDisconnected(int errcode, const char* message, void* payload) {
 	printf("Discord: Disconnected, error code: %d - %s\n",
 		   errcode,
 		   message);
