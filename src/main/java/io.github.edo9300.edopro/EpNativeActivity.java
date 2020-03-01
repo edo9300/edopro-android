@@ -1,8 +1,10 @@
 package io.github.edo9300.edopro;
 
+import android.app.AlertDialog;
 import android.app.NativeActivity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
@@ -16,6 +18,7 @@ import android.net.wifi.WifiManager;
 
 public class EpNativeActivity extends NativeActivity {
 
+    private static native void putComboBoxResult(int index);
 	private static native void pauseApp(boolean pause);
 	static {
 		System.loadLibrary("EdoproClient");
@@ -26,6 +29,7 @@ public class EpNativeActivity extends NativeActivity {
 		super.onCreate(savedInstanceState);
 		IntentFilter filter = new IntentFilter();
 		filter.addAction("RUN_WINDBOT");
+		filter.addAction("MAKE_CHOICE");
 		registerReceiver(myReceiver, filter);
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 	}
@@ -71,6 +75,17 @@ public class EpNativeActivity extends NativeActivity {
 				String args = intent.getStringExtra("args");
 				Log.i("Edoprowindbot", "Launching windbot with " + args + " as parameters.");
 				WindBot.runAndroid(args);
+			} else if(action.equals("MAKE_CHOICE")){
+				String parameters[] = intent.getStringArrayExtra("args");
+				AlertDialog.Builder builder = new AlertDialog.Builder(EpNativeActivity.this);
+				// Add the buttons
+				builder.setCancelable(false);
+				builder.setItems(parameters, new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						putComboBoxResult(id);
+					}
+				});
+				builder.create().show();
 			}
 		}
 	};
@@ -79,6 +94,13 @@ public class EpNativeActivity extends NativeActivity {
 		Intent intent = new Intent();
 		intent.putExtra("args", parameters);
 		intent.setAction("RUN_WINDBOT");
+		getApplicationContext().sendBroadcast(intent);
+	}
+
+	public void showComboBox(String parameters[]) {
+		Intent intent = new Intent();
+		intent.putExtra("args", parameters);
+		intent.setAction("MAKE_CHOICE");
 		getApplicationContext().sendBroadcast(intent);
 	}
 

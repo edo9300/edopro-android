@@ -46,6 +46,7 @@ LOCAL_C_INCLUDES += $(CLASSES_PATH)/SDL2_mixer/include
 
 LOCAL_SRC_FILES := $(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
 				$(GFRAME_PATH)/CGUICustomContextMenu/CGUICustomContextMenu.cpp \
+				$(GFRAME_PATH)/CGUICustomComboBox/CGUICustomComboBox.cpp \
 				$(GFRAME_PATH)/CGUICustomContextMenu/CGUICustomMenu.cpp \
 				$(GFRAME_PATH)/CGUICustomTabControl/CGUICustomTabControl.cpp \
 				$(GFRAME_PATH)/CGUICustomTable/CGUICustomTable.cpp \
