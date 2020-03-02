@@ -7,10 +7,6 @@
 #include <dirent.h>
 #endif
 #ifdef __ANDROID__
-#include <COGLES2ExtensionHandler.h>
-#include <COGLESExtensionHandler.h>
-#include <COGLES2Driver.h>
-#include <COGLESDriver.h>
 #include "porting_android.h"
 #endif
 #include "game_config.h"
@@ -143,11 +139,7 @@ bool Game::Initialize() {
 	memset(chatTiming, 0, sizeof(chatTiming));
 	driver = device->getVideoDriver();
 #ifdef __ANDROID__
-	if(driver->getDriverType() == irr::video::EDT_OGLES2) {
-		isNPOTSupported = ((irr::video::COGLES2Driver*)driver)->queryOpenGLFeature(irr::video::COGLES2ExtensionHandler::IRR_OES_texture_npot);
-	} else {
-		isNPOTSupported = ((irr::video::COGLES1Driver*)driver)->queryOpenGLFeature(irr::video::COGLES1ExtensionHandler::IRR_OES_texture_npot);
-	}
+	isNPOTSupported = driver->queryFeature(irr::video::EVDF_TEXTURE_NPOT);
 	if(isNPOTSupported) {
 		driver->setTextureCreationFlag(irr::video::ETCF_CREATE_MIP_MAPS, false);
 	} else {
