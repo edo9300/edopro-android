@@ -55,7 +55,7 @@
 unsigned short PRO_VERSION = 0x1350;
 #define EDOPRO_VERSION_MAJOR 37
 #define EDOPRO_VERSION_MINOR 0
-#define EDOPRO_VERSION_PATCH 2
+#define EDOPRO_VERSION_PATCH 3
 #define EDOPRO_VERSION_CODENAME L"Spider Shark"
 
 namespace ygo {
@@ -75,11 +75,11 @@ bool Game::Initialize() {
 			params.DriverType = irr::video::EDT_OPENGL;
 		params.WindowSize = irr::core::dimension2d<u32>(Scale(1024), Scale(640));
 #else
-		/*if(glversion == 0) {
+		if(gGameConfig->use_d3d) {
 			params.DriverType = irr::video::EDT_OGLES1;
-		} else {*/
-		params.DriverType = irr::video::EDT_OGLES1;
-		//}
+		} else {
+			params.DriverType = irr::video::EDT_OGLES2;
+		}
 		params.PrivateData = porting::app_global;
 		params.Bits = 24;
 		params.ZBufferBits = 16;
@@ -96,7 +96,6 @@ bool Game::Initialize() {
 	filesystem = device->getFileSystem();
 #ifdef __ANDROID__
 	porting::mainDevice = device;
-	stringc mediaPath = "media/";
 
 	// The Android assets file-system does not know which sub-directories it has (blame google).
 	// So we have to add all sub-directories in assets manually. Otherwise we could still open the files,
@@ -104,7 +103,7 @@ bool Game::Initialize() {
 	for(u32 i = 0; i < filesystem->getFileArchiveCount(); ++i) {
 		auto archive = filesystem->getFileArchive(i);
 		if(archive->getType() == irr::io::EFAT_ANDROID_ASSET) {
-			archive->addDirectoryToFileList(mediaPath);
+			archive->addDirectoryToFileList("media/");
 			break;
 		}
 	}

@@ -16,7 +16,11 @@ namespace scene
 	struct SSharedMeshBuffer : public IMeshBuffer
 	{
 		//! constructor
-		SSharedMeshBuffer() : IMeshBuffer(), Vertices(0), ChangedID_Vertex(1), ChangedID_Index(1), MappingHintVertex(EHM_NEVER), MappingHintIndex(EHM_NEVER)
+		SSharedMeshBuffer() 
+			: IMeshBuffer()
+			, Vertices(0), ChangedID_Vertex(1), ChangedID_Index(1)
+			, MappingHintVertex(EHM_NEVER), MappingHintIndex(EHM_NEVER)
+			, PrimitiveType(EPT_TRIANGLES)
 		{
 			#ifdef _DEBUG
 			setDebugName("SSharedMeshBuffer");
@@ -70,13 +74,13 @@ namespace scene
 				return 0;
 		}
 
-		//! returns pointer to Indices
+		//! returns pointer to indices
 		virtual const u16* getIndices() const
 		{
 			return Indices.const_pointer();
 		}
 
-		//! returns pointer to Indices
+		//! returns pointer to indices
 		virtual u16* getIndices()
 		{
 			return Indices.pointer();
@@ -194,6 +198,18 @@ namespace scene
 				MappingHintIndex=NewMappingHint;
 		}
 
+		//! Describe what kind of primitive geometry is used by the meshbuffer
+		virtual void setPrimitiveType(E_PRIMITIVE_TYPE type)
+		{
+			PrimitiveType = type;
+		}
+
+		//! Get the kind of primitive geometry which is used by the meshbuffer
+		virtual E_PRIMITIVE_TYPE getPrimitiveType() const
+		{
+			return PrimitiveType;
+		}
+
 		//! flags the mesh as changed, reloads hardware buffers
 		virtual void setDirty(E_BUFFER_TYPE buffer=EBT_VERTEX_AND_INDEX)
 		{
@@ -217,7 +233,7 @@ namespace scene
 		//! Shared Array of vertices
 		core::array<video::S3DVertex> *Vertices;
 
-		//! Array of Indices
+		//! Array of indices
 		core::array<u16> Indices;
 
 		//! ID used for hardware buffer management
@@ -232,6 +248,9 @@ namespace scene
 		//! hardware mapping hint
 		E_HARDWARE_MAPPING MappingHintVertex;
 		E_HARDWARE_MAPPING MappingHintIndex;
+
+		//! Primitive type used for rendering (triangles, lines, ...)
+		E_PRIMITIVE_TYPE PrimitiveType;
 	};
 
 

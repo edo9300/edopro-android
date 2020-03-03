@@ -18,7 +18,6 @@ namespace irr
 {
 namespace io
 {
-	class IXMLWriter;
 	class IFileSystem;
 }
 namespace scene
@@ -27,7 +26,7 @@ namespace scene
 	class IGeometryCreator;
 
 	/*!
-		The Scene Manager manages scene nodes, mesh recources, cameras and all the other stuff.
+		The Scene Manager manages scene nodes, mesh resources, cameras and all the other stuff.
 	*/
 	class CSceneManager : public ISceneManager, public ISceneNode
 	{
@@ -42,12 +41,12 @@ namespace scene
 		virtual ~CSceneManager();
 
 		//! gets an animateable mesh. loads it if needed. returned pointer must not be dropped.
-		virtual IAnimatedMesh* getMesh(const io::path& filename) _IRR_OVERRIDE_;
+		virtual IAnimatedMesh* getMesh(const io::path& filename, const io::path& alternativeCacheName) _IRR_OVERRIDE_;
 
 		//! gets an animateable mesh. loads it if needed. returned pointer must not be dropped.
 		virtual IAnimatedMesh* getMesh(io::IReadFile* file) _IRR_OVERRIDE_;
 
-		//! Returns an interface to the mesh cache which is shared beween all existing scene managers.
+		//! Returns an interface to the mesh cache which is shared between all existing scene managers.
 		virtual IMeshCache* getMeshCache() _IRR_OVERRIDE_;
 
 		//! returns the video driver
@@ -98,7 +97,7 @@ namespace scene
 			bool alsoAddIfMeshPointerZero=false) _IRR_OVERRIDE_;
 
 		//! Adds a scene node for rendering a animated water surface mesh.
-		virtual ISceneNode* addWaterSurfaceSceneNode(IMesh* mesh, f32 waveHeight, f32 waveSpeed, f32 wlenght, ISceneNode* parent=0, s32 id=-1,
+		virtual ISceneNode* addWaterSurfaceSceneNode(IMesh* mesh, f32 waveHeight, f32 waveSpeed, f32 wlength, ISceneNode* parent=0, s32 id=-1,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) _IRR_OVERRIDE_;
@@ -112,19 +111,22 @@ namespace scene
 		//! registers a node for rendering it at a specific time.
 		virtual u32 registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_RENDER_PASS pass = ESNRP_AUTOMATIC) _IRR_OVERRIDE_;
 
+		//! Clear all nodes which are currently registered for rendering
+		virtual void clearAllRegisteredNodesForRendering() _IRR_OVERRIDE_;
+
 		//! draws all scene nodes
 		virtual void drawAll() _IRR_OVERRIDE_;
 
 		//! Adds a scene node for rendering using a octree to the scene graph. This a good method for rendering
 		//! scenes with lots of geometry. The Octree is built on the fly from the mesh, much
 		//! faster then a bsp tree.
-		virtual IMeshSceneNode* addOctreeSceneNode(IAnimatedMesh* mesh, ISceneNode* parent=0,
+		virtual IOctreeSceneNode* addOctreeSceneNode(IAnimatedMesh* mesh, ISceneNode* parent=0,
 			s32 id=-1, s32 minimalPolysPerNode=512, bool alsoAddIfMeshPointerZero=false) _IRR_OVERRIDE_;
 
 		//! Adss a scene node for rendering using a octree. This a good method for rendering
 		//! scenes with lots of geometry. The Octree is built on the fly from the mesh, much
 		//! faster then a bsp tree.
-		virtual IMeshSceneNode* addOctreeSceneNode(IMesh* mesh, ISceneNode* parent=0,
+		virtual IOctreeSceneNode* addOctreeSceneNode(IMesh* mesh, ISceneNode* parent=0,
 			s32 id=-1, s32 minimalPolysPerNode=128, bool alsoAddIfMeshPointerZero=false) _IRR_OVERRIDE_;
 
 		//! Adds a camera scene node to the tree and sets it as active camera.
@@ -274,7 +276,7 @@ namespace scene
 		//! Adds an empty scene node.
 		virtual ISceneNode* addEmptySceneNode(ISceneNode* parent, s32 id=-1) _IRR_OVERRIDE_;
 
-		//! Returns the root scene node. This is the scene node wich is parent
+		//! Returns the root scene node. This is the scene node which is parent
 		//! of all scene nodes. The root scene node is a special scene node which
 		//! only exists to manage all scene nodes. It is not rendered and cannot
 		//! be removed from the scene.
@@ -323,7 +325,7 @@ namespace scene
 			s32 timePerFrame, bool loop) _IRR_OVERRIDE_;
 
 		//! Creates a scene node animator, which deletes the scene node after
-		//! some time automaticly.
+		//! some time automatically.
 		virtual ISceneNodeAnimator* createDeleteAnimator(u32 timeMS) _IRR_OVERRIDE_;
 
 
@@ -343,18 +345,25 @@ namespace scene
 
 
 		//! Creates a simple ITriangleSelector, based on a mesh.
-		virtual ITriangleSelector* createTriangleSelector(IMesh* mesh, ISceneNode* node) _IRR_OVERRIDE_;
+		virtual ITriangleSelector* createTriangleSelector(IMesh* mesh, ISceneNode* node, bool separateMeshbuffers) _IRR_OVERRIDE_;
+
+		//! Creates a simple ITriangleSelector, based on a meshbuffer.
+		virtual ITriangleSelector* createTriangleSelector(const IMeshBuffer* meshBuffer, irr::u32 materialIndex, ISceneNode* node) _IRR_OVERRIDE_;
 
 		//! Creates a simple ITriangleSelector, based on an animated mesh scene node.
 		//! Details of the mesh associated with the node will be extracted internally.
 		//! Call ITriangleSelector::update() to have the triangle selector updated based
 		//! on the current frame of the animated mesh scene node.
 		//! \param: The animated mesh scene node from which to build the selector
-		virtual ITriangleSelector* createTriangleSelector(IAnimatedMeshSceneNode* node) _IRR_OVERRIDE_;
+		virtual ITriangleSelector* createTriangleSelector(IAnimatedMeshSceneNode* node, bool separateMeshbuffers) _IRR_OVERRIDE_;
 
 		//! Creates a simple ITriangleSelector, based on a mesh.
 		virtual ITriangleSelector* createOctreeTriangleSelector(IMesh* mesh,
 			ISceneNode* node, s32 minimalPolysPerNode) _IRR_OVERRIDE_;
+
+		//! Creates a simple ITriangleSelector, based on a meshbuffer.
+		virtual ITriangleSelector* createOctreeTriangleSelector(IMeshBuffer* meshBuffer, irr::u32 materialIndex,
+			ISceneNode* node, s32 minimalPolysPerNode=32) _IRR_OVERRIDE_;
 
 		//! Creates a simple dynamic ITriangleSelector, based on a axis aligned bounding box.
 		virtual ITriangleSelector* createTriangleSelectorFromBoundingBox(
@@ -441,7 +450,7 @@ namespace scene
 
 		//! Adds a scene node factory to the scene manager.
 		/** Use this to extend the scene manager with new scene node types which it should be
-		able to create automaticly, for example when loading data from xml files. */
+		able to create automatically, for example when loading data from xml files. */
 		virtual void registerSceneNodeFactory(ISceneNodeFactory* factoryToAdd) _IRR_OVERRIDE_;
 
 		//! Returns amount of registered scene node factories.
@@ -523,6 +532,9 @@ namespace scene
 		virtual bool isCulled(const ISceneNode* node) const _IRR_OVERRIDE_;
 
 	private:
+
+		// load and create a mesh which we know already isn't in the cache and put it in there
+		IAnimatedMesh* getUncachedMesh(io::IReadFile* file, const io::path& filename, const io::path& cachename);
 
 		//! clears the deletion list
 		void clearDeletionList();

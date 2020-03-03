@@ -74,7 +74,6 @@ public:
 			return parseCurrentNode();
 		}
 
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return false;
 	}
 
@@ -137,11 +136,11 @@ public:
 
 
 	//! Returns the value of an attribute as integer.
-	virtual int getAttributeValueAsInt(const char_type* name) const _IRR_OVERRIDE_
+	virtual int getAttributeValueAsInt(const char_type* name, int defaultNotFound) const _IRR_OVERRIDE_
 	{
 		const SAttribute* attr = getAttributeByName(name);
 		if (!attr)
-			return 0;
+			return defaultNotFound;
 
 		core::stringc c(attr->Value.c_str());
 		return core::strtol10(c.c_str());
@@ -149,11 +148,11 @@ public:
 
 
 	//! Returns the value of an attribute as integer.
-	virtual int getAttributeValueAsInt(int idx) const _IRR_OVERRIDE_
+	virtual int getAttributeValueAsInt(int idx, int defaultNotFound) const _IRR_OVERRIDE_
 	{
 		const char_type* attrvalue = getAttributeValue(idx);
 		if (!attrvalue)
-			return 0;
+			return defaultNotFound;
 
 		core::stringc c(attrvalue);
 		return core::strtol10(c.c_str());
@@ -161,11 +160,11 @@ public:
 
 
 	//! Returns the value of an attribute as float.
-	virtual float getAttributeValueAsFloat(const char_type* name) const _IRR_OVERRIDE_
+	virtual float getAttributeValueAsFloat(const char_type* name, float defaultNotFound) const _IRR_OVERRIDE_
 	{
 		const SAttribute* attr = getAttributeByName(name);
 		if (!attr)
-			return 0;
+			return defaultNotFound;
 
 		core::stringc c = attr->Value.c_str();
 		return core::fast_atof(c.c_str());
@@ -173,11 +172,11 @@ public:
 
 
 	//! Returns the value of an attribute as float.
-	virtual float getAttributeValueAsFloat(int idx) const _IRR_OVERRIDE_
+	virtual float getAttributeValueAsFloat(int idx, float defaultNotFound) const _IRR_OVERRIDE_
 	{
 		const char_type* attrvalue = getAttributeValue(idx);
 		if (!attrvalue)
-			return 0;
+			return defaultNotFound;
 
 		core::stringc c = attrvalue;
 		return core::fast_atof(c.c_str());
@@ -765,7 +764,7 @@ private:
 				return false;
 
 		// if one (or both) of the strings was smaller then they
-		// are only equal if they have the same lenght
+		// are only equal if they have the same length
 		return (i == len) || (str1[i] == 0 && str2[i] == 0);
 	}
 

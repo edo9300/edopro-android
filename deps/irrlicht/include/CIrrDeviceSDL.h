@@ -16,6 +16,10 @@
 #include "IImagePresenter.h"
 #include "ICursorControl.h"
 
+#ifdef _IRR_EMSCRIPTEN_PLATFORM_
+#include <emscripten/html5.h>
+#endif
+
 #include <SDL/SDL.h>
 #include <SDL/SDL_syswm.h>
 
@@ -48,13 +52,13 @@ namespace irr
 		virtual bool isWindowActive() const _IRR_OVERRIDE_;
 
 		//! returns if window has focus.
-		bool isWindowFocused() const;
+		bool isWindowFocused() const _IRR_OVERRIDE_;
 
 		//! returns if window is minimized.
-		bool isWindowMinimized() const;
+		bool isWindowMinimized() const _IRR_OVERRIDE_;
 
 		//! returns color format of the window.
-		video::ECOLOR_FORMAT getColorFormat() const;
+		video::ECOLOR_FORMAT getColorFormat() const _IRR_OVERRIDE_;
 
 		//! presents a surface in the client area
 		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<s32>* src=0) _IRR_OVERRIDE_;
@@ -76,6 +80,10 @@ namespace irr
 
 		//! Restores the window size.
 		virtual void restoreWindow() _IRR_OVERRIDE_;
+
+		//! Checks if the Irrlicht window is running in fullscreen mode
+		/** \return True if window is fullscreen. */
+		virtual bool isFullscreen() const _IRR_OVERRIDE_;
 
 		//! Get the position of this window on screen
 		virtual core::position2di getWindowPosition() _IRR_OVERRIDE_;
@@ -112,7 +120,9 @@ namespace irr
 				if ( visible )
 					SDL_ShowCursor( SDL_ENABLE );
 				else
+				{
 					SDL_ShowCursor( SDL_DISABLE );
+				}
 			}
 
 			//! Returns if the cursor is currently visible.
@@ -168,6 +178,24 @@ namespace irr
 
 			void updateCursorPos()
 			{
+#ifdef _IRR_EMSCRIPTEN_PLATFORM_
+				EmscriptenPointerlockChangeEvent pointerlockStatus; // let's hope that test is not expensive ...
+				if ( emscripten_get_pointerlock_status(&pointerlockStatus) == EMSCRIPTEN_RESULT_SUCCESS )
+				{
+					if ( pointerlockStatus.isActive )
+					{
+						CursorPos.X += Device->MouseXRel;
+						CursorPos.Y += Device->MouseYRel;
+						Device->MouseXRel = 0;
+						Device->MouseYRel = 0;
+					}
+					else
+					{
+						CursorPos.X = Device->MouseX;
+						CursorPos.Y = Device->MouseY;
+					}
+				}
+#else
 				CursorPos.X = Device->MouseX;
 				CursorPos.Y = Device->MouseY;
 
@@ -179,6 +207,7 @@ namespace irr
 					CursorPos.Y = 0;
 				if (CursorPos.Y > (s32)Device->Height)
 					CursorPos.Y = Device->Height;
+#endif
 			}
 
 			CIrrDeviceSDL* Device;
@@ -188,12 +217,23 @@ namespace irr
 
 	private:
 
+#ifdef _IRR_EMSCRIPTEN_PLATFORM_
+	static EM_BOOL MouseUpDownCallback(int eventType, const EmscriptenMouseEvent * event, void* userData);
+	static EM_BOOL MouseEnterCallback(int eventType, const EmscriptenMouseEvent *mouseEvent, void *userData);
+	static EM_BOOL MouseLeaveCallback(int eventType, const EmscriptenMouseEvent *mouseEvent, void *userData);
+
+	// Check if it's a special key like left, right, up down and so on which shouldn't have a Unicode character.
+	bool isNoUnicodeKey(EKEY_CODE key) const;
+#endif
+
 		//! create the driver
 		void createDriver();
 
 		bool createWindow();
 
 		void createKeyMap();
+
+		void logAttributes();
 
 		SDL_Surface* Screen;
 		int SDL_Flags;
@@ -202,6 +242,7 @@ namespace irr
 #endif
 
 		s32 MouseX, MouseY;
+		s32 MouseXRel, MouseYRel;
 		u32 MouseButtonStates;
 
 		u32 Width, Height;

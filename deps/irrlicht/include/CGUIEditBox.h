@@ -45,7 +45,7 @@ namespace gui
 		//! Gets the override color
 		virtual video::SColor getOverrideColor() const _IRR_OVERRIDE_;
 
-		//! Sets if the text should use the overide color or the
+		//! Sets if the text should use the override color or the
 		//! color in the gui skin.
 		virtual void enableOverrideColor(bool enable) _IRR_OVERRIDE_;
 
@@ -162,6 +162,8 @@ namespace gui
 		void sendGuiEvent(EGUI_EVENT_TYPE type);
 		//! set text markers
 		void setTextMarkers(s32 begin, s32 end);
+		//! delete current selection or next char
+		bool keyDelete();
 
 		bool processKey(const SEvent& event);
 		bool processMouse(const SEvent& event);

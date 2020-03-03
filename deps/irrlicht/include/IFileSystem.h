@@ -7,6 +7,7 @@
 
 #include "IReferenceCounted.h"
 #include "IXMLReader.h"
+#include "IXMLWriter.h"
 #include "IFileArchive.h"
 
 namespace irr
@@ -21,7 +22,6 @@ namespace io
 class IReadFile;
 class IWriteFile;
 class IFileList;
-class IXMLWriter;
 class IAttributes;
 
 
@@ -315,7 +315,7 @@ public:
 
 	//! Determines if a file exists and could be opened.
 	/** \param filename is the string identifying the file which should be tested for existence.
-	\return True if file exists, and false if it does not exist or an error occured. */
+	\return True if file exists, and false if it does not exist or an error occurred. */
 	virtual bool existFile(const path& filename) const =0;
 
 	//! Creates a XML Reader from a file which returns all parsed strings as wide characters (wchar_t*).
@@ -353,6 +353,20 @@ public:
 	has to be deleted using its IXMLReaderUTF8::drop() method.
 	See IReferenceCounted::drop() for more information. */
 	virtual IXMLReaderUTF8* createXMLReaderUTF8(IReadFile* file) =0;
+
+	//! Creates a XML Writer from a file which will write ASCII/UTF-8 characters (char*).
+	/** \return 0, if file could not be opened, otherwise a pointer to the created
+	IXMLWriter is returned. After use, the reader
+	has to be deleted using its IXMLWriter::drop() method.
+	See IReferenceCounted::drop() for more information. */
+	virtual IXMLWriterUTF8* createXMLWriterUTF8(const path& filename) =0;
+
+	//! Creates a XML Writer from a file which will write ASCII/UTF-8 characters (char*).
+	/** \return 0, if file could not be opened, otherwise a pointer to the created
+	IXMLWriter is returned. After use, the reader
+	has to be deleted using its IXMLWriter::drop() method.
+	See IReferenceCounted::drop() for more information. */
+	virtual IXMLWriterUTF8* createXMLWriterUTF8(IWriteFile* file) =0;
 
 	//! Creates a XML Writer from a file.
 	/** \return 0, if file could not be opened, otherwise a pointer to the created

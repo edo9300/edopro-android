@@ -31,7 +31,10 @@ namespace scene
 		EMWT_OBJ          = MAKE_IRR_ID('o','b','j',0),
 
 		//! PLY mesh writer for .ply files
-		EMWT_PLY          = MAKE_IRR_ID('p','l','y',0)
+		EMWT_PLY          = MAKE_IRR_ID('p','l','y',0),
+		
+		//! B3D mesh writer, for static .b3d files
+		EMWT_B3D          = MAKE_IRR_ID('b', '3', 'd', 0)
 	};
 
 
@@ -42,9 +45,12 @@ namespace scene
 		EMWF_NONE = 0,
 
 		//! write lightmap textures out if possible
+		//! Currently not used by any Irrlicht mesh-writer
+		// (Note: User meshwriters can still use it)
 		EMWF_WRITE_LIGHTMAPS = 0x1,
 
 		//! write in a way that consumes less disk space
+		// (Note: Mainly there for user meshwriters)
 		EMWF_WRITE_COMPRESSED = 0x2,
 
 		//! write in binary format rather than text
