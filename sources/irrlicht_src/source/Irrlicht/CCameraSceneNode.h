@@ -119,7 +119,7 @@ namespace scene
 		//! Returns the axis aligned bounding box of this node
 		virtual const core::aabbox3d<f32>& getBoundingBox() const _IRR_OVERRIDE_;
 
-		//! Returns the view area. Sometimes needed by bsp or lod render nodes.
+		//! Returns the view area.
 		virtual const SViewFrustum* getViewFrustum() const _IRR_OVERRIDE_;
 
 		//! Disables or enables the camera to get key or mouse inputs.
@@ -139,7 +139,7 @@ namespace scene
 		//! Returns type of the scene node
 		virtual ESCENE_NODE_TYPE getType() const _IRR_OVERRIDE_ { return ESNT_CAMERA; }
 
-		//! Binds the camera scene node's rotation to its target position and vice vera, or unbinds them.
+		//! Binds the camera scene node's rotation to its target position and vice versa, or unbinds them.
 		virtual void bindTargetAndRotation(bool bound) _IRR_OVERRIDE_;
 
 		//! Queries if the camera scene node's rotation and its target position are bound together.
@@ -152,6 +152,8 @@ namespace scene
 
 		void recalculateProjectionMatrix();
 		void recalculateViewArea();
+
+		core::aabbox3d<f32> BoundingBox;
 
 		core::vector3df Target;
 		core::vector3df UpVector;
@@ -166,6 +168,8 @@ namespace scene
 
 		bool InputReceiverEnabled;
 		bool TargetAndRotationAreBound;
+
+		bool HasD3DStyleProjectionMatrix;	// true: projection from 0 to w; false: -w to w
 	};
 
 } // end namespace

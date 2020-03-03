@@ -25,14 +25,17 @@
 #include "CWriteFile.h"
 #include "irrList.h"
 
+#if defined (__STRICT_ANSI__)
+    #error Compiling with __STRICT_ANSI__ not supported. g++ does set this when compiling with -std=c++11 or -std=c++0x. Use instead -std=gnu++11 or -std=gnu++0x. Or use -U__STRICT_ANSI__ to disable strict ansi.
+#endif
+
 #if defined (_IRR_WINDOWS_API_)
 	#if !defined ( _WIN32_WCE )
 		#include <direct.h> // for _chdir
 		#include <io.h> // for _access
 		#include <tchar.h>
 	#endif
-#else
-	#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_) || defined(_IRR_ANDROID_PLATFORM_))
+#elif (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_) || defined(_IRR_IOS_PLATFORM_) || defined(_IRR_ANDROID_PLATFORM_))
 		#include <stdio.h>
 		#include <stdlib.h>
 		#include <string.h>
@@ -41,7 +44,8 @@
 		#include <dirent.h>
 		#include <sys/stat.h>
 		#include <unistd.h>
-	#endif
+#elif defined(_IRR_EMSCRIPTEN_PLATFORM_)
+    #include <unistd.h>
 #endif
 
 namespace irr
@@ -107,6 +111,9 @@ CFileSystem::~CFileSystem()
 //! opens a file for read access
 IReadFile* CFileSystem::createAndOpenFile(const io::path& filename)
 {
+	if ( filename.empty() )
+		return 0;
+
 	IReadFile* file = 0;
 	u32 i;
 
@@ -315,7 +322,6 @@ bool CFileSystem::addFileArchive(const io::path& filename, bool ignoreCase,
 		os::Printer::log("Could not create archive for", filename, ELL_ERROR);
 	}
 
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return ret;
 }
 
@@ -429,23 +435,22 @@ bool CFileSystem::addFileArchive(IReadFile* file, bool ignoreCase,
 //! Adds an archive to the file system.
 bool CFileSystem::addFileArchive(IFileArchive* archive)
 {
-	if ( !archive )
+	if ( archive )
 	{
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
-		return false;
-	}
-	for (u32 i=0; i < FileArchives.size(); ++i)
-	{
-		if (archive == FileArchives[i])
+		for (u32 i=0; i < FileArchives.size(); ++i)
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
-			return false;
+			if (archive == FileArchives[i])
+			{
+				return false;
+			}
 		}
+		FileArchives.push_back(archive);
+		archive->grab();
+
+		return true;
 	}
-	archive->grab();
-	FileArchives.push_back(archive);
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
-	return true;
+
+	return false;
 }
 
 
@@ -459,7 +464,6 @@ bool CFileSystem::removeFileArchive(u32 index)
 		FileArchives.erase(index);
 		ret = true;
 	}
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return ret;
 }
 
@@ -473,7 +477,6 @@ bool CFileSystem::removeFileArchive(const io::path& filename)
 		if (absPath == FileArchives[i]->getFileList()->getPath())
 			return removeFileArchive(i);
 	}
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return false;
 }
 
@@ -485,11 +488,9 @@ bool CFileSystem::removeFileArchive(const IFileArchive* archive)
 	{
 		if (archive == FileArchives[i])
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return removeFileArchive(i);
 		}
 	}
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return false;
 }
 
@@ -518,9 +519,7 @@ const io::path& CFileSystem::getWorkingDirectory()
 	}
 	else
 	{
-		#if defined(_IRR_WINDOWS_CE_PLATFORM_)
-		// does not need this
-		#elif defined(_IRR_WINDOWS_API_)
+		#if defined(_IRR_WINDOWS_API_)
 			fschar_t tmp[_MAX_PATH];
 			#if defined(_IRR_WCHAR_FILESYSTEM )
 				_wgetcwd(tmp, _MAX_PATH);
@@ -593,9 +592,7 @@ bool CFileSystem::changeWorkingDirectoryTo(const io::path& newDirectory)
 	{
 		WorkingDirectory[FILESYSTEM_NATIVE] = newDirectory;
 
-#if defined(_IRR_WINDOWS_CE_PLATFORM_)
-		success = true;
-#elif defined(_MSC_VER)
+#if defined(_MSC_VER)
 	#if defined(_IRR_WCHAR_FILESYSTEM)
 		success = (_wchdir(newDirectory.c_str()) == 0);
 	#else
@@ -616,9 +613,9 @@ bool CFileSystem::changeWorkingDirectoryTo(const io::path& newDirectory)
 
 io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 {
-#if defined(_IRR_WINDOWS_CE_PLATFORM_)
-	return filename;
-#elif defined(_IRR_WINDOWS_API_)
+	if ( filename.empty() )
+		return filename;
+#if defined(_IRR_WINDOWS_API_)
 	fschar_t *p=0;
 	fschar_t fpath[_MAX_PATH];
 	#if defined(_IRR_WCHAR_FILESYSTEM )
@@ -631,7 +628,7 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 		tmp.replace('\\', '/');
 	#endif
 	return tmp;
-#elif (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_) || defined(_IRR_IOS_PLATFORM_) || defined(_IRR_ANDROID_PLATFORM_))
+#elif (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
 	c8* p=0;
 	c8 fpath[4096];
 	fpath[0]=0;
@@ -834,7 +831,7 @@ IFileList* CFileSystem::createFileList()
 	CFileList* r = 0;
 	io::path Path = getWorkingDirectory();
 	Path.replace('\\', '/');
-	if (Path.lastChar() != '/')
+	if (!Path.empty() && Path.lastChar() != '/')
 		Path.append('/');
 
 	//! Construct from native filesystem
@@ -966,21 +963,6 @@ bool CFileSystem::existFile(const io::path& filename) const
 		if (FileArchives[i]->getFileList()->findFile(filename)!=-1)
 			return true;
 
-#if defined(_IRR_WINDOWS_CE_PLATFORM_)
-#if defined(_IRR_WCHAR_FILESYSTEM)
-	HANDLE hFile = CreateFileW(filename.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-#else
-	HANDLE hFile = CreateFileW(core::stringw(filename).c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-#endif
-	if (hFile == INVALID_HANDLE_VALUE)
-		return false;
-	else
-	{
-		CloseHandle(hFile);
-		return true;
-	}
-#else
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 #if defined(_MSC_VER)
 	#if defined(_IRR_WCHAR_FILESYSTEM)
 		return (_waccess(filename.c_str(), 0) != -1);
@@ -995,7 +977,6 @@ bool CFileSystem::existFile(const io::path& filename) const
 	#endif
 #else
 	return (access(filename.c_str(), 0) != -1);
-#endif
 #endif
 }
 
@@ -1089,7 +1070,37 @@ IXMLWriter* CFileSystem::createXMLWriter(const io::path& filename)
 IXMLWriter* CFileSystem::createXMLWriter(IWriteFile* file)
 {
 #ifdef _IRR_COMPILE_WITH_XML_
-	return new CXMLWriter(file);
+	return createIXMLWriter(file);
+#else
+	noXML();
+	return 0;
+#endif
+}
+
+//! Creates a XML Writer from a file.
+IXMLWriterUTF8* CFileSystem::createXMLWriterUTF8(const io::path& filename)
+{
+#ifdef _IRR_COMPILE_WITH_XML_
+	IWriteFile* file = createAndWriteFile(filename);
+	IXMLWriterUTF8* writer = 0;
+	if (file)
+	{
+		writer = createXMLWriterUTF8(file);
+		file->drop();
+	}
+	return writer;
+#else
+	noXML();
+	return 0;
+#endif
+}
+
+
+//! Creates a XML Writer from a file.
+IXMLWriterUTF8* CFileSystem::createXMLWriterUTF8(IWriteFile* file)
+{
+#ifdef _IRR_COMPILE_WITH_XML_
+	return createIXMLWriterUTF8(file);
 #else
 	noXML();
 	return 0;
@@ -1114,4 +1125,3 @@ IAttributes* CFileSystem::createEmptyAttributes(video::IVideoDriver* driver)
 
 } // end namespace irr
 } // end namespace io
-

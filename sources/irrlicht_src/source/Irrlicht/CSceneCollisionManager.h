@@ -36,16 +36,14 @@ namespace scene
 						s32 idBitMask=0, bool bNoDebugObjects=false,
 						ISceneNode* root=0) _IRR_OVERRIDE_;
 
-		//! Returns the scene node, at which the overgiven camera is looking at and
+		//! Returns the scene node, at which the given camera is looking at and
 		//! which id matches the bitmask.
-		virtual ISceneNode* getSceneNodeFromCameraBB(ICameraSceneNode* camera,
+		virtual ISceneNode* getSceneNodeFromCameraBB(const ICameraSceneNode* camera,
 				s32 idBitMask=0, bool bNoDebugObjects = false) _IRR_OVERRIDE_;
 
-		//! Finds the collision point of a line and lots of triangles, if there is one.
-		virtual bool getCollisionPoint(const core::line3d<f32>& ray,
-			ITriangleSelector* selector, core::vector3df& outCollisionPoint,
-			core::triangle3df& outTriangle,
-			ISceneNode* & outNode) _IRR_OVERRIDE_;
+		//! Finds the nearest collision point of a line and lots of triangles, if there is one.
+		virtual bool getCollisionPoint(SCollisionHit& hitResult, const core::line3d<f32>& ray,
+				ITriangleSelector* selector)  _IRR_OVERRIDE_;
 
 		//! Collides a moving ellipsoid with a 3d world with gravity and returns
 		//! the resulting new position of the ellipsoid.
@@ -61,24 +59,22 @@ namespace scene
 			f32 slidingSpeed,
 			const core::vector3df& gravityDirectionAndSpeed) _IRR_OVERRIDE_;
 
-		//! Returns a 3d ray which would go through the 2d screen coodinates.
+		//! Returns a 3d ray which would go through the 2d screen coordinates.
 		virtual core::line3d<f32> getRayFromScreenCoordinates(
-			const core::position2d<s32> & pos, ICameraSceneNode* camera = 0) _IRR_OVERRIDE_;
+			const core::position2d<s32> & pos, const ICameraSceneNode* camera = 0) _IRR_OVERRIDE_;
 
 		//! Calculates 2d screen position from a 3d position.
 		virtual core::position2d<s32> getScreenCoordinatesFrom3DPosition(
-			const core::vector3df & pos, ICameraSceneNode* camera=0, bool useViewPort=false) _IRR_OVERRIDE_;
+			const core::vector3df & pos, const ICameraSceneNode* camera=0, bool useViewPort=false) _IRR_OVERRIDE_;
 
 		//! Gets the scene node and nearest collision point for a ray based on
 		//! the nodes' id bitmasks, bounding boxes and triangle selectors.
 		virtual ISceneNode* getSceneNodeAndCollisionPointFromRay(
+								SCollisionHit& hitResult, 
 								const core::line3df& ray,
-								core::vector3df& outCollisionPoint,
-								core::triangle3df& outTriangle,
 								s32 idBitMask = 0,
 								ISceneNode * collisionRootNode = 0,
-								bool noDebugObjects = false) _IRR_OVERRIDE_;
-
+								bool noDebugObjects = false)  _IRR_OVERRIDE_;
 
 	private:
 
@@ -88,14 +84,13 @@ namespace scene
 					f32& outbestdistance, ISceneNode*& outbestnode);
 
 		//! recursive method for going through all scene nodes
-		void getPickedNodeFromBBAndSelector(ISceneNode * root,
+		void getPickedNodeFromBBAndSelector(
+						SCollisionHit& hitResult,
+						ISceneNode * root,
 						core::line3df & ray,
 						s32 bits,
 						bool noDebugObjects,
-						f32 & outBestDistanceSquared,
-						ISceneNode * & outBestNode,
-						core::vector3df & outBestCollisionPoint,
-						core::triangle3df & outBestTriangle);
+						f32 & outBestDistanceSquared);
 
 
 		struct SCollisionData
@@ -114,7 +109,7 @@ namespace scene
 			core::vector3df intersectionPoint;
 
 			core::triangle3df intersectionTriangle;
-			s32 triangleIndex;
+			irr::scene::ISceneNode* node;
 			s32 triangleHits;
 
 			f32 slidingSpeed;
@@ -143,7 +138,7 @@ namespace scene
 		core::vector3df collideWithWorld(s32 recursionDepth, SCollisionData &colData,
 			const core::vector3df& pos, const core::vector3df& vel);
 
-		inline bool getLowestRoot(f32 a, f32 b, f32 c, f32 maxR, f32* root);
+		inline bool getLowestRoot(f32 a, f32 b, f32 c, f32 maxR, f32* root) const;
 
 		ISceneManager* SceneManager;
 		video::IVideoDriver* Driver;

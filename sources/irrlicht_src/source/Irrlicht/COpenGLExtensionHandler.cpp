@@ -2,13 +2,12 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "IrrCompileConfig.h"
+#include "COpenGLExtensionHandler.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
-#include "COpenGLExtensionHandler.h"
 #include "irrString.h"
-#include "SMaterial.h" // for MATERIAL_MAX_TEXTURES
+#include "SMaterial.h"
 #include "fast_atof.h"
 
 namespace irr
@@ -17,11 +16,8 @@ namespace video
 {
 
 COpenGLExtensionHandler::COpenGLExtensionHandler() :
-		StencilBuffer(false), MultiTextureExtension(false),
-		TextureCompressionExtension(false),
-		MaxSupportedTextures(1), MaxTextureUnits(1), MaxLights(1),
-		MaxAnisotropy(1), MaxUserClipPlanes(0), MaxAuxBuffers(0),
-		MaxMultipleRenderTargets(1), MaxIndices(65535),
+		StencilBuffer(false), TextureCompressionExtension(false), MaxLights(1),
+		MaxAnisotropy(1), MaxUserClipPlanes(0), MaxAuxBuffers(0), MaxIndices(65535),
 		MaxTextureSize(1), MaxGeometryVerticesOut(0),
 		MaxTextureLODBias(0.f), Version(0), ShaderLanguageVersion(0),
 		OcclusionQuerySupport(false)
@@ -110,10 +106,10 @@ COpenGLExtensionHandler::COpenGLExtensionHandler() :
 }
 
 
-void COpenGLExtensionHandler::dump() const
+void COpenGLExtensionHandler::dump(ELOG_LEVEL logLevel) const
 {
 	for (u32 i=0; i<IRR_OpenGL_Feature_Count; ++i)
-		os::Printer::log(OpenGLFeatureStrings[i], FeatureAvailable[i]?" true":" false");
+		os::Printer::log(OpenGLFeatureStrings[i], FeatureAvailable[i]?" true":" false", logLevel);
 }
 
 
@@ -374,7 +370,6 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 		delete [] str;
 	}
 
-	MultiTextureExtension = FeatureAvailable[IRR_ARB_multitexture];
 	TextureCompressionExtension = FeatureAvailable[IRR_ARB_texture_compression];
 	StencilBuffer=stencilBuffer;
 
@@ -587,7 +582,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 #elif defined(GL_MAX_TEXTURE_UNITS_ARB)
 		glGetIntegerv(GL_MAX_TEXTURE_UNITS_ARB, &num);
 #endif
-		MaxSupportedTextures=static_cast<u8>(num);
+		Feature.MaxTextureUnits=static_cast<u8>(num);	// MULTITEXTURING (fixed function pipeline texture units)
 	}
 #endif
 #if defined(GL_ARB_vertex_shader) || defined(GL_VERSION_2_0)
@@ -599,7 +594,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 #elif defined(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS_ARB)
 		glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS_ARB, &num);
 #endif
-		MaxSupportedTextures=core::max_(MaxSupportedTextures,static_cast<u8>(num));
+		Feature.MaxTextureUnits =core::max_(Feature.MaxTextureUnits,static_cast<u8>(num));
 	}
 #endif
 	glGetIntegerv(GL_MAX_LIGHTS, &num);
@@ -642,7 +637,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	if (FeatureAvailable[IRR_ARB_draw_buffers])
 	{
 		glGetIntegerv(GL_MAX_DRAW_BUFFERS_ARB, &num);
-		MaxMultipleRenderTargets = static_cast<u8>(num);
+		Feature.MultipleRenderTarget = static_cast<u8>(num);
 	}
 #endif
 #if defined(GL_ATI_draw_buffers)
@@ -652,9 +647,27 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	if (FeatureAvailable[IRR_ATI_draw_buffers])
 	{
 		glGetIntegerv(GL_MAX_DRAW_BUFFERS_ATI, &num);
-		MaxMultipleRenderTargets = static_cast<u8>(num);
+		Feature.MultipleRenderTarget = static_cast<u8>(num);
 	}
 #endif
+#ifdef GL_ARB_framebuffer_object
+	if (FeatureAvailable[IRR_ARB_framebuffer_object])
+	{
+		glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &num);
+		Feature.ColorAttachment = static_cast<u8>(num);
+	}
+#endif
+#if defined(GL_EXT_framebuffer_object)
+#ifdef GL_ARB_framebuffer_object
+	else
+#endif
+		if (FeatureAvailable[IRR_EXT_framebuffer_object])
+		{
+			glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS_EXT, &num);
+			Feature.ColorAttachment = static_cast<u8>(num);
+		}
+#endif
+
 	glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, DimAliasedLine);
 	glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, DimAliasedPoint);
 	glGetFloatv(GL_SMOOTH_LINE_WIDTH_RANGE, DimSmoothedLine);
@@ -681,17 +694,13 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (!pGlActiveTextureARB || !pGlClientActiveTextureARB)
 	{
-		MultiTextureExtension = false;
+		Feature.MaxTextureUnits = 1;
 		os::Printer::log("Failed to load OpenGL's multitexture extension, proceeding without.", ELL_WARNING);
 	}
 	else
 #endif
-	MaxTextureUnits = core::min_(MaxSupportedTextures, static_cast<u8>(MATERIAL_MAX_TEXTURES));
-	if (MaxTextureUnits < 2)
-	{
-		MultiTextureExtension = false;
-		os::Printer::log("Warning: OpenGL device only has one texture unit. Disabling multitexturing.", ELL_WARNING);
-	}
+	Feature.MaxTextureUnits = core::min_(Feature.MaxTextureUnits, static_cast<u8>(MATERIAL_MAX_TEXTURES));
+	Feature.MaxTextureUnits = core::min_(Feature.MaxTextureUnits, static_cast<u8>(MATERIAL_MAX_TEXTURES_USED));
 
 #ifdef GL_ARB_occlusion_query
 	if (FeatureAvailable[IRR_ARB_occlusion_query])
@@ -711,6 +720,9 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	else
 #endif
 		OcclusionQuerySupport=false;
+
+		Feature.BlendOperation = (Version >= 140) || FeatureAvailable[IRR_EXT_blend_minmax] || FeatureAvailable[IRR_EXT_blend_subtract] ||
+		FeatureAvailable[IRR_EXT_blend_logic_op];
 
 #ifdef _DEBUG
 	if (FeatureAvailable[IRR_NVX_gpu_memory_info])
@@ -736,7 +748,16 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 		os::Printer::log("Free render buffer memory (kB)", core::stringc(val[0]));
 	}
 #endif
+
+	if (queryFeature(EVDF_TEXTURE_CUBEMAP_SEAMLESS))
+		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+
 #endif
+}
+
+const COpenGLCoreFeature& COpenGLExtensionHandler::getFeature() const
+{
+	return Feature;
 }
 
 bool COpenGLExtensionHandler::queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
@@ -748,7 +769,7 @@ bool COpenGLExtensionHandler::queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
 	case EVDF_HARDWARE_TL:
 		return true; // we cannot tell other things
 	case EVDF_MULTITEXTURE:
-		return MultiTextureExtension;
+		return Feature.MaxTextureUnits > 1;
 	case EVDF_BILINEAR_FILTER:
 		return true;
 	case EVDF_MIP_MAP:
@@ -799,22 +820,17 @@ bool COpenGLExtensionHandler::queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
 		// both features supported with OpenGL 1.1
 		return Version>=110;
 	case EVDF_BLEND_OPERATIONS:
-		return (Version>=140) || FeatureAvailable[IRR_EXT_blend_minmax] ||
-			FeatureAvailable[IRR_EXT_blend_subtract] || FeatureAvailable[IRR_EXT_blend_logic_op];
+		return Feature.BlendOperation;
 	case EVDF_BLEND_SEPARATE:
-		return (Version >= 140) || FeatureAvailable[IRR_EXT_blend_func_separate];
+		return (Version>=140) || FeatureAvailable[IRR_EXT_blend_func_separate];
 	case EVDF_TEXTURE_MATRIX:
 		return true;
 	case EVDF_TEXTURE_COMPRESSED_DXT:
 		return FeatureAvailable[IRR_EXT_texture_compression_s3tc];
-	case EVDF_TEXTURE_COMPRESSED_PVRTC: // Currently disabled, but in future maybe special extension will be available.
-	case EVDF_TEXTURE_COMPRESSED_PVRTC2:
-	case EVDF_TEXTURE_COMPRESSED_ETC1:
-		return false;
-	case EVDF_TEXTURE_COMPRESSED_ETC2:
-		return FeatureAvailable[IRR_ARB_ES3_compatibility];
-	case EVDF_TEXTURE_CUBE_MAP:
-		return FeatureAvailable[IRR_ARB_texture_cube_map];
+	case EVDF_TEXTURE_CUBEMAP:
+		return (Version >= 130) || FeatureAvailable[IRR_ARB_texture_cube_map] || FeatureAvailable[IRR_EXT_texture_cube_map];
+	case EVDF_TEXTURE_CUBEMAP_SEAMLESS:
+		return FeatureAvailable[IRR_ARB_seamless_cube_map];
 	default:
 		return false;
 	};

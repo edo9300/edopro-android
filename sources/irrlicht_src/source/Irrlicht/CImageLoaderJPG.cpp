@@ -16,8 +16,10 @@ namespace irr
 namespace video
 {
 
+#ifdef _IRR_COMPILE_WITH_LIBJPEG_
 // Static members
 io::path CImageLoaderJPG::Filename;
+#endif
 
 //! constructor
 CImageLoaderJPG::CImageLoaderJPG()
@@ -123,14 +125,11 @@ bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* file) const
 	return false;
 	#else
 
-	if (!file)
+	if (!(file && file->seek(0)))
 		return false;
-
-	s32 jfif = 0;
-	file->seek(6);
-	file->read(&jfif, sizeof(s32));
-	return (jfif == 0x4a464946 || jfif == 0x4649464a);
-
+	unsigned char header[3];
+	size_t headerLen = file->read(header, sizeof(header));
+	return headerLen >= 3 && !memcmp(header, "\xFF\xD8\xFF", 3);
 	#endif
 }
 
@@ -175,9 +174,7 @@ IImage* CImageLoaderJPG::loadImage(io::IReadFile* file) const
 		jpeg_destroy_decompress(&cinfo);
 
 		delete [] input;
-		// if the row pointer was created, we delete it.
-		if (rowPtr)
-			delete [] rowPtr;
+		delete [] rowPtr;
 
 		// return null pointer
 		return 0;
@@ -263,7 +260,7 @@ IImage* CImageLoaderJPG::loadImage(io::IReadFile* file) const
 		image = new CImage(ECF_R8G8B8,
 				core::dimension2d<u32>(width, height));
 		const u32 size = 3*width*height;
-		u8* data = (u8*)image->lock();
+		u8* data = (u8*)image->getData();
 		if (data)
 		{
 			for (u32 i=0,j=0; i<size; i+=3, j+=4)
@@ -277,7 +274,6 @@ IImage* CImageLoaderJPG::loadImage(io::IReadFile* file) const
 				data[i+2] = (char)(output[j+0]*(output[j+3]/255.f));
 			}
 		}
-		image->unlock();
 		delete [] output;
 	}
 	else

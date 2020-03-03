@@ -4,7 +4,7 @@
 
 #include "IrrCompileConfig.h"
 
-static const char* const copyright = "Irrlicht Engine (c) 2002-2012 Nikolaus Gebhardt";
+static const char* const copyright = "Irrlicht Engine (c) 2002-2017 Nikolaus Gebhardt";	// put string in binary
 
 #ifdef _IRR_WINDOWS_
 	#include <windows.h>
@@ -18,36 +18,32 @@ static const char* const copyright = "Irrlicht Engine (c) 2002-2012 Nikolaus Geb
 #include "CIrrDeviceWin32.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-#include "MacOSX/CIrrDeviceMacOSX.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_WINDOWS_CE_DEVICE_
-#include "CIrrDeviceWinCE.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
 #include "CIrrDeviceLinux.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_IPHONE_DEVICE_
-#include "iOS/CIrrDeviceiOS.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_ANDROID_DEVICE_
-#include "Android/CIrrDeviceAndroid.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-#include "CIrrDeviceSDL.h"
+#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
+#include "CIrrDeviceOSX.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_FB_DEVICE_
 #include "CIrrDeviceFB.h"
 #endif
 
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#include "CIrrDeviceSDL.h"
+#endif
+
 #ifdef _IRR_COMPILE_WITH_CONSOLE_DEVICE_
 #include "CIrrDeviceConsole.h"
+#endif
+
+#ifdef _IRR_COMPILE_WITH_IOS_DEVICE_
+#include "CIrrDeviceiOS.h"
+#endif
+
+#ifdef _IRR_COMPILE_WITH_ANDROID_DEVICE_
+#include "Android/CIrrDeviceAndroid.h"
 #endif
 
 namespace irr
@@ -58,6 +54,8 @@ namespace irr
 			u32 bits, bool fullscreen,
 			bool stencilbuffer, bool vsync, IEventReceiver* res)
 	{
+		(void)copyright;	// prevent unused variable warning
+
 		SIrrlichtCreationParameters p;
 		p.DriverType = driverType;
 		p.WindowSize = windowSize;
@@ -85,19 +83,14 @@ namespace irr
 			dev = new CIrrDeviceMacOSX(params);
 #endif
 
-#ifdef _IRR_COMPILE_WITH_WINDOWS_CE_DEVICE_
-		if (params.DeviceType == EIDT_WINCE || (!dev && params.DeviceType == EIDT_BEST))
-			dev = new CIrrDeviceWinCE(params);
-#endif
-
 #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
 		if (params.DeviceType == EIDT_X11 || (!dev && params.DeviceType == EIDT_BEST))
 			dev = new CIrrDeviceLinux(params);
 #endif
         
-#ifdef _IRR_COMPILE_WITH_IPHONE_DEVICE_
-		if (params.DeviceType == EIDT_IPHONE || (!dev && params.DeviceType == EIDT_BEST))
-			dev = new CIrrDeviceIPhone(params);
+#ifdef _IRR_COMPILE_WITH_IOS_DEVICE_
+		if (params.DeviceType == EIDT_IOS || (!dev && params.DeviceType == EIDT_BEST))
+			dev = new CIrrDeviceiOS(params);
 #endif
 
 #ifdef _IRR_COMPILE_WITH_ANDROID_DEVICE_
@@ -140,12 +133,13 @@ namespace core
 namespace video
 {
 	SMaterial IdentityMaterial;
+	u32 MATERIAL_MAX_TEXTURES_USED = MATERIAL_MAX_TEXTURES;
 }
 
 } // end namespace irr
 
 
-#if defined(_IRR_WINDOWS_API_)
+#if defined(_IRR_WINDOWS_API_) && !defined(_IRR_STATIC_LIB_)
 
 BOOL APIENTRY DllMain( HANDLE hModule,
                        DWORD  ul_reason_for_call,

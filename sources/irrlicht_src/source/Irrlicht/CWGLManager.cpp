@@ -164,7 +164,7 @@ bool CWGLManager::initialize(const SIrrlichtCreationParameters& params, const SE
 	}
 
 	SetPixelFormat(HDc, PixelFormat, &pfd);
-	os::Printer::log("Temporary context");
+	os::Printer::log("Create temporary GL rendering context", ELL_DEBUG);
 	HGLRC hrc=wglCreateContext(HDc);
 	if (!hrc)
 	{
@@ -179,7 +179,7 @@ bool CWGLManager::initialize(const SIrrlichtCreationParameters& params, const SE
 	CurrentContext.OpenGLWin32.HRc = hrc;
 	CurrentContext.OpenGLWin32.HWnd = temporary_wnd;
 
-	if (!activateContext(CurrentContext))
+	if (!activateContext(CurrentContext, false))
 	{
 		os::Printer::log("Cannot activate a temporary GL rendering context.", ELL_ERROR);
 		wglDeleteContext(hrc);
@@ -363,13 +363,13 @@ bool CWGLManager::generateSurface()
 			if (PixelFormat)
 				break;
 		}
-	}
-
-	// set pixel format
-	if (!SetPixelFormat(HDc, PixelFormat, &pfd))
-	{
-		os::Printer::log("Cannot set the pixel format.", ELL_ERROR);
-		return false;
+		
+		// set pixel format
+		if (!SetPixelFormat(HDc, PixelFormat, &pfd))
+		{
+			os::Printer::log("Cannot set the pixel format.", ELL_ERROR);
+			return false;
+		}
 	}
 
 	if (pfd.cAlphaBits != 0)
@@ -409,13 +409,14 @@ bool CWGLManager::generateContext()
 		{
 			WGL_CONTEXT_MAJOR_VERSION_ARB, 1,
 			WGL_CONTEXT_MINOR_VERSION_ARB, 1,
+//			WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,	// enable to get a debug context (depends on driver if that does anything)
 			0
 		};
 		hrc=wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
 	}
 	else
 #endif
-		hrc=wglCreateContext(HDc);
+	hrc=wglCreateContext(HDc);
 	os::Printer::log("Irrlicht context");
 
 	if (!hrc)
@@ -437,7 +438,7 @@ const SExposedVideoData& CWGLManager::getContext() const
 	return CurrentContext;
 }
 
-bool CWGLManager::activateContext(const SExposedVideoData& videoData)
+bool CWGLManager::activateContext(const SExposedVideoData& videoData, bool restorePrimaryOnZero)
 {
 	if (videoData.OpenGLWin32.HWnd && videoData.OpenGLWin32.HDc && videoData.OpenGLWin32.HRc)
 	{
@@ -447,6 +448,15 @@ bool CWGLManager::activateContext(const SExposedVideoData& videoData)
 			return false;
 		}
 		CurrentContext=videoData;
+	}
+	else if (!restorePrimaryOnZero && !videoData.OpenGLWin32.HDc && !videoData.OpenGLWin32.HRc)
+	{
+		if (!wglMakeCurrent((HDC)0, (HGLRC)0))
+		{
+			os::Printer::log("Render Context reset failed.");
+			return false;
+		}
+		CurrentContext = videoData;
 	}
 	// set back to main context
 	else if (!videoData.OpenGLWin32.HWnd && CurrentContext.OpenGLWin32.HDc != PrimaryContext.OpenGLWin32.HDc)

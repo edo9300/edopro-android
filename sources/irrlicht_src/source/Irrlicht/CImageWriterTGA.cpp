@@ -95,7 +95,7 @@ bool CImageWriterTGA::writeImage(io::IWriteFile *file, IImage *image,u32 param) 
 	if (file->write(&imageHeader, sizeof(imageHeader)) != sizeof(imageHeader))
 		return false;
 
-	u8* scan_lines = (u8*)image->lock();
+	u8* scan_lines = (u8*)image->getData();
 	if (!scan_lines)
 		return false;
 
@@ -106,7 +106,7 @@ bool CImageWriterTGA::writeImage(io::IWriteFile *file, IImage *image,u32 param) 
 	u32 row_stride = (pixel_size * imageHeader.ImageWidth);
 
 	// length of one output row in bytes
-	s32 row_size = ((imageHeader.PixelDepth / 8) * imageHeader.ImageWidth);
+	size_t row_size = ((imageHeader.PixelDepth / 8) * imageHeader.ImageWidth);
 
 	// allocate a row do translate data into
 	u8* row_pointer = new u8[row_size];
@@ -124,8 +124,6 @@ bool CImageWriterTGA::writeImage(io::IWriteFile *file, IImage *image,u32 param) 
 	}
 
 	delete [] row_pointer;
-
-	image->unlock();
 
 	STGAFooter imageFooter;
 	imageFooter.ExtensionOffset = 0;

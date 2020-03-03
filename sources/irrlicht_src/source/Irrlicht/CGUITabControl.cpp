@@ -54,14 +54,6 @@ void CGUITab::setNumber(s32 n)
 	Number = n;
 }
 
-void CGUITab::refreshSkinColors()
-{
-	if ( !OverrideTextColorEnabled )
-	{
-		TextColor = Environment->getSkin()->getColor(EGDC_BUTTON_TEXT);
-	}
-}
-
 //! draws the element and its children
 void CGUITab::draw()
 {
@@ -101,14 +93,15 @@ void CGUITab::setTextColor(video::SColor c)
 
 video::SColor CGUITab::getTextColor() const
 {
-	return TextColor;
+	if ( OverrideTextColorEnabled )
+		return TextColor;
+	else
+		return Environment->getSkin()->getColor(EGDC_BUTTON_TEXT);
 }
-
 
 //! returns true if the tab is drawing its background, false if not
 bool CGUITab::isDrawingBackground() const
 {
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return DrawBackground;
 }
 
@@ -139,15 +132,12 @@ void CGUITab::deserializeAttributes(io::IAttributes* in, io::SAttributeReadWrite
 {
 	IGUITab::deserializeAttributes(in,options);
 
-	setNumber(in->getAttributeAsInt("TabNumber"));
-	setDrawBackground(in->getAttributeAsBool("DrawBackground"));
-	setBackgroundColor(in->getAttributeAsColor("BackColor"));
-	bool override = in->getAttributeAsBool("OverrideTextColorEnabled");
-	setTextColor(in->getAttributeAsColor("TextColor"));
-	if ( !override )
-	{
-		OverrideTextColorEnabled = false;
-	}
+	setNumber(in->getAttributeAsInt("TabNumber", Number));
+	setDrawBackground(in->getAttributeAsBool("DrawBackground", DrawBackground));
+	setBackgroundColor(in->getAttributeAsColor("BackColor", BackColor));
+	bool overrideColor = in->getAttributeAsBool("OverrideTextColorEnabled", OverrideTextColorEnabled);
+	setTextColor(in->getAttributeAsColor("TextColor", TextColor));
+	OverrideTextColorEnabled = overrideColor;	// because setTextColor does set OverrideTextColorEnabled always to true
 
 	if (Parent && Parent->getType() == EGUIET_TAB_CONTROL)
 	{
@@ -236,18 +226,18 @@ void CGUITabControl::refreshSprites()
 	if (skin)
 	{
 		color = skin->getColor(isEnabled() ? EGDC_WINDOW_SYMBOL : EGDC_GRAY_WINDOW_SYMBOL);
-	}
 
-	if (UpButton)
-	{
-		UpButton->setSprite(EGBS_BUTTON_UP, skin->getIcon(EGDI_CURSOR_LEFT), color);
-		UpButton->setSprite(EGBS_BUTTON_DOWN, skin->getIcon(EGDI_CURSOR_LEFT), color);
-	}
+		if (UpButton)
+		{
+			UpButton->setSprite(EGBS_BUTTON_UP, skin->getIcon(EGDI_CURSOR_LEFT), color);
+			UpButton->setSprite(EGBS_BUTTON_DOWN, skin->getIcon(EGDI_CURSOR_LEFT), color);
+		}
 
-	if (DownButton)
-	{
-		DownButton->setSprite(EGBS_BUTTON_UP, skin->getIcon(EGDI_CURSOR_RIGHT), color);
-		DownButton->setSprite(EGBS_BUTTON_DOWN, skin->getIcon(EGDI_CURSOR_RIGHT), color);
+		if (DownButton)
+		{
+			DownButton->setSprite(EGBS_BUTTON_UP, skin->getIcon(EGDI_CURSOR_RIGHT), color);
+			DownButton->setSprite(EGBS_BUTTON_DOWN, skin->getIcon(EGDI_CURSOR_RIGHT), color);
+		}
 	}
 }
 
@@ -581,12 +571,14 @@ void CGUITabControl::draw()
 
 	core::rect<s32> frameRect(AbsoluteRect);
 
+	// some empty background as placeholder when there are no tabs
 	if (Tabs.empty())
 		driver->draw2DRectangle(skin->getColor(EGDC_3D_HIGH_LIGHT), frameRect, &AbsoluteClippingRect);
 
 	if (!font)
 		return;
 
+	// tab button bar can be above or below the tabs
 	if ( VerticalAlignment == EGUIA_UPPERLEFT )
 	{
 		frameRect.UpperLeftCorner.Y += 2;
@@ -611,6 +603,7 @@ void CGUITabControl::draw()
 	//const wchar_t* activetext = 0;
 	CGUITab *activeTab = 0;
 
+	// Draw all tab-buttons except the active one
 	for (u32 i=CurrentScrollTabIndex; i<Tabs.size(); ++i)
 	{
 		// get Text
@@ -632,11 +625,9 @@ void CGUITabControl::draw()
 
 		pos += len;
 
-		if ( text )
-			Tabs[i]->refreshSkinColors();
-
 		if ((s32)i == ActiveTab)
 		{
+			// for active button just remember values
 			left = frameRect.UpperLeftCorner.X;
 			right = frameRect.LowerRightCorner.X;
 			//activetext = text;
@@ -654,7 +645,8 @@ void CGUITabControl::draw()
 		}
 	}
 
-	// draw active tab
+	// Draw active tab button
+	// Drawn later than other buttons because it draw over the buttons before/after it.
 	if (left != 0 && right != 0 && activeTab != 0)
 	{
 		// draw upper highlight frame
@@ -684,7 +676,6 @@ void CGUITabControl::draw()
 		}
 		else
 		{
-
 			frameRect.UpperLeftCorner.X = left-2;
 			frameRect.LowerRightCorner.X = right+2;
 			frameRect.LowerRightCorner.Y += 2;
@@ -708,24 +699,26 @@ void CGUITabControl::draw()
 	}
 	else
 	{
+		// No active tab
+		// Draw a line separating button bar from tab area
+		tr.UpperLeftCorner.X = AbsoluteRect.UpperLeftCorner.X;
+		tr.LowerRightCorner.X = AbsoluteRect.LowerRightCorner.X;
+		tr.UpperLeftCorner.Y = frameRect.LowerRightCorner.Y - 1;
+		tr.LowerRightCorner.Y = frameRect.LowerRightCorner.Y;
+
 		if ( VerticalAlignment == EGUIA_UPPERLEFT )
 		{
-			tr.UpperLeftCorner.X = AbsoluteRect.UpperLeftCorner.X;
-			tr.LowerRightCorner.X = AbsoluteRect.LowerRightCorner.X;
-			tr.UpperLeftCorner.Y = frameRect.LowerRightCorner.Y - 1;
-			tr.LowerRightCorner.Y = frameRect.LowerRightCorner.Y;
 			driver->draw2DRectangle(skin->getColor(EGDC_3D_HIGH_LIGHT), tr, &AbsoluteClippingRect);
 		}
 		else
 		{
-			tr.UpperLeftCorner.X = AbsoluteRect.UpperLeftCorner.X;
-			tr.LowerRightCorner.X = 1000;
 			tr.UpperLeftCorner.Y = frameRect.UpperLeftCorner.Y - 1;
 			tr.LowerRightCorner.Y = frameRect.UpperLeftCorner.Y;
 			driver->draw2DRectangle(skin->getColor(EGDC_3D_DARK_SHADOW), tr, &AbsoluteClippingRect);
 		}
 	}
 
+	// drawing some border and background for the tab-area.
 	skin->draw3DTabBody(this, Border, FillBackground, AbsoluteRect, &AbsoluteClippingRect, TabHeight, VerticalAlignment);
 
 	// enable scrollcontrols on need

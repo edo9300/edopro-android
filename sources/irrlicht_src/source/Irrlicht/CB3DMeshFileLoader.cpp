@@ -730,6 +730,7 @@ bool CB3DMeshFileLoader::readChunkKEYS(CSkinnedMesh::SJoint *inJoint)
 					oldRotKey=AnimatedMesh->addRotationKey(inJoint);
 					oldRotKey->frame = (f32)frame-1;
 					oldRot[1].set(oldRotKey->rotation.set(data[1], data[2], data[3], data[0]));
+					oldRot[1].normalize();
 				}
 			}
 			else if (oldRotKey==0 && isFirst[2])
@@ -738,6 +739,7 @@ bool CB3DMeshFileLoader::readChunkKEYS(CSkinnedMesh::SJoint *inJoint)
 				oldRotKey->frame = (f32)frame-1;
 				// meant to be in this order since b3d stores W first
 				oldRot[0].set(oldRotKey->rotation.set(data[1], data[2], data[3], data[0]));
+				oldRot[0].normalize();
 				oldRotKey=0;
 				isFirst[2]=false;
 			}
@@ -749,6 +751,7 @@ bool CB3DMeshFileLoader::readChunkKEYS(CSkinnedMesh::SJoint *inJoint)
 				oldRotKey->frame = (f32)frame-1;
 				// meant to be in this order since b3d stores W first
 				oldRot[1].set(oldRotKey->rotation.set(data[1], data[2], data[3], data[0]));
+				oldRot[1].normalize();
 			}
 		}
 	}
@@ -1062,6 +1065,8 @@ void CB3DMeshFileLoader::loadTextures(SB3dMaterial& material) const
 				material.Material.TextureLayer[i].TextureWrapU=video::ETC_CLAMP;
 			if (material.Textures[i]->Flags & 0x20) // Clamp V
 				material.Material.TextureLayer[i].TextureWrapV=video::ETC_CLAMP;
+			if (material.Textures[i]->Flags & 0x20) // Clamp R
+				material.Material.TextureLayer[i].TextureWrapW=video::ETC_CLAMP;
 		}
 	}
 

@@ -329,15 +329,6 @@ namespace irr
 					&tmp, &tmp,
 					&itmp1, &itmp2,
 					&CursorPos.X, &CursorPos.Y, &maskreturn);
-
-				if (CursorPos.X < 0)
-					CursorPos.X = 0;
-				if (CursorPos.X > (s32) Device->Width)
-					CursorPos.X = Device->Width;
-				if (CursorPos.Y < 0)
-					CursorPos.Y = 0;
-				if (CursorPos.Y > (s32) Device->Height)
-					CursorPos.Y = Device->Height;
 #endif
 			}
 
@@ -393,6 +384,7 @@ namespace irr
 		XImage* SoftwareImage;
 		XIM XInputMethod;
 		XIC XInputContext;
+		bool HasNetWM;
 		mutable core::stringc Clipboard;
 		#ifdef _IRR_LINUX_X11_VIDMODE_
 		XF86VidModeModeInfo OldVideoMode;

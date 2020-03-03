@@ -48,8 +48,10 @@ public:
 	static void convert32BitTo32Bit(const s32* in, s32* out, s32 width, s32 height, s32 linepad, bool flip=false);
 
 
-	//! functions for converting one image format to another efficiently
+	//! Functions for converting one image format to another efficiently
 	//! and hopefully correctly.
+	//! Note that the format descriptions refer to the ECOLOR_FORMAT's and not to memory layout.
+	//! Reasons for that go back to DX9 naming which tended to flip 32-bit and 16-bit byte orders so ARGB usually means BGRA.
 	//!
 	//! \param sP pointer to source pixel data
 	//! \param sN number of source pixels to copy
@@ -66,6 +68,7 @@ public:
 	static void convert_A8R8G8B8toB8G8R8(const void* sP, s32 sN, void* dP);
 	static void convert_A8R8G8B8toA8R8G8B8(const void* sP, s32 sN, void* dP);
 	static void convert_A8R8G8B8toA1R5G5B5(const void* sP, s32 sN, void* dP);
+	static void convert_A8R8G8B8toA1B5G5R5(const void* sP, s32 sN, void* dP);
 	static void convert_A8R8G8B8toR5G6B5(const void* sP, s32 sN, void* dP);
 
 	static void convert_A8R8G8B8toR3G3B2(const void* sP, s32 sN, void* dP);

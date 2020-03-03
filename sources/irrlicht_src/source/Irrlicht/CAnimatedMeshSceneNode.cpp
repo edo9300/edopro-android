@@ -7,7 +7,11 @@
 #include "ISceneManager.h"
 #include "S3DVertex.h"
 #include "os.h"
+#ifdef _IRR_COMPILE_WITH_SHADOW_VOLUME_SCENENODE_
 #include "CShadowVolumeSceneNode.h"
+#else
+#include "IShadowVolumeSceneNode.h"
+#endif // _IRR_COMPILE_WITH_SHADOW_VOLUME_SCENENODE_
 #include "IAnimatedMeshMD3.h"
 #include "CSkinnedMesh.h"
 #include "IDummyTransformationSceneNode.h"
@@ -364,7 +368,13 @@ void CAnimatedMeshSceneNode::render()
 			// draw normals
 			for (u32 g=0; g < count; ++g)
 			{
-				driver->drawMeshBufferNormals(m->getMeshBuffer(g), debugNormalLength, debugNormalColor);
+				scene::IMeshBuffer* mb = m->getMeshBuffer(g);
+				if (RenderFromIdentity)
+					driver->setTransform(video::ETS_WORLD, core::IdentityMatrix );
+				else if (Mesh->getMeshType() == EAMT_SKINNED)
+					driver->setTransform(video::ETS_WORLD, AbsoluteTransformation * ((SSkinMeshBuffer*)mb)->Transformation);
+
+				driver->drawMeshBufferNormals(mb, debugNormalLength, debugNormalColor);
 			}
 		}
 
@@ -550,6 +560,7 @@ u32 CAnimatedMeshSceneNode::getMaterialCount() const
 IShadowVolumeSceneNode* CAnimatedMeshSceneNode::addShadowVolumeSceneNode(
 		const IMesh* shadowMesh, s32 id, bool zfailmethod, f32 infinity)
 {
+#ifdef _IRR_COMPILE_WITH_SHADOW_VOLUME_SCENENODE_
 	if (!SceneManager->getVideoDriver()->queryFeature(video::EVDF_STENCIL_BUFFER))
 		return 0;
 
@@ -561,6 +572,9 @@ IShadowVolumeSceneNode* CAnimatedMeshSceneNode::addShadowVolumeSceneNode(
 
 	Shadow = new CShadowVolumeSceneNode(shadowMesh, this, SceneManager, id,  zfailmethod, infinity);
 	return Shadow;
+#else
+	return 0;
+#endif
 }
 
 //! Returns a pointer to a child node, which has the same transformation as
@@ -849,8 +863,8 @@ void CAnimatedMeshSceneNode::setMesh(IAnimatedMesh* mesh)
 	}
 
 	// get start and begin time
-//	setAnimationSpeed(Mesh->getAnimationSpeed());
-	setFrameLoop(0, Mesh->getFrameCount());
+	setAnimationSpeed(Mesh->getAnimationSpeed());	// NOTE: This had been commented out (but not removed!) in r3526. Which caused meshloader-values for speed to be ignored unless users specified explicitly. Missing a test-case where this could go wrong so I put the code back in.
+	setFrameLoop(0, Mesh->getFrameCount()-1);
 }
 
 

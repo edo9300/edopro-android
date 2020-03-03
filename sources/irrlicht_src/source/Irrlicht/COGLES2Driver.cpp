@@ -1,34 +1,32 @@
-// Copyright (C) 2013 Patryk Nadrowski
-// Heavily based on the OpenGL driver implemented by Nikolaus Gebhardt
-// OpenGL ES driver implemented by Christian Stehno and first OpenGL ES 2.0
-// driver implemented by Amundis.
+// Copyright (C) 2014 Patryk Nadrowski
+// Copyright (C) 2009-2010 Amundis
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in Irrlicht.h
 
 #include "COGLES2Driver.h"
-// needed here also because of the create methods' parameters
 #include "CNullDriver.h"
+#include "IContextManager.h"
 
 #ifdef _IRR_COMPILE_WITH_OGLES2_
 
-#include "COGLES2Texture.h"
+#include "COpenGLCoreTexture.h"
+#include "COpenGLCoreRenderTarget.h"
+#include "COpenGLCoreCacheHandler.h"
+
 #include "COGLES2MaterialRenderer.h"
 #include "COGLES2FixedPipelineRenderer.h"
 #include "COGLES2NormalMapRenderer.h"
 #include "COGLES2ParallaxMapRenderer.h"
 #include "COGLES2Renderer2D.h"
+
+#include "EVertexAttributes.h"
 #include "CImage.h"
 #include "os.h"
+#include "EProfileIDs.h"
+#include "IProfiler.h"
 
-#if defined(_IRR_COMPILE_WITH_IPHONE_DEVICE_)
-#include <OpenGLES/ES2/gl.h>
-#include <OpenGLES/ES2/glext.h>
-#else
-#include <EGL/egl.h>
-#include <GLES2/gl2.h>
 #ifdef _IRR_COMPILE_WITH_ANDROID_DEVICE_
 #include "android_native_app_glue.h"
-#endif
 #endif
 
 namespace irr
@@ -36,31 +34,40 @@ namespace irr
 namespace video
 {
 
-COGLES2Driver::COGLES2Driver(const SIrrlichtCreationParameters& params,
-			io::IFileSystem* io
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_) || defined(_IRR_WINDOWS_API_) || defined(_IRR_COMPILE_WITH_ANDROID_DEVICE_) || defined(_IRR_COMPILE_WITH_FB_DEVICE_)
-            , IContextManager* contextManager
-#elif defined(_IRR_COMPILE_WITH_IPHONE_DEVICE_)
-            , CIrrDeviceIPhone* device
-#endif
-            ) : CNullDriver(io, params.WindowSize), COGLES2ExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	Transformation3DChanged(true), AntiAlias(params.AntiAlias), OGLES2ShaderPath(params.OGLES2ShaderPath),
-	RenderTargetTexture(0), CurrentRendertargetSize(0, 0), ColorFormat(ECF_R8G8B8), BridgeCalls(0)
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_) || defined(_IRR_WINDOWS_API_) || defined(_IRR_COMPILE_WITH_ANDROID_DEVICE_) || defined(_IRR_COMPILE_WITH_FB_DEVICE_)
-    , ContextManager(contextManager)
-#elif defined(_IRR_COMPILE_WITH_IPHONE_DEVICE_)
-    , Device(device), ViewFramebuffer(0),
-	ViewRenderbuffer(0), ViewDepthRenderbuffer(0)
-#endif
-	{
+COGLES2Driver::COGLES2Driver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, IContextManager* contextManager) :
+	CNullDriver(io, params.WindowSize), COGLES2ExtensionHandler(), CacheHandler(0),
+	Params(params), ResetRenderStates(true), LockRenderStateMode(false), AntiAlias(params.AntiAlias),
+	MaterialRenderer2DActive(0), MaterialRenderer2DTexture(0), MaterialRenderer2DNoTexture(0),
+	CurrentRenderMode(ERM_NONE), Transformation3DChanged(true),
+	OGLES2ShaderPath(params.OGLES2ShaderPath),
+	ColorFormat(ECF_R8G8B8), ContextManager(contextManager)
+{
 #ifdef _DEBUG
 	setDebugName("COGLES2Driver");
 #endif
 
-    core::dimension2d<u32> WindowSize(0, 0);
-
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_) || defined(_IRR_WINDOWS_API_) || defined(_IRR_COMPILE_WITH_ANDROID_DEVICE_) || defined(_IRR_COMPILE_WITH_FB_DEVICE_)
+	IRR_PROFILE(
+		static bool initProfile = false;
+		if (!initProfile )
+		{
+			initProfile = true;
+			getProfiler().add(EPID_ES2_END_SCENE, L"endScene", L"ES2");
+			getProfiler().add(EPID_ES2_BEGIN_SCENE, L"beginScene", L"ES2");
+			getProfiler().add(EPID_ES2_UPDATE_VERTEX_HW_BUF, L"upVertBuf", L"ES2");
+			getProfiler().add(EPID_ES2_UPDATE_INDEX_HW_BUF, L"upIdxBuf", L"ES2");
+			getProfiler().add(EPID_ES2_DRAW_PRIMITIVES, L"drawPrim", L"ES2");
+			getProfiler().add(EPID_ES2_DRAW_2DIMAGE, L"draw2dImg", L"ES2");
+			getProfiler().add(EPID_ES2_DRAW_2DIMAGE_BATCH, L"draw2dImgB", L"ES2");
+			getProfiler().add(EPID_ES2_DRAW_2DRECTANGLE, L"draw2dRect", L"ES2");
+			getProfiler().add(EPID_ES2_DRAW_2DLINE, L"draw2dLine", L"ES2");
+			getProfiler().add(EPID_ES2_DRAW_3DLINE, L"draw3dLine", L"ES2");
+			getProfiler().add(EPID_ES2_SET_RENDERSTATE_2D, L"rstate2d", L"ES2");
+			getProfiler().add(EPID_ES2_SET_RENDERSTATE_3D, L"rstate3d", L"ES2");
+			getProfiler().add(EPID_ES2_SET_RENDERSTATE_BASIC, L"rstateBasic", L"ES2");
+			getProfiler().add(EPID_ES2_SET_RENDERSTATE_TEXTURE, L"rstateTex", L"ES2");
+			getProfiler().add(EPID_ES2_DRAW_SHADOW, L"shadows", L"ES2");
+		}
+ 	)
 	if (!ContextManager)
 		return;
 
@@ -68,83 +75,34 @@ COGLES2Driver::COGLES2Driver(const SIrrlichtCreationParameters& params,
 	ContextManager->generateSurface();
 	ContextManager->generateContext();
 	ExposedData = ContextManager->getContext();
-	ContextManager->activateContext(ExposedData);
-
-	WindowSize = params.WindowSize;
-#elif defined(_IRR_COMPILE_WITH_IPHONE_DEVICE_)
-	glGenFramebuffers(1, &ViewFramebuffer);
-	glGenRenderbuffers(1, &ViewRenderbuffer);
-	glBindRenderbuffer(GL_RENDERBUFFER, ViewRenderbuffer);
-
-	ExposedData.OGLESIPhone.AppDelegate = Device;
-	Device->displayInitialize(&ExposedData.OGLESIPhone.Context, &ExposedData.OGLESIPhone.View);
-
-	GLint backingWidth;
-	GLint backingHeight;
-	glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &backingWidth);
-	glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &backingHeight);
-
-	glGenRenderbuffers(1, &ViewDepthRenderbuffer);
-	glBindRenderbuffer(GL_RENDERBUFFER, ViewDepthRenderbuffer);
-
-	GLenum depthComponent = GL_DEPTH_COMPONENT16;
-
-	if (params.ZBufferBits >= 24)
-		depthComponent = GL_DEPTH_COMPONENT24_OES;
-
-	glRenderbufferStorage(GL_RENDERBUFFER, depthComponent, backingWidth, backingHeight);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, ViewFramebuffer);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, ViewRenderbuffer);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, ViewDepthRenderbuffer);
-
-	WindowSize = core::dimension2d<u32>(backingWidth, backingHeight);
-	CNullDriver::ScreenSize = WindowSize;
-	CNullDriver::ViewPort = core::rect<s32>(core::position2d<s32>(0,0), core::dimension2di(WindowSize));
-#endif
-
-	genericDriverInit(WindowSize, params.Stencilbuffer);
+	ContextManager->activateContext(ExposedData, false);
 }
 
 COGLES2Driver::~COGLES2Driver()
 {
 	RequestedLights.clear();
-	CurrentTexture.clear();
+
 	deleteMaterialRenders();
-	delete MaterialRenderer2D;
+
+	CacheHandler->getTextureCache().clear();
+
+	removeAllRenderTargets();
 	deleteAllTextures();
+	removeAllOcclusionQueries();
+	removeAllHardwareBuffers();
 
-	delete BridgeCalls;
+	delete MaterialRenderer2DTexture;
+	delete MaterialRenderer2DNoTexture;
+	delete CacheHandler;
 
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_) || defined(_IRR_WINDOWS_API_) || defined(_IRR_COMPILE_WITH_ANDROID_DEVICE_) || defined(_IRR_COMPILE_WITH_FB_DEVICE_)
 	if (ContextManager)
 	{
 		ContextManager->destroyContext();
 		ContextManager->destroySurface();
+		ContextManager->terminate();
 		ContextManager->drop();
 	}
-#elif defined(_IRR_COMPILE_WITH_IPHONE_DEVICE_)
-	if (0 != ViewFramebuffer)
-	{
-		glDeleteFramebuffers(1,&ViewFramebuffer);
-		ViewFramebuffer = 0;
-	}
-	if (0 != ViewRenderbuffer)
-	{
-		glDeleteRenderbuffers(1,&ViewRenderbuffer);
-		ViewRenderbuffer = 0;
-	}
-	if (0 != ViewDepthRenderbuffer)
-	{
-		glDeleteRenderbuffers(1,&ViewDepthRenderbuffer);
-		ViewDepthRenderbuffer = 0;
-	}
-#endif
 }
-
-// -----------------------------------------------------------------------
-// METHODS
-// -----------------------------------------------------------------------
 
 	bool COGLES2Driver::genericDriverInit(const core::dimension2d<u32>& screenSize, bool stencilBuffer)
 	{
@@ -152,21 +110,20 @@ COGLES2Driver::~COGLES2Driver()
 		printVersion();
 
 		// print renderer information
-		vendorName = glGetString(GL_VENDOR);
-		os::Printer::log(vendorName.c_str(), ELL_INFORMATION);
-
-		CurrentTexture.clear();
+		VendorName = glGetString(GL_VENDOR);
+		os::Printer::log(VendorName.c_str(), ELL_INFORMATION);
 
 		// load extensions
-		initExtensions(this, stencilBuffer);
+		initExtensions();
 
-		if (!BridgeCalls)
-			BridgeCalls = new COGLES2CallBridge(this);
+		// reset cache handler
+		delete CacheHandler;
+		CacheHandler = new COGLES2CacheHandler(this);
 
 		StencilBuffer = stencilBuffer;
 
-		DriverAttributes->setAttribute("MaxTextures", MaxTextureUnits);
-		DriverAttributes->setAttribute("MaxSupportedTextures", MaxSupportedTextures);
+		DriverAttributes->setAttribute("MaxTextures", (s32)Feature.MaxTextureUnits);
+		DriverAttributes->setAttribute("MaxSupportedTextures", (s32)Feature.MaxTextureUnits);
 //		DriverAttributes->setAttribute("MaxLights", MaxLights);
 		DriverAttributes->setAttribute("MaxAnisotropy", MaxAnisotropy);
 //		DriverAttributes->setAttribute("MaxUserClipPlanes", MaxUserClipPlanes);
@@ -180,18 +137,15 @@ COGLES2Driver::~COGLES2Driver()
 
 		glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
-		// Reset The Current Viewport
-		BridgeCalls->setViewport(core::rect<s32>(0, 0, screenSize.Width, screenSize.Height));
-
 		UserClipPlane.reallocate(0);
+
+		for (s32 i = 0; i < ETS_COUNT; ++i)
+			setTransform(static_cast<E_TRANSFORMATION_STATE>(i), core::IdentityMatrix);
 
 		setAmbientLight(SColorf(0.0f, 0.0f, 0.0f, 0.0f));
 		glClearDepthf(1.0f);
 
-		//TODO : OpenGL ES 2.0 Port : GL_PERSPECTIVE_CORRECTION_HINT
-		//glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
-		glHint(GL_GENERATE_MIPMAP_HINT, GL_FASTEST);
-		glDepthFunc(GL_LEQUAL);
+		glHint(GL_GENERATE_MIPMAP_HINT, GL_NICEST);
 		glFrontFace(GL_CW);
 
 		// create material renderers
@@ -210,7 +164,7 @@ COGLES2Driver::~COGLES2Driver()
 		// This fixes problems with intermediate changes to the material during texture load.
 		ResetRenderStates = true;
 
-		testGLError();
+		testGLError(__LINE__);
 
 		return true;
 	}
@@ -272,122 +226,225 @@ COGLES2Driver::~COGLES2Driver()
 
 	void COGLES2Driver::createMaterialRenderers()
 	{
-		// Load shaders from files
+		// Create callbacks.
 
-		// Fixed pipeline.
-		c8* vsFixedPipelineData = 0;
-		c8* fsFixedPipelineData = 0;
-		loadShaderData(io::path("COGLES2FixedPipeline.vsh"), io::path("COGLES2FixedPipeline.fsh"), &vsFixedPipelineData, &fsFixedPipelineData);
+		COGLES2MaterialSolidCB* SolidCB = new COGLES2MaterialSolidCB();
+		COGLES2MaterialSolid2CB* Solid2LayerCB = new COGLES2MaterialSolid2CB();
+		COGLES2MaterialLightmapCB* LightmapCB = new COGLES2MaterialLightmapCB(1.f);
+		COGLES2MaterialLightmapCB* LightmapAddCB = new COGLES2MaterialLightmapCB(1.f);
+		COGLES2MaterialLightmapCB* LightmapM2CB = new COGLES2MaterialLightmapCB(2.f);
+		COGLES2MaterialLightmapCB* LightmapM4CB = new COGLES2MaterialLightmapCB(4.f);
+		COGLES2MaterialLightmapCB* LightmapLightingCB = new COGLES2MaterialLightmapCB(1.f);
+		COGLES2MaterialLightmapCB* LightmapLightingM2CB = new COGLES2MaterialLightmapCB(2.f);
+		COGLES2MaterialLightmapCB* LightmapLightingM4CB = new COGLES2MaterialLightmapCB(4.f);
+		COGLES2MaterialSolid2CB* DetailMapCB = new COGLES2MaterialSolid2CB();
+		COGLES2MaterialReflectionCB* SphereMapCB = new COGLES2MaterialReflectionCB();
+		COGLES2MaterialReflectionCB* Reflection2LayerCB = new COGLES2MaterialReflectionCB();
+		COGLES2MaterialSolidCB* TransparentAddColorCB = new COGLES2MaterialSolidCB();
+		COGLES2MaterialSolidCB* TransparentAlphaChannelCB = new COGLES2MaterialSolidCB();
+		COGLES2MaterialSolidCB* TransparentAlphaChannelRefCB = new COGLES2MaterialSolidCB();
+		COGLES2MaterialSolidCB* TransparentVertexAlphaCB = new COGLES2MaterialSolidCB();
+		COGLES2MaterialReflectionCB* TransparentReflection2LayerCB = new COGLES2MaterialReflectionCB();
+		COGLES2MaterialNormalMapCB* NormalMapCB = new COGLES2MaterialNormalMapCB();
+		COGLES2MaterialNormalMapCB* NormalMapAddColorCB = new COGLES2MaterialNormalMapCB();
+		COGLES2MaterialNormalMapCB* NormalMapVertexAlphaCB = new COGLES2MaterialNormalMapCB();
+		COGLES2MaterialParallaxMapCB* ParallaxMapCB = new COGLES2MaterialParallaxMapCB();
+		COGLES2MaterialParallaxMapCB* ParallaxMapAddColorCB = new COGLES2MaterialParallaxMapCB();
+		COGLES2MaterialParallaxMapCB* ParallaxMapVertexAlphaCB = new COGLES2MaterialParallaxMapCB();
+		COGLES2MaterialOneTextureBlendCB* OneTextureBlendCB = new COGLES2MaterialOneTextureBlendCB();
 
-		// Create fixed pipeline materials.
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_SOLID, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_SOLID_2_LAYER, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_LIGHTMAP, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_LIGHTMAP_ADD, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_LIGHTMAP_M2, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_LIGHTMAP_M4, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_LIGHTMAP_LIGHTING, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_LIGHTMAP_LIGHTING_M2, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_LIGHTMAP_LIGHTING_M4, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_DETAIL_MAP, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_SPHERE_MAP, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_REFLECTION_2_LAYER, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_TRANSPARENT_ADD_COLOR, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_TRANSPARENT_ALPHA_CHANNEL, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_TRANSPARENT_ALPHA_CHANNEL_REF, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_TRANSPARENT_VERTEX_ALPHA, this));
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_TRANSPARENT_REFLECTION_2_LAYER, this));
-		// do not remove fsFixedPipelineData here, we need it later on for ONE_TEXTURE_BLEND material
+		// Create built-in materials.
 
-		// Normal Mapping.
-		c8* vsNormalMapData = 0;
-		c8* fsNormalMapData = 0;
-		loadShaderData(io::path("COGLES2NormalMap.vsh"), io::path("COGLES2NormalMap.fsh"), &vsNormalMapData, &fsNormalMapData);
+		core::stringc VertexShader = OGLES2ShaderPath + "COGLES2Solid.vsh";
+		core::stringc FragmentShader = OGLES2ShaderPath + "COGLES2Solid.fsh";
 
-		addAndDropMaterialRenderer(new COGLES2NormalMapRenderer(vsNormalMapData, fsNormalMapData, EMT_NORMAL_MAP_SOLID, this));
-		addAndDropMaterialRenderer(new COGLES2NormalMapRenderer(vsNormalMapData, fsNormalMapData, EMT_NORMAL_MAP_TRANSPARENT_ADD_COLOR, this));
-		addAndDropMaterialRenderer(new COGLES2NormalMapRenderer(vsNormalMapData, fsNormalMapData, EMT_NORMAL_MAP_TRANSPARENT_VERTEX_ALPHA, this));
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, SolidCB, EMT_SOLID, 0, EGSL_DEFAULT);
 
-		delete[] vsNormalMapData;
-		delete[] fsNormalMapData;
+		VertexShader = OGLES2ShaderPath + "COGLES2Solid2.vsh";
+		FragmentShader = OGLES2ShaderPath + "COGLES2Solid2Layer.fsh";
 
-		// Parallax Mapping.
-		c8* vsParallaxMapData = 0;
-		c8* fsParallaxMapData = 0;
-		loadShaderData(io::path("COGLES2ParallaxMap.vsh"), io::path("COGLES2ParallaxMap.fsh"), &vsParallaxMapData, &fsParallaxMapData);
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, Solid2LayerCB, EMT_SOLID, 0, EGSL_DEFAULT);
 
-		addAndDropMaterialRenderer(new COGLES2ParallaxMapRenderer(vsParallaxMapData, fsParallaxMapData, EMT_PARALLAX_MAP_SOLID, this));
-		addAndDropMaterialRenderer(new COGLES2ParallaxMapRenderer(vsParallaxMapData, fsParallaxMapData, EMT_PARALLAX_MAP_TRANSPARENT_ADD_COLOR, this));
-		addAndDropMaterialRenderer(new COGLES2ParallaxMapRenderer(vsParallaxMapData, fsParallaxMapData, EMT_PARALLAX_MAP_TRANSPARENT_VERTEX_ALPHA, this));
+		VertexShader = OGLES2ShaderPath + "COGLES2Solid2.vsh";
+		FragmentShader = OGLES2ShaderPath + "COGLES2LightmapModulate.fsh";
 
-		delete[] vsParallaxMapData;
-		delete[] fsParallaxMapData;
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, LightmapCB, EMT_SOLID, 0, EGSL_DEFAULT);
 
-		addAndDropMaterialRenderer(new COGLES2FixedPipelineRenderer(vsFixedPipelineData, fsFixedPipelineData, EMT_ONETEXTURE_BLEND, this));
+		FragmentShader = OGLES2ShaderPath + "COGLES2LightmapAdd.fsh";
 
-		delete[] vsFixedPipelineData;
-		delete[] fsFixedPipelineData;
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, LightmapAddCB, EMT_SOLID, 0, EGSL_DEFAULT);
 
-		// Create 2D material renderer.
+		FragmentShader = OGLES2ShaderPath + "COGLES2LightmapModulate.fsh";
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, LightmapM2CB, EMT_SOLID, 0, EGSL_DEFAULT);
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, LightmapM4CB, EMT_SOLID, 0, EGSL_DEFAULT);
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, LightmapLightingCB, EMT_SOLID, 0, EGSL_DEFAULT);
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, LightmapLightingM2CB, EMT_SOLID, 0, EGSL_DEFAULT);
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, LightmapLightingM4CB, EMT_SOLID, 0, EGSL_DEFAULT);
+
+		VertexShader = OGLES2ShaderPath + "COGLES2Solid2.vsh";
+		FragmentShader = OGLES2ShaderPath + "COGLES2DetailMap.fsh";
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, DetailMapCB, EMT_SOLID, 0, EGSL_DEFAULT);
+
+		VertexShader = OGLES2ShaderPath + "COGLES2SphereMap.vsh";
+		FragmentShader = OGLES2ShaderPath + "COGLES2SphereMap.fsh";
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, SphereMapCB, EMT_SOLID, 0, EGSL_DEFAULT);
+
+		VertexShader = OGLES2ShaderPath + "COGLES2Reflection2Layer.vsh";
+		FragmentShader = OGLES2ShaderPath + "COGLES2Reflection2Layer.fsh";
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, Reflection2LayerCB, EMT_SOLID, 0, EGSL_DEFAULT);
+
+		VertexShader = OGLES2ShaderPath + "COGLES2Solid.vsh";
+		FragmentShader = OGLES2ShaderPath + "COGLES2Solid.fsh";
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, TransparentAddColorCB, EMT_TRANSPARENT_ADD_COLOR, 0, EGSL_DEFAULT);
+
+		FragmentShader = OGLES2ShaderPath + "COGLES2TransparentAlphaChannel.fsh";
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, TransparentAlphaChannelCB, EMT_TRANSPARENT_ALPHA_CHANNEL, 0, EGSL_DEFAULT);
+
+		FragmentShader = OGLES2ShaderPath + "COGLES2TransparentAlphaChannelRef.fsh";
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, TransparentAlphaChannelRefCB, EMT_SOLID, 0, EGSL_DEFAULT);
+
+		FragmentShader = OGLES2ShaderPath + "COGLES2TransparentVertexAlpha.fsh";
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, TransparentVertexAlphaCB, EMT_TRANSPARENT_ALPHA_CHANNEL, 0, EGSL_DEFAULT);
+
+		VertexShader = OGLES2ShaderPath + "COGLES2Reflection2Layer.vsh";
+		FragmentShader = OGLES2ShaderPath + "COGLES2Reflection2Layer.fsh";
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, TransparentReflection2LayerCB, EMT_TRANSPARENT_ALPHA_CHANNEL, 0, EGSL_DEFAULT);
+
+		VertexShader = OGLES2ShaderPath + "COGLES2NormalMap.vsh";
+		FragmentShader = OGLES2ShaderPath + "COGLES2NormalMap.fsh";
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, NormalMapCB, EMT_SOLID, 0, EGSL_DEFAULT);
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, NormalMapAddColorCB, EMT_TRANSPARENT_ADD_COLOR, 0, EGSL_DEFAULT);
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, NormalMapVertexAlphaCB, EMT_TRANSPARENT_ALPHA_CHANNEL, 0, EGSL_DEFAULT);
+
+		VertexShader = OGLES2ShaderPath + "COGLES2ParallaxMap.vsh";
+		FragmentShader = OGLES2ShaderPath + "COGLES2ParallaxMap.fsh";
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, ParallaxMapCB, EMT_SOLID, 0, EGSL_DEFAULT);
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, ParallaxMapAddColorCB, EMT_TRANSPARENT_ADD_COLOR, 0, EGSL_DEFAULT);
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, ParallaxMapVertexAlphaCB, EMT_TRANSPARENT_ALPHA_CHANNEL, 0, EGSL_DEFAULT);
+
+		VertexShader = OGLES2ShaderPath + "COGLES2Solid.vsh";
+		FragmentShader = OGLES2ShaderPath + "COGLES2OneTextureBlend.fsh";
+
+		addHighLevelShaderMaterialFromFiles(VertexShader, "main", EVST_VS_2_0, FragmentShader, "main", EPST_PS_2_0, "", "main",
+			EGST_GS_4_0, scene::EPT_TRIANGLES, scene::EPT_TRIANGLE_STRIP, 0, OneTextureBlendCB, EMT_ONETEXTURE_BLEND, 0, EGSL_DEFAULT);
+
+		// Drop callbacks.
+
+		SolidCB->drop();
+		Solid2LayerCB->drop();
+		LightmapCB->drop();
+		LightmapAddCB->drop();
+		LightmapM2CB->drop();
+		LightmapM4CB->drop();
+		LightmapLightingCB->drop();
+		LightmapLightingM2CB->drop();
+		LightmapLightingM4CB->drop();
+		DetailMapCB->drop();
+		SphereMapCB->drop();
+		Reflection2LayerCB->drop();
+		TransparentAddColorCB->drop();
+		TransparentAlphaChannelCB->drop();
+		TransparentAlphaChannelRefCB->drop();
+		TransparentVertexAlphaCB->drop();
+		TransparentReflection2LayerCB->drop();
+		NormalMapCB->drop();
+		NormalMapAddColorCB->drop();
+		NormalMapVertexAlphaCB->drop();
+		ParallaxMapCB->drop();
+		ParallaxMapAddColorCB->drop();
+		ParallaxMapVertexAlphaCB->drop();
+		OneTextureBlendCB->drop();
+
+		// Create 2D material renderers
+
 		c8* vs2DData = 0;
 		c8* fs2DData = 0;
 		loadShaderData(io::path("COGLES2Renderer2D.vsh"), io::path("COGLES2Renderer2D.fsh"), &vs2DData, &fs2DData);
+		MaterialRenderer2DTexture = new COGLES2Renderer2D(vs2DData, fs2DData, this, true);
+		delete[] vs2DData;
+		delete[] fs2DData;
+		vs2DData = 0;
+		fs2DData = 0;
 
-		MaterialRenderer2D = new COGLES2Renderer2D(vs2DData, fs2DData, this);
+		loadShaderData(io::path("COGLES2Renderer2D.vsh"), io::path("COGLES2Renderer2D_noTex.fsh"), &vs2DData, &fs2DData);
+		MaterialRenderer2DNoTexture = new COGLES2Renderer2D(vs2DData, fs2DData, this, false);
 		delete[] vs2DData;
 		delete[] fs2DData;
 	}
 
-
-//! presents the rendered scene on the screen, returns false if failed
-bool COGLES2Driver::endScene()
-{
-	CNullDriver::endScene();
-
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_) || defined(_IRR_WINDOWS_API_) || defined(_IRR_COMPILE_WITH_ANDROID_DEVICE_) || defined(_IRR_COMPILE_WITH_FB_DEVICE_)
-    if (ContextManager)
-		ContextManager->swapBuffers();
-#elif defined(_IRR_COMPILE_WITH_IPHONE_DEVICE_)
-    glFlush();
-	glBindRenderbuffer(GL_RENDERBUFFER, ViewRenderbuffer);
-    Device->displayEnd();
-#endif
-
-	return true;
-}
-
-
-	//! clears the zbuffer
-	bool COGLES2Driver::beginScene(bool backBuffer, bool zBuffer, SColor color,
-			const SExposedVideoData& videoData, core::rect<s32>* sourceRect)
+	bool COGLES2Driver::setMaterialTexture(irr::u32 layerIdx, const irr::video::ITexture* texture)
 	{
-		CNullDriver::beginScene(backBuffer, zBuffer, color);
+		Material.TextureLayer[layerIdx].Texture = const_cast<ITexture*>(texture); // function uses const-pointer for texture because all draw functions use const-pointers already
+		return CacheHandler->getTextureCache().set(0, texture);
+	}
 
-		GLbitfield mask = 0;
+	bool COGLES2Driver::beginScene(u16 clearFlag, SColor clearColor, f32 clearDepth, u8 clearStencil, const SExposedVideoData& videoData, core::rect<s32>* sourceRect)
+	{
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_BEGIN_SCENE);)
 
-		if (backBuffer)
-		{
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-			Material.ColorMask = ECP_ALL;
+		CNullDriver::beginScene(clearFlag, clearColor, clearDepth, clearStencil, videoData, sourceRect);
 
-			const f32 inv = 1.0f / 255.0f;
-			glClearColor(color.getRed() * inv, color.getGreen() * inv,
-						color.getBlue() * inv, color.getAlpha() * inv);
+		if (ContextManager)
+			ContextManager->activateContext(videoData, true);
 
-			mask |= GL_COLOR_BUFFER_BIT;
-		}
-
-		if (zBuffer)
-		{
-			glDepthMask(GL_TRUE);
-			Material.ZWriteEnable = true;
-
-			mask |= GL_DEPTH_BUFFER_BIT;
-		}
-
-		glClear(mask);
+		clearBuffers(clearFlag, clearColor, clearDepth, clearStencil);
 
 		return true;
+	}
+
+	bool COGLES2Driver::endScene()
+	{
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_END_SCENE);)
+
+		CNullDriver::endScene();
+
+		glFlush();
+
+		if (ContextManager)
+			return ContextManager->swapBuffers();
+
+		return false;
 	}
 
 
@@ -410,6 +467,8 @@ bool COGLES2Driver::endScene()
 	{
 		if (!HWBuffer)
 			return false;
+
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_UPDATE_VERTEX_HW_BUF);)
 
 		const scene::IMeshBuffer* mb = HWBuffer->MeshBuffer;
 		const void* vertices = mb->getVertices();
@@ -451,7 +510,7 @@ bool COGLES2Driver::endScene()
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		return (!testGLError());
+		return (!testGLError(__LINE__));
 	}
 
 
@@ -459,6 +518,8 @@ bool COGLES2Driver::endScene()
 	{
 		if (!HWBuffer)
 			return false;
+
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_UPDATE_INDEX_HW_BUF);)
 
 		const scene::IMeshBuffer* mb = HWBuffer->MeshBuffer;
 
@@ -514,7 +575,7 @@ bool COGLES2Driver::endScene()
 
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-		return (!testGLError());
+		return (!testGLError(__LINE__));
 	}
 
 
@@ -527,12 +588,12 @@ bool COGLES2Driver::endScene()
 		if (HWBuffer->Mapped_Vertex != scene::EHM_NEVER)
 		{
 			if (HWBuffer->ChangedID_Vertex != HWBuffer->MeshBuffer->getChangedID_Vertex()
-				|| !((SHWBufferLink_opengl*)HWBuffer)->vbo_verticesID)
+				|| !static_cast<SHWBufferLink_opengl*>(HWBuffer)->vbo_verticesID)
 			{
 
 				HWBuffer->ChangedID_Vertex = HWBuffer->MeshBuffer->getChangedID_Vertex();
 
-				if (!updateVertexHardwareBuffer((SHWBufferLink_opengl*)HWBuffer))
+				if (!updateVertexHardwareBuffer(static_cast<SHWBufferLink_opengl*>(HWBuffer)))
 					return false;
 			}
 		}
@@ -540,7 +601,7 @@ bool COGLES2Driver::endScene()
 		if (HWBuffer->Mapped_Index != scene::EHM_NEVER)
 		{
 			if (HWBuffer->ChangedID_Index != HWBuffer->MeshBuffer->getChangedID_Index()
-				|| !((SHWBufferLink_opengl*)HWBuffer)->vbo_indicesID)
+				|| !static_cast<SHWBufferLink_opengl*>(HWBuffer)->vbo_indicesID)
 			{
 
 				HWBuffer->ChangedID_Index = HWBuffer->MeshBuffer->getChangedID_Index();
@@ -590,7 +651,7 @@ bool COGLES2Driver::endScene()
 		if (!_HWBuffer)
 			return;
 
-		SHWBufferLink_opengl *HWBuffer = (SHWBufferLink_opengl*)_HWBuffer;
+		SHWBufferLink_opengl *HWBuffer = static_cast<SHWBufferLink_opengl*>(_HWBuffer);
 		if (HWBuffer->vbo_verticesID)
 		{
 			glDeleteBuffers(1, &HWBuffer->vbo_verticesID);
@@ -612,7 +673,7 @@ bool COGLES2Driver::endScene()
 		if (!_HWBuffer)
 			return;
 
-		SHWBufferLink_opengl *HWBuffer = (SHWBufferLink_opengl*)_HWBuffer;
+		SHWBufferLink_opengl *HWBuffer = static_cast<SHWBufferLink_opengl*>(_HWBuffer);
 
 		updateHardwareBuffer(HWBuffer); //check if update is needed
 
@@ -636,8 +697,8 @@ bool COGLES2Driver::endScene()
 
 
 		drawVertexPrimitiveList(vertices, mb->getVertexCount(),
-				indexList, mb->getIndexCount() / 3,
-				mb->getVertexType(), scene::EPT_TRIANGLES,
+				indexList, mb->getPrimitiveCount(),
+				mb->getVertexType(), mb->getPrimitiveType(),
 				mb->getIndexType());
 
 		if (HWBuffer->Mapped_Vertex != scene::EHM_NEVER)
@@ -645,6 +706,15 @@ bool COGLES2Driver::endScene()
 
 		if (HWBuffer->Mapped_Index != scene::EHM_NEVER)
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	}
+
+
+	IRenderTarget* COGLES2Driver::addRenderTarget()
+	{
+		COGLES2RenderTarget* renderTarget = new COGLES2RenderTarget(this);
+		RenderTargets.push_back(renderTarget);
+
+		return renderTarget;
 	}
 
 
@@ -660,131 +730,87 @@ bool COGLES2Driver::endScene()
 			const void* indexList, u32 primitiveCount,
 			E_VERTEX_TYPE vType, scene::E_PRIMITIVE_TYPE pType, E_INDEX_TYPE iType)
 	{
-		testGLError();
-		if (!checkPrimitiveCount(primitiveCount))
-			return;
-
-		setRenderStates3DMode();
-
-		drawVertexPrimitiveList2d3d(vertices, vertexCount, (const u16*)indexList, primitiveCount, vType, pType, iType);
-	}
-
-
-	void COGLES2Driver::drawVertexPrimitiveList2d3d(const void* vertices, u32 vertexCount,
-			const void* indexList, u32 primitiveCount,
-			E_VERTEX_TYPE vType, scene::E_PRIMITIVE_TYPE pType, E_INDEX_TYPE iType, bool threed)
-	{
 		if (!primitiveCount || !vertexCount)
 			return;
 
-		if (!threed && !checkPrimitiveCount(primitiveCount))
+		if (!checkPrimitiveCount(primitiveCount))
 			return;
+
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_PRIMITIVES);)
 
 		CNullDriver::drawVertexPrimitiveList(vertices, vertexCount, indexList, primitiveCount, vType, pType, iType);
 
-		//TODO: treat #ifdef GL_OES_point_size_array outside this if
+		setRenderStates3DMode();
+
+		glEnableVertexAttribArray(EVA_POSITION);
+		glEnableVertexAttribArray(EVA_COLOR);
+		glEnableVertexAttribArray(EVA_NORMAL);
+		glEnableVertexAttribArray(EVA_TCOORD0);
+
+		switch (vType)
 		{
-			glEnableVertexAttribArray(EVA_COLOR);
-			glEnableVertexAttribArray(EVA_POSITION);
-			if ((pType != scene::EPT_POINTS) && (pType != scene::EPT_POINT_SPRITES))
+		case EVT_STANDARD:
+			if (vertices)
 			{
-				glEnableVertexAttribArray(EVA_TCOORD0);
+				glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Pos);
+				glVertexAttribPointer(EVA_NORMAL, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Normal);
+				glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Color);
+				glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].TCoords);
 			}
-#ifdef GL_OES_point_size_array
-			else if (FeatureAvailable[IRR_OES_point_size_array] && (Material.Thickness == 0.0f))
-				glEnableClientState(GL_POINT_SIZE_ARRAY_OES);
-#endif
-			if (threed && (pType != scene::EPT_POINTS) && (pType != scene::EPT_POINT_SPRITES))
+			else
 			{
-				glEnableVertexAttribArray(EVA_NORMAL);
+				glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), 0);
+				glVertexAttribPointer(EVA_NORMAL, 3, GL_FLOAT, false, sizeof(S3DVertex), buffer_offset(12));
+				glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), buffer_offset(24));
+				glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex), buffer_offset(28));
 			}
 
-			switch (vType)
+			break;
+		case EVT_2TCOORDS:
+			glEnableVertexAttribArray(EVA_TCOORD1);
+
+			if (vertices)
 			{
-			case EVT_STANDARD:
-				if (vertices)
-				{
-#ifdef GL_OES_point_size_array
-					if ((pType == scene::EPT_POINTS) || (pType == scene::EPT_POINT_SPRITES))
-					{
-						if (FeatureAvailable[IRR_OES_point_size_array] && (Material.Thickness == 0.0f))
-							glPointSizePointerOES(GL_FLOAT, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Normal.X);
-					}
-					else
-#endif
-						glVertexAttribPointer(EVA_POSITION, (threed ? 3 : 2), GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Pos);
-					if (threed)
-						glVertexAttribPointer(EVA_NORMAL, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Normal);
-					glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Color);
-					glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].TCoords);
-
-				}
-				else
-				{
-					glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), 0);
-					glVertexAttribPointer(EVA_NORMAL, 3, GL_FLOAT, false, sizeof(S3DVertex), buffer_offset(12));
-					glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), buffer_offset(24));
-					glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex), buffer_offset(28));
-				}
-
-				if (CurrentTexture[1])
-				{
-					// There must be some optimisation here as it uses the same texture coord !
-					glEnableVertexAttribArray(EVA_TCOORD1);
-					if (vertices)
-						glVertexAttribPointer(EVA_TCOORD1, 2, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].TCoords);
-					else
-						glVertexAttribPointer(EVA_TCOORD1, 2, GL_FLOAT, false, sizeof(S3DVertex), buffer_offset(28));
-				}
-				break;
-			case EVT_2TCOORDS:
-				glEnableVertexAttribArray(EVA_TCOORD1);
-				if (vertices)
-				{
-					glVertexAttribPointer(EVA_POSITION, (threed ? 3 : 2), GL_FLOAT, false, sizeof(S3DVertex2TCoords), &(static_cast<const S3DVertex2TCoords*>(vertices))[0].Pos);
-					if (threed)
-						glVertexAttribPointer(EVA_NORMAL, 3, GL_FLOAT, false, sizeof(S3DVertex2TCoords), &(static_cast<const S3DVertex2TCoords*>(vertices))[0].Normal);
-					glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex2TCoords), &(static_cast<const S3DVertex2TCoords*>(vertices))[0].Color);
-					glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex2TCoords), &(static_cast<const S3DVertex2TCoords*>(vertices))[0].TCoords);
-					glVertexAttribPointer(EVA_TCOORD1, 2, GL_FLOAT, false, sizeof(S3DVertex2TCoords), &(static_cast<const S3DVertex2TCoords*>(vertices))[0].TCoords2);
-				}
-				else
-				{
-					glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex2TCoords), buffer_offset(0));
-					glVertexAttribPointer(EVA_NORMAL, 3, GL_FLOAT, false, sizeof(S3DVertex2TCoords), buffer_offset(12));
-					glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex2TCoords), buffer_offset(24));
-					glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex2TCoords), buffer_offset(28));
-					glVertexAttribPointer(EVA_TCOORD1, 2, GL_FLOAT, false, sizeof(S3DVertex2TCoords), buffer_offset(36));
-
-				}
-				break;
-			case EVT_TANGENTS:
-				glEnableVertexAttribArray(EVA_TANGENT);
-				glEnableVertexAttribArray(EVA_BINORMAL);
-				if (vertices)
-				{
-					glVertexAttribPointer(EVA_POSITION, (threed ? 3 : 2), GL_FLOAT, false, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents*>(vertices))[0].Pos);
-					if (threed)
-						glVertexAttribPointer(EVA_NORMAL, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents*>(vertices))[0].Normal);
-					glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents*>(vertices))[0].Color);
-					glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents*>(vertices))[0].TCoords);
-					glVertexAttribPointer(EVA_TANGENT, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents*>(vertices))[0].Tangent);
-					glVertexAttribPointer(EVA_BINORMAL, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents*>(vertices))[0].Binormal);
-				}
-				else
-				{
-					glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), buffer_offset(0));
-					glVertexAttribPointer(EVA_NORMAL, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), buffer_offset(12));
-					glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertexTangents), buffer_offset(24));
-					glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertexTangents), buffer_offset(28));
-					glVertexAttribPointer(EVA_TANGENT, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), buffer_offset(36));
-					glVertexAttribPointer(EVA_BINORMAL, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), buffer_offset(48));
-				}
-				break;
+				glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex2TCoords), &(static_cast<const S3DVertex2TCoords*>(vertices))[0].Pos);
+				glVertexAttribPointer(EVA_NORMAL, 3, GL_FLOAT, false, sizeof(S3DVertex2TCoords), &(static_cast<const S3DVertex2TCoords*>(vertices))[0].Normal);
+				glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex2TCoords), &(static_cast<const S3DVertex2TCoords*>(vertices))[0].Color);
+				glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex2TCoords), &(static_cast<const S3DVertex2TCoords*>(vertices))[0].TCoords);
+				glVertexAttribPointer(EVA_TCOORD1, 2, GL_FLOAT, false, sizeof(S3DVertex2TCoords), &(static_cast<const S3DVertex2TCoords*>(vertices))[0].TCoords2);
 			}
+			else
+			{
+				glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex2TCoords), buffer_offset(0));
+				glVertexAttribPointer(EVA_NORMAL, 3, GL_FLOAT, false, sizeof(S3DVertex2TCoords), buffer_offset(12));
+				glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex2TCoords), buffer_offset(24));
+				glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex2TCoords), buffer_offset(28));
+				glVertexAttribPointer(EVA_TCOORD1, 2, GL_FLOAT, false, sizeof(S3DVertex2TCoords), buffer_offset(36));
+			}
+			break;
+		case EVT_TANGENTS:
+			glEnableVertexAttribArray(EVA_TANGENT);
+			glEnableVertexAttribArray(EVA_BINORMAL);
+
+			if (vertices)
+			{
+				glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents*>(vertices))[0].Pos);
+				glVertexAttribPointer(EVA_NORMAL, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents*>(vertices))[0].Normal);
+				glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents*>(vertices))[0].Color);
+				glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents*>(vertices))[0].TCoords);
+				glVertexAttribPointer(EVA_TANGENT, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents*>(vertices))[0].Tangent);
+				glVertexAttribPointer(EVA_BINORMAL, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents*>(vertices))[0].Binormal);
+			}
+			else
+			{
+				glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), buffer_offset(0));
+				glVertexAttribPointer(EVA_NORMAL, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), buffer_offset(12));
+				glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertexTangents), buffer_offset(24));
+				glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertexTangents), buffer_offset(28));
+				glVertexAttribPointer(EVA_TANGENT, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), buffer_offset(36));
+				glVertexAttribPointer(EVA_BINORMAL, 3, GL_FLOAT, false, sizeof(S3DVertexTangents), buffer_offset(48));
+			}
+			break;
 		}
 
-		// draw everything
 		GLenum indexSize = 0;
 
 		switch (iType)
@@ -800,7 +826,7 @@ bool COGLES2Driver::endScene()
 #ifndef GL_UNSIGNED_INT
 #define GL_UNSIGNED_INT 0x1405
 #endif
-				if (FeatureAvailable[IRR_OES_element_index_uint])
+				if (FeatureAvailable[COGLESCoreExtensionHandler::IRR_GL_OES_element_index_uint])
 					indexSize = GL_UNSIGNED_INT;
 				else
 #endif
@@ -813,41 +839,8 @@ bool COGLES2Driver::endScene()
 		{
 			case scene::EPT_POINTS:
 			case scene::EPT_POINT_SPRITES:
-			{
-#ifdef GL_OES_point_sprite
-				if (pType == scene::EPT_POINT_SPRITES && FeatureAvailable[IRR_OES_point_sprite])
-					glEnable(GL_POINT_SPRITE_OES);
-#endif
-				// if ==0 we use the point size array
-				if (Material.Thickness != 0.f)
-				{
-//						float quadratic[] = {0.0f, 0.0f, 10.01f};
-					//TODO : OpenGL ES 2.0 Port GL_POINT_DISTANCE_ATTENUATION
-					//glPointParameterfv(GL_POINT_DISTANCE_ATTENUATION, quadratic);
-//						float maxParticleSize = 1.0f;
-					//TODO : OpenGL ES 2.0 Port GL_POINT_SIZE_MAX
-					//glGetFloatv(GL_POINT_SIZE_MAX, &maxParticleSize);
-//			maxParticleSize=maxParticleSize<Material.Thickness?maxParticleSize:Material.Thickness;
-//			glPointParameterf(GL_POINT_SIZE_MAX,maxParticleSize);
-//			glPointParameterf(GL_POINT_SIZE_MIN,Material.Thickness);
-					//TODO : OpenGL ES 2.0 Port GL_POINT_FADE_THRESHOLD_SIZE
-					//glPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 60.0f);
-					//glPointSize(Material.Thickness);
-				}
-#ifdef GL_OES_point_sprite
-				if (pType == scene::EPT_POINT_SPRITES && FeatureAvailable[IRR_OES_point_sprite])
-					glTexEnvf(GL_POINT_SPRITE_OES, GL_COORD_REPLACE_OES, GL_TRUE);
-#endif
 				glDrawArrays(GL_POINTS, 0, primitiveCount);
-#ifdef GL_OES_point_sprite
-				if (pType == scene::EPT_POINT_SPRITES && FeatureAvailable[IRR_OES_point_sprite])
-				{
-					glDisable(GL_POINT_SPRITE_OES);
-					glTexEnvf(GL_POINT_SPRITE_OES, GL_COORD_REPLACE_OES, GL_FALSE);
-				}
-#endif
-			}
-			break;
+				break;
 			case scene::EPT_LINE_STRIP:
 				glDrawElements(GL_LINE_STRIP, primitiveCount + 1, indexSize, indexList);
 				break;
@@ -866,50 +859,33 @@ bool COGLES2Driver::endScene()
 			case scene::EPT_TRIANGLES:
 				glDrawElements((LastMaterial.Wireframe) ? GL_LINES : (LastMaterial.PointCloud) ? GL_POINTS : GL_TRIANGLES, primitiveCount*3, indexSize, indexList);
 				break;
-			case scene::EPT_QUAD_STRIP:
-// TODO ogl-es
-//		glDrawElements(GL_QUAD_STRIP, primitiveCount*2+2, indexSize, indexList);
-				break;
-			case scene::EPT_QUADS:
-// TODO ogl-es
-//		glDrawElements(GL_QUADS, primitiveCount*4, indexSize, indexList);
-				break;
-			case scene::EPT_POLYGON:
-// TODO ogl-es
-//		glDrawElements(GL_POLYGON, primitiveCount, indexSize, indexList);
+			default:
 				break;
 		}
 
+		switch (vType)
 		{
-			if (vType == EVT_TANGENTS)
-			{
-				glDisableVertexAttribArray(EVA_TANGENT);
-				glDisableVertexAttribArray(EVA_BINORMAL);
-			}
-			if ((vType != EVT_STANDARD) || CurrentTexture[1])
-			{
-				glDisableVertexAttribArray(EVA_TCOORD1);
-			}
-
-#ifdef GL_OES_point_size_array
-			if (FeatureAvailable[IRR_OES_point_size_array] && (Material.Thickness == 0.0f))
-				glDisableClientState(GL_POINT_SIZE_ARRAY_OES);
-#endif
-			glDisableVertexAttribArray(EVA_POSITION);
-			glDisableVertexAttribArray(EVA_NORMAL);
-			glDisableVertexAttribArray(EVA_COLOR);
-			glDisableVertexAttribArray(EVA_TCOORD0);
+		case EVT_2TCOORDS:
+			glDisableVertexAttribArray(EVA_TCOORD1);
+			break;
+		case EVT_TANGENTS:
+			glDisableVertexAttribArray(EVA_TANGENT);
+			glDisableVertexAttribArray(EVA_BINORMAL);
+			break;
+		default:
+			break;
 		}
-		testGLError();
+
+		glDisableVertexAttribArray(EVA_POSITION);
+		glDisableVertexAttribArray(EVA_NORMAL);
+		glDisableVertexAttribArray(EVA_COLOR);
+		glDisableVertexAttribArray(EVA_TCOORD0);
 	}
 
 
-	//! draws a 2d image, using a color and the alpha channel of the texture
-	void COGLES2Driver::draw2DImage(const video::ITexture* texture,
-			const core::position2d<s32>& pos,
-			const core::rect<s32>& sourceRect,
-			const core::rect<s32>* clipRect, SColor color,
-			bool useAlphaChannelOfTexture)
+	void COGLES2Driver::draw2DImage(const video::ITexture* texture, const core::position2d<s32>& destPos,
+		const core::rect<s32>& sourceRect, const core::rect<s32>* clipRect, SColor color,
+		bool useAlphaChannelOfTexture)
 	{
 		if (!texture)
 			return;
@@ -917,7 +893,9 @@ bool COGLES2Driver::endScene()
 		if (!sourceRect.isValid())
 			return;
 
-		core::position2d<s32> targetPos(pos);
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_2DIMAGE);)
+
+		core::position2d<s32> targetPos(destPos);
 		core::position2d<s32> sourcePos(sourceRect.UpperLeftCorner);
 		core::dimension2d<s32> sourceSize(sourceRect.getSize());
 		if (clipRect)
@@ -1011,18 +989,157 @@ bool COGLES2Driver::endScene()
 
 		const core::rect<s32> poss(targetPos, sourceSize);
 
-		disableTextures(1);
-		if (!setActiveTexture(0, texture))
+		chooseMaterial2D();
+		if (!setMaterialTexture(0, texture ))
 			return;
+
 		setRenderStates2DMode(color.getAlpha() < 255, true, useAlphaChannelOfTexture);
+
+		f32 left = (f32)poss.UpperLeftCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+		f32 right = (f32)poss.LowerRightCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+		f32 down = 2.f - (f32)poss.LowerRightCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+		f32 top = 2.f - (f32)poss.UpperLeftCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
 
 		u16 indices[] = {0, 1, 2, 3};
 		S3DVertex vertices[4];
-		vertices[0] = S3DVertex((f32)poss.UpperLeftCorner.X, (f32)poss.UpperLeftCorner.Y, 0, 0, 0, 1, color, tcoords.UpperLeftCorner.X, tcoords.UpperLeftCorner.Y);
-		vertices[1] = S3DVertex((f32)poss.LowerRightCorner.X, (f32)poss.UpperLeftCorner.Y, 0, 0, 0, 1, color, tcoords.LowerRightCorner.X, tcoords.UpperLeftCorner.Y);
-		vertices[2] = S3DVertex((f32)poss.LowerRightCorner.X, (f32)poss.LowerRightCorner.Y, 0, 0, 0, 1, color, tcoords.LowerRightCorner.X, tcoords.LowerRightCorner.Y);
-		vertices[3] = S3DVertex((f32)poss.UpperLeftCorner.X, (f32)poss.LowerRightCorner.Y, 0, 0, 0, 1, color, tcoords.UpperLeftCorner.X, tcoords.LowerRightCorner.Y);
-		drawVertexPrimitiveList2d3d(vertices, 4, indices, 2, video::EVT_STANDARD, scene::EPT_TRIANGLE_FAN, EIT_16BIT, false);
+		vertices[0] = S3DVertex(left, top, 0, 0, 0, 1, color, tcoords.UpperLeftCorner.X, tcoords.UpperLeftCorner.Y);
+		vertices[1] = S3DVertex(right, top, 0, 0, 0, 1, color, tcoords.LowerRightCorner.X, tcoords.UpperLeftCorner.Y);
+		vertices[2] = S3DVertex(right, down, 0, 0, 0, 1, color, tcoords.LowerRightCorner.X, tcoords.LowerRightCorner.Y);
+		vertices[3] = S3DVertex(left, down, 0, 0, 0, 1, color, tcoords.UpperLeftCorner.X, tcoords.LowerRightCorner.Y);
+
+		glEnableVertexAttribArray(EVA_POSITION);
+		glEnableVertexAttribArray(EVA_COLOR);
+		glEnableVertexAttribArray(EVA_TCOORD0);
+		glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Pos);
+		glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Color);
+		glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].TCoords);
+		glDrawElements(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_SHORT, indices);
+		glDisableVertexAttribArray(EVA_TCOORD0);
+		glDisableVertexAttribArray(EVA_COLOR);
+		glDisableVertexAttribArray(EVA_POSITION);
+	}
+
+
+	void COGLES2Driver::draw2DImage(const video::ITexture* texture, const core::rect<s32>& destRect,
+		const core::rect<s32>& sourceRect, const core::rect<s32>* clipRect,
+		const video::SColor* const colors, bool useAlphaChannelOfTexture)
+	{
+		if (!texture)
+			return;
+
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_2DIMAGE);)
+
+			// texcoords need to be flipped horizontally for RTTs
+			const bool isRTT = texture->isRenderTarget();
+		const core::dimension2du& ss = texture->getOriginalSize();
+		const f32 invW = 1.f / static_cast<f32>(ss.Width);
+		const f32 invH = 1.f / static_cast<f32>(ss.Height);
+		const core::rect<f32> tcoords(
+			sourceRect.UpperLeftCorner.X * invW,
+			(isRTT ? sourceRect.LowerRightCorner.Y : sourceRect.UpperLeftCorner.Y) * invH,
+			sourceRect.LowerRightCorner.X * invW,
+			(isRTT ? sourceRect.UpperLeftCorner.Y : sourceRect.LowerRightCorner.Y) *invH);
+
+		const video::SColor temp[4] =
+		{
+			0xFFFFFFFF,
+			0xFFFFFFFF,
+			0xFFFFFFFF,
+			0xFFFFFFFF
+		};
+
+		const video::SColor* const useColor = colors ? colors : temp;
+
+		chooseMaterial2D();
+		if (!setMaterialTexture(0, texture ))
+			return;
+
+		setRenderStates2DMode(useColor[0].getAlpha() < 255 || useColor[1].getAlpha() < 255 ||
+			useColor[2].getAlpha() < 255 || useColor[3].getAlpha() < 255,
+			true, useAlphaChannelOfTexture);
+
+		const core::dimension2d<u32>& renderTargetSize = getCurrentRenderTargetSize();
+
+		if (clipRect)
+		{
+			if (!clipRect->isValid())
+				return;
+
+			glEnable(GL_SCISSOR_TEST);
+			glScissor(clipRect->UpperLeftCorner.X, renderTargetSize.Height - clipRect->LowerRightCorner.Y,
+				clipRect->getWidth(), clipRect->getHeight());
+		}
+
+		f32 left = (f32)destRect.UpperLeftCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+		f32 right = (f32)destRect.LowerRightCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+		f32 down = 2.f - (f32)destRect.LowerRightCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+		f32 top = 2.f - (f32)destRect.UpperLeftCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+
+		u16 indices[] = { 0, 1, 2, 3 };
+		S3DVertex vertices[4];
+		vertices[0] = S3DVertex(left, top, 0, 0, 0, 1, useColor[0], tcoords.UpperLeftCorner.X, tcoords.UpperLeftCorner.Y);
+		vertices[1] = S3DVertex(right, top, 0, 0, 0, 1, useColor[3], tcoords.LowerRightCorner.X, tcoords.UpperLeftCorner.Y);
+		vertices[2] = S3DVertex(right, down, 0, 0, 0, 1, useColor[2], tcoords.LowerRightCorner.X, tcoords.LowerRightCorner.Y);
+		vertices[3] = S3DVertex(left, down, 0, 0, 0, 1, useColor[1], tcoords.UpperLeftCorner.X, tcoords.LowerRightCorner.Y);
+
+		glEnableVertexAttribArray(EVA_POSITION);
+		glEnableVertexAttribArray(EVA_COLOR);
+		glEnableVertexAttribArray(EVA_TCOORD0);
+		glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Pos);
+		glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Color);
+		glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].TCoords);
+		glDrawElements(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_SHORT, indices);
+		glDisableVertexAttribArray(EVA_TCOORD0);
+		glDisableVertexAttribArray(EVA_COLOR);
+		glDisableVertexAttribArray(EVA_POSITION);
+
+		if (clipRect)
+			glDisable(GL_SCISSOR_TEST);
+
+		testGLError(__LINE__);
+	}
+
+	void COGLES2Driver::draw2DImage(const video::ITexture* texture, u32 layer, bool flip)
+	{
+		if (!texture)
+			return;
+
+		chooseMaterial2D();
+		if (!setMaterialTexture(0, texture ))
+			return;
+
+		setRenderStates2DMode(false, true, true);
+
+		u16 quad2DIndices[] = { 0, 1, 2, 3 };
+		S3DVertex quad2DVertices[4];
+
+		quad2DVertices[0].Pos = core::vector3df(-1.f, 1.f, 0.f);
+		quad2DVertices[1].Pos = core::vector3df(1.f, 1.f, 0.f);
+		quad2DVertices[2].Pos = core::vector3df(1.f, -1.f, 0.f);
+		quad2DVertices[3].Pos = core::vector3df(-1.f, -1.f, 0.f);
+
+		f32 modificator = (flip) ? 1.f : 0.f;
+
+		quad2DVertices[0].TCoords = core::vector2df(0.f, 0.f + modificator);
+		quad2DVertices[1].TCoords = core::vector2df(1.f, 0.f + modificator);
+		quad2DVertices[2].TCoords = core::vector2df(1.f, 1.f - modificator);
+		quad2DVertices[3].TCoords = core::vector2df(0.f, 1.f - modificator);
+
+		quad2DVertices[0].Color = SColor(0xFFFFFFFF);
+		quad2DVertices[1].Color = SColor(0xFFFFFFFF);
+		quad2DVertices[2].Color = SColor(0xFFFFFFFF);
+		quad2DVertices[3].Color = SColor(0xFFFFFFFF);
+
+		glEnableVertexAttribArray(EVA_POSITION);
+		glEnableVertexAttribArray(EVA_COLOR);
+		glEnableVertexAttribArray(EVA_TCOORD0);
+		glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(quad2DVertices))[0].Pos);
+		glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(quad2DVertices))[0].Color);
+		glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(quad2DVertices))[0].TCoords);
+		glDrawElements(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_SHORT, quad2DIndices);
+		glDisableVertexAttribArray(EVA_TCOORD0);
+		glDisableVertexAttribArray(EVA_COLOR);
+		glDisableVertexAttribArray(EVA_POSITION);
 	}
 
 
@@ -1035,8 +1152,7 @@ bool COGLES2Driver::endScene()
 		if (!texture)
 			return;
 
-		if (!setActiveTexture(0, const_cast<video::ITexture*>(texture)))
-			return;
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_2DIMAGE_BATCH);)
 
 		const irr::u32 drawCount = core::min_<u32>(positions.size(), sourceRects.size());
 
@@ -1136,18 +1252,27 @@ bool COGLES2Driver::endScene()
 
 			const core::rect<s32> poss(targetPos, sourceSize);
 
+			chooseMaterial2D();
+			if (!setMaterialTexture(0, texture))
+				return;
+
 			setRenderStates2DMode(color.getAlpha() < 255, true, useAlphaChannelOfTexture);
 
-			vtx.push_back(S3DVertex((f32)poss.UpperLeftCorner.X, (f32)poss.UpperLeftCorner.Y, 0.0f,
+			f32 left = (f32)poss.UpperLeftCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+			f32 right = (f32)poss.LowerRightCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+			f32 down = 2.f - (f32)poss.LowerRightCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+			f32 top = 2.f - (f32)poss.UpperLeftCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+
+			vtx.push_back(S3DVertex(left, top, 0.0f,
 					0.0f, 0.0f, 0.0f, color,
 					tcoords.UpperLeftCorner.X, tcoords.UpperLeftCorner.Y));
-			vtx.push_back(S3DVertex((f32)poss.LowerRightCorner.X, (f32)poss.UpperLeftCorner.Y, 0.0f,
+			vtx.push_back(S3DVertex(right, top, 0.0f,
 					0.0f, 0.0f, 0.0f, color,
 					tcoords.LowerRightCorner.X, tcoords.UpperLeftCorner.Y));
-			vtx.push_back(S3DVertex((f32)poss.LowerRightCorner.X, (f32)poss.LowerRightCorner.Y, 0.0f,
+			vtx.push_back(S3DVertex(right, down, 0.0f,
 					0.0f, 0.0f, 0.0f, color,
 					tcoords.LowerRightCorner.X, tcoords.LowerRightCorner.Y));
-			vtx.push_back(S3DVertex((f32)poss.UpperLeftCorner.X, (f32)poss.LowerRightCorner.Y, 0.0f,
+			vtx.push_back(S3DVertex(left, down, 0.0f,
 					0.0f, 0.0f, 0.0f, color,
 					tcoords.UpperLeftCorner.X, tcoords.LowerRightCorner.Y));
 
@@ -1163,72 +1288,17 @@ bool COGLES2Driver::endScene()
 
 		if (vtx.size())
 		{
-			drawVertexPrimitiveList2d3d(vtx.pointer(), vtx.size(),
-				indices.pointer(), indices.size() / 3,
-				EVT_STANDARD, scene::EPT_TRIANGLES,
-				EIT_16BIT, false);
+			glEnableVertexAttribArray(EVA_POSITION);
+			glEnableVertexAttribArray(EVA_COLOR);
+			glEnableVertexAttribArray(EVA_TCOORD0);
+			glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &vtx[0].Pos);
+			glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &vtx[0].Color);
+			glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex), &vtx[0].TCoords);
+			glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, indices.pointer());
+			glDisableVertexAttribArray(EVA_TCOORD0);
+			glDisableVertexAttribArray(EVA_COLOR);
+			glDisableVertexAttribArray(EVA_POSITION);
 		}
-	}
-
-
-	//! The same, but with a four element array of colors, one for each vertex
-	void COGLES2Driver::draw2DImage(const video::ITexture* texture,
-			const core::rect<s32>& destRect,
-			const core::rect<s32>& sourceRect, const core::rect<s32>* clipRect,
-			const video::SColor* const colors, bool useAlphaChannelOfTexture)
-	{
-		if (!texture)
-			return;
-
-		// texcoords need to be flipped horizontally for RTTs
-		const bool isRTT = texture->isRenderTarget();
-		const core::dimension2du& ss = texture->getOriginalSize();
-		const f32 invW = 1.f / static_cast<f32>(ss.Width);
-		const f32 invH = 1.f / static_cast<f32>(ss.Height);
-		const core::rect<f32> tcoords(
-			sourceRect.UpperLeftCorner.X * invW,
-			(isRTT ? sourceRect.LowerRightCorner.Y : sourceRect.UpperLeftCorner.Y) * invH,
-			sourceRect.LowerRightCorner.X * invW,
-			(isRTT ? sourceRect.UpperLeftCorner.Y : sourceRect.LowerRightCorner.Y) *invH);
-
-		const video::SColor temp[4] =
-		{
-			0xFFFFFFFF,
-			0xFFFFFFFF,
-			0xFFFFFFFF,
-			0xFFFFFFFF
-		};
-
-		const video::SColor* const useColor = colors ? colors : temp;
-
-		disableTextures(1);
-		setActiveTexture(0, texture);
-		setRenderStates2DMode(useColor[0].getAlpha() < 255 || useColor[1].getAlpha() < 255 ||
-							useColor[2].getAlpha() < 255 || useColor[3].getAlpha() < 255,
-							true, useAlphaChannelOfTexture);
-
-		if (clipRect)
-		{
-			if (!clipRect->isValid())
-				return;
-
-			glEnable(GL_SCISSOR_TEST);
-			const core::dimension2d<u32>& renderTargetSize = getCurrentRenderTargetSize();
-			glScissor(clipRect->UpperLeftCorner.X, renderTargetSize.Height - clipRect->LowerRightCorner.Y,
-					clipRect->getWidth(), clipRect->getHeight());
-		}
-
-		u16 indices[] = {0, 1, 2, 3};
-		S3DVertex vertices[4];
-		vertices[0] = S3DVertex((f32)destRect.UpperLeftCorner.X, (f32)destRect.UpperLeftCorner.Y, 0, 0, 0, 1, useColor[0], tcoords.UpperLeftCorner.X, tcoords.UpperLeftCorner.Y);
-		vertices[1] = S3DVertex((f32)destRect.LowerRightCorner.X, (f32)destRect.UpperLeftCorner.Y, 0, 0, 0, 1, useColor[3], tcoords.LowerRightCorner.X, tcoords.UpperLeftCorner.Y);
-		vertices[2] = S3DVertex((f32)destRect.LowerRightCorner.X, (f32)destRect.LowerRightCorner.Y, 0, 0, 0, 1, useColor[2], tcoords.LowerRightCorner.X, tcoords.LowerRightCorner.Y);
-		vertices[3] = S3DVertex((f32)destRect.UpperLeftCorner.X, (f32)destRect.LowerRightCorner.Y, 0, 0, 0, 1, useColor[1], tcoords.UpperLeftCorner.X, tcoords.LowerRightCorner.Y);
-		drawVertexPrimitiveList2d3d(vertices, 4, indices, 2, video::EVT_STANDARD, scene::EPT_TRIANGLE_FAN, EIT_16BIT, false);
-
-		if (clipRect)
-			glDisable(GL_SCISSOR_TEST);
-		testGLError();
 	}
 
 
@@ -1243,10 +1313,15 @@ bool COGLES2Driver::endScene()
 		if (!texture)
 			return;
 
-		disableTextures(1);
-		if (!setActiveTexture(0, texture))
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_2DIMAGE_BATCH);)
+
+		chooseMaterial2D();
+		if (!setMaterialTexture(0, texture))
 			return;
+
 		setRenderStates2DMode(color.getAlpha() < 255, true, useAlphaChannelOfTexture);
+
+		const core::dimension2d<u32>& renderTargetSize = getCurrentRenderTargetSize();
 
 		if (clipRect)
 		{
@@ -1254,7 +1329,6 @@ bool COGLES2Driver::endScene()
 				return;
 
 			glEnable(GL_SCISSOR_TEST);
-			const core::dimension2d<u32>& renderTargetSize = getCurrentRenderTargetSize();
 			glScissor(clipRect->UpperLeftCorner.X, renderTargetSize.Height - clipRect->LowerRightCorner.Y,
 					clipRect->getWidth(), clipRect->getHeight());
 		}
@@ -1270,6 +1344,7 @@ bool COGLES2Driver::endScene()
 		core::array<u16> quadIndices;
 		vertices.reallocate(indices.size()*4);
 		quadIndices.reallocate(indices.size()*3);
+
 		for (u32 i = 0; i < indices.size(); ++i)
 		{
 			const s32 currentIndex = indices[i];
@@ -1284,11 +1359,16 @@ bool COGLES2Driver::endScene()
 
 			const core::rect<s32> poss(targetPos, sourceRects[currentIndex].getSize());
 
+			f32 left = (f32)poss.UpperLeftCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+			f32 right = (f32)poss.LowerRightCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+			f32 down = 2.f - (f32)poss.LowerRightCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+			f32 top = 2.f - (f32)poss.UpperLeftCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+
 			const u32 vstart = vertices.size();
-			vertices.push_back(S3DVertex((f32)poss.UpperLeftCorner.X, (f32)poss.UpperLeftCorner.Y, 0, 0, 0, 1, color, tcoords.UpperLeftCorner.X, tcoords.UpperLeftCorner.Y));
-			vertices.push_back(S3DVertex((f32)poss.LowerRightCorner.X, (f32)poss.UpperLeftCorner.Y, 0, 0, 0, 1, color, tcoords.LowerRightCorner.X, tcoords.UpperLeftCorner.Y));
-			vertices.push_back(S3DVertex((f32)poss.LowerRightCorner.X, (f32)poss.LowerRightCorner.Y, 0, 0, 0, 1, color, tcoords.LowerRightCorner.X, tcoords.LowerRightCorner.Y));
-			vertices.push_back(S3DVertex((f32)poss.UpperLeftCorner.X, (f32)poss.LowerRightCorner.Y, 0, 0, 0, 1, color, tcoords.UpperLeftCorner.X, tcoords.LowerRightCorner.Y));
+			vertices.push_back(S3DVertex(left, top, 0, 0, 0, 1, color, tcoords.UpperLeftCorner.X, tcoords.UpperLeftCorner.Y));
+			vertices.push_back(S3DVertex(right, top, 0, 0, 0, 1, color, tcoords.LowerRightCorner.X, tcoords.UpperLeftCorner.Y));
+			vertices.push_back(S3DVertex(right, down, 0, 0, 0, 1, color, tcoords.LowerRightCorner.X, tcoords.LowerRightCorner.Y));
+			vertices.push_back(S3DVertex(left, down, 0, 0, 0, 1, color, tcoords.UpperLeftCorner.X, tcoords.LowerRightCorner.Y));
 			quadIndices.push_back(vstart);
 			quadIndices.push_back(vstart+1);
 			quadIndices.push_back(vstart+2);
@@ -1298,14 +1378,25 @@ bool COGLES2Driver::endScene()
 
 			targetPos.X += sourceRects[currentIndex].getWidth();
 		}
+
 		if (vertices.size())
-			drawVertexPrimitiveList2d3d(vertices.pointer(), vertices.size(),
-					quadIndices.pointer(), vertices.size()/2,
-					video::EVT_STANDARD, scene::EPT_TRIANGLES,
-					EIT_16BIT, false);
+		{
+			glEnableVertexAttribArray(EVA_POSITION);
+			glEnableVertexAttribArray(EVA_COLOR);
+			glEnableVertexAttribArray(EVA_TCOORD0);
+			glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &vertices[0].Pos);
+			glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &vertices[0].Color);
+			glVertexAttribPointer(EVA_TCOORD0, 2, GL_FLOAT, false, sizeof(S3DVertex), &vertices[0].TCoords);
+			glDrawElements(GL_TRIANGLES, quadIndices.size(), GL_UNSIGNED_SHORT, quadIndices.pointer());
+			glDisableVertexAttribArray(EVA_TCOORD0);
+			glDisableVertexAttribArray(EVA_COLOR);
+			glDisableVertexAttribArray(EVA_POSITION);
+		}
+
 		if (clipRect)
 			glDisable(GL_SCISSOR_TEST);
-		testGLError();
+
+		testGLError(__LINE__);
 	}
 
 
@@ -1314,7 +1405,11 @@ bool COGLES2Driver::endScene()
 			const core::rect<s32>& position,
 			const core::rect<s32>* clip)
 	{
-		disableTextures();
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_2DRECTANGLE);)
+
+		chooseMaterial2D();
+		setMaterialTexture(0, 0);
+
 		setRenderStates2DMode(color.getAlpha() < 255, false, false);
 
 		core::rect<s32> pos = position;
@@ -1325,13 +1420,27 @@ bool COGLES2Driver::endScene()
 		if (!pos.isValid())
 			return;
 
+		const core::dimension2d<u32>& renderTargetSize = getCurrentRenderTargetSize();
+
+		f32 left = (f32)pos.UpperLeftCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+		f32 right = (f32)pos.LowerRightCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+		f32 down = 2.f - (f32)pos.LowerRightCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+		f32 top = 2.f - (f32)pos.UpperLeftCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+
 		u16 indices[] = {0, 1, 2, 3};
 		S3DVertex vertices[4];
-		vertices[0] = S3DVertex((f32)pos.UpperLeftCorner.X, (f32)pos.UpperLeftCorner.Y, 0, 0, 0, 1, color, 0, 0);
-		vertices[1] = S3DVertex((f32)pos.LowerRightCorner.X, (f32)pos.UpperLeftCorner.Y, 0, 0, 0, 1, color, 0, 0);
-		vertices[2] = S3DVertex((f32)pos.LowerRightCorner.X, (f32)pos.LowerRightCorner.Y, 0, 0, 0, 1, color, 0, 0);
-		vertices[3] = S3DVertex((f32)pos.UpperLeftCorner.X, (f32)pos.LowerRightCorner.Y, 0, 0, 0, 1, color, 0, 0);
-		drawVertexPrimitiveList2d3d(vertices, 4, indices, 2, video::EVT_STANDARD, scene::EPT_TRIANGLE_FAN, EIT_16BIT, false);
+		vertices[0] = S3DVertex(left, top, 0, 0, 0, 1, color, 0, 0);
+		vertices[1] = S3DVertex(right, top, 0, 0, 0, 1, color, 0, 0);
+		vertices[2] = S3DVertex(right, down, 0, 0, 0, 1, color, 0, 0);
+		vertices[3] = S3DVertex(left, down, 0, 0, 0, 1, color, 0, 0);
+
+		glEnableVertexAttribArray(EVA_POSITION);
+		glEnableVertexAttribArray(EVA_COLOR);
+		glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Pos);
+		glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Color);
+		glDrawElements(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_SHORT, indices);
+		glDisableVertexAttribArray(EVA_COLOR);
+		glDisableVertexAttribArray(EVA_POSITION);
 	}
 
 
@@ -1341,6 +1450,8 @@ bool COGLES2Driver::endScene()
 			SColor colorLeftDown, SColor colorRightDown,
 			const core::rect<s32>* clip)
 	{
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_2DRECTANGLE);)
+
 		core::rect<s32> pos = position;
 
 		if (clip)
@@ -1349,29 +1460,45 @@ bool COGLES2Driver::endScene()
 		if (!pos.isValid())
 			return;
 
-		disableTextures();
+		chooseMaterial2D();
+		setMaterialTexture(0, 0);
 
 		setRenderStates2DMode(colorLeftUp.getAlpha() < 255 ||
 				colorRightUp.getAlpha() < 255 ||
 				colorLeftDown.getAlpha() < 255 ||
 				colorRightDown.getAlpha() < 255, false, false);
 
+		const core::dimension2d<u32>& renderTargetSize = getCurrentRenderTargetSize();
+
+		f32 left = (f32)pos.UpperLeftCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+		f32 right = (f32)pos.LowerRightCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+		f32 down = 2.f - (f32)pos.LowerRightCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+		f32 top = 2.f - (f32)pos.UpperLeftCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+
 		u16 indices[] = {0, 1, 2, 3};
 		S3DVertex vertices[4];
-		vertices[0] = S3DVertex((f32)pos.UpperLeftCorner.X, (f32)pos.UpperLeftCorner.Y, 0, 0, 0, 1, colorLeftUp, 0, 0);
-		vertices[1] = S3DVertex((f32)pos.LowerRightCorner.X, (f32)pos.UpperLeftCorner.Y, 0, 0, 0, 1, colorRightUp, 0, 0);
-		vertices[2] = S3DVertex((f32)pos.LowerRightCorner.X, (f32)pos.LowerRightCorner.Y, 0, 0, 0, 1, colorRightDown, 0, 0);
-		vertices[3] = S3DVertex((f32)pos.UpperLeftCorner.X, (f32)pos.LowerRightCorner.Y, 0, 0, 0, 1, colorLeftDown, 0, 0);
-		drawVertexPrimitiveList2d3d(vertices, 4, indices, 2, video::EVT_STANDARD, scene::EPT_TRIANGLE_FAN, EIT_16BIT, false);
+		vertices[0] = S3DVertex(left, top, 0, 0, 0, 1, colorLeftUp, 0, 0);
+		vertices[1] = S3DVertex(right, top, 0, 0, 0, 1, colorRightUp, 0, 0);
+		vertices[2] = S3DVertex(right, down, 0, 0, 0, 1, colorRightDown, 0, 0);
+		vertices[3] = S3DVertex(left, down, 0, 0, 0, 1, colorLeftDown, 0, 0);
+
+		glEnableVertexAttribArray(EVA_POSITION);
+		glEnableVertexAttribArray(EVA_COLOR);
+		glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Pos);
+		glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Color);
+		glDrawElements(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_SHORT, indices);
+		glDisableVertexAttribArray(EVA_COLOR);
+		glDisableVertexAttribArray(EVA_POSITION);
 	}
-
-
-	//! draw an 2d rectangle
+	
+		//! draw an 2d rectangle
 	void COGLES2Driver::draw2DRectangleClip(const core::rect<s32>& position,
 			SColor colorLeftUp, SColor colorRightUp,
 			SColor colorLeftDown, SColor colorRightDown,
 			const core::rect<s32>* clamp, const core::rect<s32>* clipRect)
 	{
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_2DRECTANGLE);)
+		
 		core::rect<s32> pos = position;
 
 		if (clamp)
@@ -1380,7 +1507,8 @@ bool COGLES2Driver::endScene()
 		if (!pos.isValid())
 			return;
 
-		disableTextures();
+		chooseMaterial2D();
+		setMaterialTexture(0, 0);
 
 		if (clipRect)
 		{
@@ -1398,31 +1526,70 @@ bool COGLES2Driver::endScene()
 				colorLeftDown.getAlpha() < 255 ||
 				colorRightDown.getAlpha() < 255, false, false);
 
+		const core::dimension2d<u32>& renderTargetSize = getCurrentRenderTargetSize();
+
+		f32 left = (f32)pos.UpperLeftCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+		f32 right = (f32)pos.LowerRightCorner.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+		f32 down = 2.f - (f32)pos.LowerRightCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+		f32 top = 2.f - (f32)pos.UpperLeftCorner.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+
 		u16 indices[] = {0, 1, 2, 3};
 		S3DVertex vertices[4];
-		vertices[0] = S3DVertex((f32)pos.UpperLeftCorner.X, (f32)pos.UpperLeftCorner.Y, 0, 0, 0, 1, colorLeftUp, 0, 0);
-		vertices[1] = S3DVertex((f32)pos.LowerRightCorner.X, (f32)pos.UpperLeftCorner.Y, 0, 0, 0, 1, colorRightUp, 0, 0);
-		vertices[2] = S3DVertex((f32)pos.LowerRightCorner.X, (f32)pos.LowerRightCorner.Y, 0, 0, 0, 1, colorRightDown, 0, 0);
-		vertices[3] = S3DVertex((f32)pos.UpperLeftCorner.X, (f32)pos.LowerRightCorner.Y, 0, 0, 0, 1, colorLeftDown, 0, 0);
-		drawVertexPrimitiveList2d3d(vertices, 4, indices, 2, video::EVT_STANDARD, scene::EPT_TRIANGLE_FAN, EIT_16BIT, false);
+		vertices[0] = S3DVertex(left, top, 0, 0, 0, 1, colorLeftUp, 0, 0);
+		vertices[1] = S3DVertex(right, top, 0, 0, 0, 1, colorRightUp, 0, 0);
+		vertices[2] = S3DVertex(right, down, 0, 0, 0, 1, colorRightDown, 0, 0);
+		vertices[3] = S3DVertex(left, down, 0, 0, 0, 1, colorLeftDown, 0, 0);
+		
+		glEnableVertexAttribArray(EVA_POSITION);
+		glEnableVertexAttribArray(EVA_COLOR);
+		glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Pos);
+		glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Color);
+		glDrawElements(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_SHORT, indices);
+		glDisableVertexAttribArray(EVA_COLOR);
+		glDisableVertexAttribArray(EVA_POSITION);
 
 		if(clipRect)
 			glDisable(GL_SCISSOR_TEST);
 	}
 
 
+
+
 	//! Draws a 2d line.
 	void COGLES2Driver::draw2DLine(const core::position2d<s32>& start,
 			const core::position2d<s32>& end, SColor color)
 	{
-		disableTextures();
-		setRenderStates2DMode(color.getAlpha() < 255, false, false);
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_2DLINE);)
 
-		u16 indices[] = {0, 1};
-		S3DVertex vertices[2];
-		vertices[0] = S3DVertex((f32)start.X, (f32)start.Y, 0, 0, 0, 1, color, 0, 0);
-		vertices[1] = S3DVertex((f32)end.X, (f32)end.Y, 0, 0, 0, 1, color, 1, 1);
-		drawVertexPrimitiveList2d3d(vertices, 2, indices, 1, video::EVT_STANDARD, scene::EPT_LINES, EIT_16BIT, false);
+		if (start==end)
+			drawPixel(start.X, start.Y, color);
+		else
+		{
+			chooseMaterial2D();
+			setMaterialTexture(0, 0);
+
+			setRenderStates2DMode(color.getAlpha() < 255, false, false);
+
+			const core::dimension2d<u32>& renderTargetSize = getCurrentRenderTargetSize();
+
+			f32 startX = (f32)start.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+			f32 endX = (f32)end.X / (f32)renderTargetSize.Width * 2.f - 1.f;
+			f32 startY = 2.f - (f32)start.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+			f32 endY = 2.f - (f32)end.Y / (f32)renderTargetSize.Height * 2.f - 1.f;
+
+			u16 indices[] = {0, 1};
+			S3DVertex vertices[2];
+			vertices[0] = S3DVertex(startX, startY, 0, 0, 0, 1, color, 0, 0);
+			vertices[1] = S3DVertex(endX, endY, 0, 0, 0, 1, color, 1, 1);
+
+			glEnableVertexAttribArray(EVA_POSITION);
+			glEnableVertexAttribArray(EVA_COLOR);
+			glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Pos);
+			glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Color);
+			glDrawElements(GL_LINES, 2, GL_UNSIGNED_SHORT, indices);
+			glDisableVertexAttribArray(EVA_COLOR);
+			glDisableVertexAttribArray(EVA_POSITION);
+		}
 	}
 
 
@@ -1433,115 +1600,42 @@ bool COGLES2Driver::endScene()
 		if (x > (u32)renderTargetSize.Width || y > (u32)renderTargetSize.Height)
 			return;
 
-		disableTextures();
+		chooseMaterial2D();
+		setMaterialTexture(0, 0);
+
 		setRenderStates2DMode(color.getAlpha() < 255, false, false);
 
-		u16 indices[] = {0};
+		f32 X = (f32)x / (f32)renderTargetSize.Width * 2.f - 1.f;
+		f32 Y = 2.f - (f32)y / (f32)renderTargetSize.Height * 2.f - 1.f;
+
 		S3DVertex vertices[1];
-		vertices[0] = S3DVertex((f32)x, (f32)y, 0, 0, 0, 1, color, 0, 0);
-		drawVertexPrimitiveList2d3d(vertices, 1, indices, 1, video::EVT_STANDARD, scene::EPT_POINTS, EIT_16BIT, false);
+		vertices[0] = S3DVertex(X, Y, 0, 0, 0, 1, color, 0, 0);
+
+		glEnableVertexAttribArray(EVA_POSITION);
+		glEnableVertexAttribArray(EVA_COLOR);
+		glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Pos);
+		glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Color);
+		glDrawArrays(GL_POINTS, 0, 1);
+		glDisableVertexAttribArray(EVA_COLOR);
+		glDisableVertexAttribArray(EVA_POSITION);
 	}
 
-
-	bool COGLES2Driver::setActiveTexture(u32 stage, const video::ITexture* texture)
+	ITexture* COGLES2Driver::createDeviceDependentTexture(const io::path& name, IImage* image)
 	{
-		if (stage >= MaxSupportedTextures)
-			return false;
+		core::array<IImage*> imageArray(1);
+		imageArray.push_back(image);
 
-		if (CurrentTexture[stage]==texture)
-			return true;
-
-		CurrentTexture.set(stage,texture);
-
-		if (!texture)
-			return true;
-		else if (texture->getDriverType() != EDT_OGLES2)
-		{
-			CurrentTexture.set(stage, 0);
-			os::Printer::log("Fatal Error: Tried to set a texture not owned by this driver.", ELL_ERROR);
-			return false;
-		}
-
-		return true;
-	}
-
-
-	bool COGLES2Driver::isActiveTexture(u32 stage)
-	{
-		return (CurrentTexture[stage]) ? true : false;
-	}
-
-
-	//! disables all textures beginning with the optional fromStage parameter.
-	bool COGLES2Driver::disableTextures(u32 fromStage)
-	{
-		bool result = true;
-		for (u32 i = fromStage; i < MaxTextureUnits; ++i)
-			result &= setActiveTexture(i, 0);
-		return result;
-	}
-
-
-	//! creates a matrix in supplied GLfloat array to pass to OGLES1
-	inline void COGLES2Driver::createGLMatrix(float gl_matrix[16], const core::matrix4& m)
-	{
-		memcpy(gl_matrix, m.pointer(), 16 * sizeof(f32));
-	}
-
-
-	//! creates a opengltexturematrix from a D3D style texture matrix
-	inline void COGLES2Driver::createGLTextureMatrix(float *o, const core::matrix4& m)
-	{
-		o[0] = m[0];
-		o[1] = m[1];
-		o[2] = 0.f;
-		o[3] = 0.f;
-
-		o[4] = m[4];
-		o[5] = m[5];
-		o[6] = 0.f;
-		o[7] = 0.f;
-
-		o[8] = 0.f;
-		o[9] = 0.f;
-		o[10] = 1.f;
-		o[11] = 0.f;
-
-		o[12] = m[8];
-		o[13] = m[9];
-		o[14] = 0.f;
-		o[15] = 1.f;
-	}
-
-
-	//! returns a device dependent texture from a software surface (IImage)
-	ITexture* COGLES2Driver::createDeviceDependentTexture(IImage* surface, const io::path& name, void* mipmapData)
-	{
-		COGLES2Texture* texture = 0;
-
-		if (surface && checkColorFormat(surface->getColorFormat(), surface->getDimension()))
-			texture = new COGLES2Texture(surface, name, mipmapData, this);
+		COGLES2Texture* texture = new COGLES2Texture(name, imageArray, ETT_2D, this);
 
 		return texture;
-}
-
-
-	//! returns a device dependent texture from a software surface (IImage)
-	ITexture* COGLES2Driver::createDeviceDependentTextureCube(const io::path& name, IImage* posXImage, IImage* negXImage,
-		IImage* posYImage, IImage* negYImage, IImage* posZImage, IImage* negZImage)
-	{
-		COGLES2Texture* texture = 0;
-
-		if (posXImage && negXImage && posYImage && negYImage && posZImage && negZImage &&
-			checkTextureCube(posXImage, negXImage, posYImage, negYImage, posZImage, negZImage) &&
-			checkColorFormat(posXImage->getColorFormat(), posXImage->getDimension()))
-		{
-			texture = new COGLES2Texture(name, posXImage, negXImage, posYImage, negYImage, posZImage, negZImage, this);
-		}
-
- 		return texture;
 	}
 
+	ITexture* COGLES2Driver::createDeviceDependentTextureCubemap(const io::path& name, const core::array<IImage*>& image)
+	{
+		COGLES2Texture* texture = new COGLES2Texture(name, image, ETT_CUBEMAP, this);
+
+		return texture;
+	}
 
 	//! Sets a material.
 	void COGLES2Driver::setMaterial(const SMaterial& material)
@@ -1549,12 +1643,15 @@ bool COGLES2Driver::endScene()
 		Material = material;
 		OverrideMaterial.apply(Material);
 
-		for (u32 i = 0; i < MaxTextureUnits; ++i)
-			setActiveTexture(i, material.getTexture(i));
+		for (u32 i = 0; i < Feature.MaxTextureUnits; ++i)
+		{
+			CacheHandler->getTextureCache().set(i, material.getTexture(i));
+			setTransform((E_TRANSFORMATION_STATE)(ETS_TEXTURE_0 + i), material.getTextureMatrix(i));
+		}
 	}
 
 	//! prints error if an error happened.
-	bool COGLES2Driver::testGLError()
+	bool COGLES2Driver::testGLError(int code)
 	{
 #ifdef _DEBUG
 		GLenum g = glGetError();
@@ -1563,16 +1660,16 @@ bool COGLES2Driver::endScene()
 			case GL_NO_ERROR:
 				return false;
 			case GL_INVALID_ENUM:
-				os::Printer::log("GL_INVALID_ENUM", ELL_ERROR);
+				os::Printer::log("GL_INVALID_ENUM", core::stringc(code).c_str(), ELL_ERROR);
 				break;
 			case GL_INVALID_VALUE:
-				os::Printer::log("GL_INVALID_VALUE", ELL_ERROR);
+				os::Printer::log("GL_INVALID_VALUE", core::stringc(code).c_str(), ELL_ERROR);
 				break;
 			case GL_INVALID_OPERATION:
-				os::Printer::log("GL_INVALID_OPERATION", ELL_ERROR);
+				os::Printer::log("GL_INVALID_OPERATION", core::stringc(code).c_str(), ELL_ERROR);
 				break;
 			case GL_OUT_OF_MEMORY:
-				os::Printer::log("GL_OUT_OF_MEMORY", ELL_ERROR);
+				os::Printer::log("GL_OUT_OF_MEMORY", core::stringc(code).c_str(), ELL_ERROR);
 				break;
 		};
 		return true;
@@ -1642,11 +1739,16 @@ bool COGLES2Driver::endScene()
 
 	void COGLES2Driver::setRenderStates3DMode()
 	{
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_SET_RENDERSTATE_3D);)
+
+		if ( LockRenderStateMode )
+			return;
+
 		if (CurrentRenderMode != ERM_3D)
 		{
 			// Reset Texture Stages
-			BridgeCalls->setBlend(false);
-			BridgeCalls->setBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_COLOR);
+			CacheHandler->setBlend(false);
+			CacheHandler->setBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 			ResetRenderStates = true;
 		}
@@ -1656,8 +1758,11 @@ bool COGLES2Driver::endScene()
 			// unset old material
 
 			// unset last 3d material
-			if (CurrentRenderMode == ERM_2D)
-				MaterialRenderer2D->OnUnsetMaterial();
+			if (CurrentRenderMode == ERM_2D && MaterialRenderer2DActive)
+			{
+				MaterialRenderer2DActive->OnUnsetMaterial();
+				MaterialRenderer2DActive = 0;
+			}
 			else if (LastMaterial.MaterialType != Material.MaterialType &&
 					static_cast<u32>(LastMaterial.MaterialType) < MaterialRenderers.size())
 				MaterialRenderers[LastMaterial.MaterialType].Renderer->OnUnsetMaterial();
@@ -1668,6 +1773,7 @@ bool COGLES2Driver::endScene()
 					Material, LastMaterial, ResetRenderStates, this);
 
 			LastMaterial = Material;
+			CacheHandler->correctCacheMaterial(LastMaterial);
 			ResetRenderStates = false;
 		}
 
@@ -1680,110 +1786,101 @@ bool COGLES2Driver::endScene()
 	//! Can be called by an IMaterialRenderer to make its work easier.
 	void COGLES2Driver::setBasicRenderStates(const SMaterial& material, const SMaterial& lastmaterial, bool resetAllRenderStates)
 	{
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_SET_RENDERSTATE_BASIC);)
+
 		// ZBuffer
-		if (resetAllRenderStates || lastmaterial.ZBuffer != material.ZBuffer)
+		switch (material.ZBuffer)
 		{
-			switch (material.ZBuffer)
-			{
-				case ECFN_NEVER: // it will be ECFN_DISABLED after merge
-					BridgeCalls->setDepthTest(false);
-					break;
-				case ECFN_LESSEQUAL:
-					BridgeCalls->setDepthTest(true);
-					BridgeCalls->setDepthFunc(GL_LEQUAL);
-					break;
-				case ECFN_EQUAL:
-					BridgeCalls->setDepthTest(true);
-					BridgeCalls->setDepthFunc(GL_EQUAL);
-					break;
-				case ECFN_LESS:
-					BridgeCalls->setDepthTest(true);
-					BridgeCalls->setDepthFunc(GL_LESS);
-					break;
-				case ECFN_NOTEQUAL:
-					BridgeCalls->setDepthTest(true);
-					BridgeCalls->setDepthFunc(GL_NOTEQUAL);
-					break;
-				case ECFN_GREATEREQUAL:
-					BridgeCalls->setDepthTest(true);
-					BridgeCalls->setDepthFunc(GL_GEQUAL);
-					break;
-				case ECFN_GREATER:
-					BridgeCalls->setDepthTest(true);
-					BridgeCalls->setDepthFunc(GL_GREATER);
-					break;
-				case ECFN_ALWAYS:
-					BridgeCalls->setDepthTest(true);
-					BridgeCalls->setDepthFunc(GL_ALWAYS);
-					break;
-				/*case ECFN_NEVER:
-					BridgeCalls->setDepthTest(true);
-					BridgeCalls->setDepthFunc(GL_NEVER);
-					break;*/
-			}
+			case ECFN_DISABLED:
+				CacheHandler->setDepthTest(false);
+				break;
+			case ECFN_LESSEQUAL:
+				CacheHandler->setDepthTest(true);
+				CacheHandler->setDepthFunc(GL_LEQUAL);
+				break;
+			case ECFN_EQUAL:
+				CacheHandler->setDepthTest(true);
+				CacheHandler->setDepthFunc(GL_EQUAL);
+				break;
+			case ECFN_LESS:
+				CacheHandler->setDepthTest(true);
+				CacheHandler->setDepthFunc(GL_LESS);
+				break;
+			case ECFN_NOTEQUAL:
+				CacheHandler->setDepthTest(true);
+				CacheHandler->setDepthFunc(GL_NOTEQUAL);
+				break;
+			case ECFN_GREATEREQUAL:
+				CacheHandler->setDepthTest(true);
+				CacheHandler->setDepthFunc(GL_GEQUAL);
+				break;
+			case ECFN_GREATER:
+				CacheHandler->setDepthTest(true);
+				CacheHandler->setDepthFunc(GL_GREATER);
+				break;
+			case ECFN_ALWAYS:
+				CacheHandler->setDepthTest(true);
+				CacheHandler->setDepthFunc(GL_ALWAYS);
+				break;
+			case ECFN_NEVER:
+				CacheHandler->setDepthTest(true);
+				CacheHandler->setDepthFunc(GL_NEVER);
+				break;
+			default:
+				break;
 		}
 
 		// ZWrite
-	//	if (resetAllRenderStates || lastmaterial.ZWriteEnable != material.ZWriteEnable)
+		if (getWriteZBuffer(material))
 		{
-			if (material.ZWriteEnable && (AllowZWriteOnTransparent || (material.BlendOperation == EBO_NONE &&
-					!MaterialRenderers[material.MaterialType].Renderer->isTransparent())))
-				BridgeCalls->setDepthMask(true);
-			else
-				BridgeCalls->setDepthMask(false);
+			CacheHandler->setDepthMask(true);
+		}
+		else
+		{
+			CacheHandler->setDepthMask(false);
 		}
 
 		// Back face culling
-		if (resetAllRenderStates || (lastmaterial.FrontfaceCulling != material.FrontfaceCulling) || (lastmaterial.BackfaceCulling != material.BackfaceCulling))
+		if ((material.FrontfaceCulling) && (material.BackfaceCulling))
 		{
-			if ((material.FrontfaceCulling) && (material.BackfaceCulling))
-			{
-				BridgeCalls->setCullFaceFunc(GL_FRONT_AND_BACK);
-				BridgeCalls->setCullFace(true);
-			}
-			else
-			if (material.BackfaceCulling)
-			{
-				BridgeCalls->setCullFaceFunc(GL_BACK);
-				BridgeCalls->setCullFace(true);
-			}
-			else
-			if (material.FrontfaceCulling)
-			{
-				BridgeCalls->setCullFaceFunc(GL_FRONT);
-				BridgeCalls->setCullFace(true);
-			}
-			else
-				BridgeCalls->setCullFace(false);
+			CacheHandler->setCullFaceFunc(GL_FRONT_AND_BACK);
+			CacheHandler->setCullFace(true);
+		}
+		else if (material.BackfaceCulling)
+		{
+			CacheHandler->setCullFaceFunc(GL_BACK);
+			CacheHandler->setCullFace(true);
+		}
+		else if (material.FrontfaceCulling)
+		{
+			CacheHandler->setCullFaceFunc(GL_FRONT);
+			CacheHandler->setCullFace(true);
+		}
+		else
+		{
+			CacheHandler->setCullFace(false);
 		}
 
 		// Color Mask
-		if (resetAllRenderStates || lastmaterial.ColorMask != material.ColorMask)
-		{
-			glColorMask(
-				(material.ColorMask & ECP_RED)?GL_TRUE:GL_FALSE,
-				(material.ColorMask & ECP_GREEN)?GL_TRUE:GL_FALSE,
-				(material.ColorMask & ECP_BLUE)?GL_TRUE:GL_FALSE,
-				(material.ColorMask & ECP_ALPHA)?GL_TRUE:GL_FALSE);
-		}
+		CacheHandler->setColorMask(material.ColorMask);
 
 		// Blend Equation
 		if (material.BlendOperation == EBO_NONE)
-		    BridgeCalls->setBlend(false);
+			CacheHandler->setBlend(false);
 		else
 		{
-		    BridgeCalls->setBlend(true);
+			CacheHandler->setBlend(true);
 
 			switch (material.BlendOperation)
 			{
 			case EBO_ADD:
-				BridgeCalls->setBlendEquation(GL_FUNC_ADD);
+				CacheHandler->setBlendEquation(GL_FUNC_ADD);
 				break;
 			case EBO_SUBTRACT:
-				BridgeCalls->setBlendEquation(GL_FUNC_SUBTRACT);
+				CacheHandler->setBlendEquation(GL_FUNC_SUBTRACT);
 				break;
 			case EBO_REVSUBTRACT:
-				BridgeCalls->setBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+				CacheHandler->setBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
 				break;
 			default:
 				break;
@@ -1802,9 +1899,12 @@ bool COGLES2Driver::endScene()
 
 		    unpack_textureBlendFuncSeparate(srcRGBFact, dstRGBFact, srcAlphaFact, dstAlphaFact, modulo, alphaSource, material.BlendFactor);
 
-			BridgeCalls->setBlendFuncSeparate(getGLBlend(srcRGBFact), getGLBlend(dstRGBFact),
+			CacheHandler->setBlendFuncSeparate(getGLBlend(srcRGBFact), getGLBlend(dstRGBFact),
 				getGLBlend(srcAlphaFact), getGLBlend(dstAlphaFact));
 		}
+
+		if (resetAllRenderStates || lastmaterial.Thickness != material.Thickness)
+			glLineWidth(core::clamp(static_cast<GLfloat>(material.Thickness), DimAliasedLine[0], DimAliasedLine[1]));
 
 		// Anti aliasing
 		if (resetAllRenderStates || lastmaterial.AntiAliasing != material.AntiAliasing)
@@ -1822,17 +1922,20 @@ bool COGLES2Driver::endScene()
 	//! Compare in SMaterial doesn't check texture parameters, so we should call this on each OnRender call.
 	void COGLES2Driver::setTextureRenderStates(const SMaterial& material, bool resetAllRenderstates)
 	{
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_SET_RENDERSTATE_TEXTURE);)
+
 		// Set textures to TU/TIU and apply filters to them
 
-		for (s32 i = MaxTextureUnits-1; i>= 0; --i)
+		for (s32 i = Feature.MaxTextureUnits - 1; i >= 0; --i)
 		{
-			const COGLES2Texture* tmpTexture = static_cast<const COGLES2Texture*>(CurrentTexture[i]);
-			GLenum tmpTextureType = (tmpTexture) ? tmpTexture->getOpenGLTextureType() : GL_TEXTURE_2D;
+			const COGLES2Texture* tmpTexture = CacheHandler->getTextureCache()[i];
 
-			if (CurrentTexture[i])
-				BridgeCalls->setTexture(i, tmpTextureType);
-			else
+			if (!tmpTexture)
 				continue;
+
+			GLenum tmpTextureType = tmpTexture->getOpenGLTextureType();
+
+			CacheHandler->setActiveTexture(GL_TEXTURE0 + i);
 
 			if (resetAllRenderstates)
 				tmpTexture->getStatesCache().IsCached = false;
@@ -1847,7 +1950,7 @@ bool COGLES2Driver::endScene()
 				tmpTexture->getStatesCache().TrilinearFilter = material.TextureLayer[i].TrilinearFilter;
 			}
 
-			if (material.UseMipMaps && CurrentTexture[i]->hasMipMaps())
+			if (material.UseMipMaps && tmpTexture->hasMipMaps())
 			{
 				if (!tmpTexture->getStatesCache().IsCached || material.TextureLayer[i].BilinearFilter != tmpTexture->getStatesCache().BilinearFilter ||
 					material.TextureLayer[i].TrilinearFilter != tmpTexture->getStatesCache().TrilinearFilter || !tmpTexture->getStatesCache().MipMapStatus)
@@ -1877,7 +1980,7 @@ bool COGLES2Driver::endScene()
 			}
 
 	#ifdef GL_EXT_texture_filter_anisotropic
-			if (FeatureAvailable[IRR_EXT_texture_filter_anisotropic] &&
+			if (FeatureAvailable[COGLESCoreExtensionHandler::IRR_GL_EXT_texture_filter_anisotropic] &&
 				(!tmpTexture->getStatesCache().IsCached || material.TextureLayer[i].AnisotropicFilter != tmpTexture->getStatesCache().AnisotropicFilter))
 			{
 				glTexParameteri(tmpTextureType, GL_TEXTURE_MAX_ANISOTROPY_EXT,
@@ -1924,6 +2027,13 @@ bool COGLES2Driver::endScene()
 	//! sets the needed renderstates
 	void COGLES2Driver::setRenderStates2DMode(bool alpha, bool texture, bool alphaChannel)
 	{
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_SET_RENDERSTATE_2D);)
+
+		if ( LockRenderStateMode )
+			return;
+
+		COGLES2Renderer2D* nextActiveRenderer = texture ? MaterialRenderer2DTexture : MaterialRenderer2DNoTexture;
+
 		if (CurrentRenderMode != ERM_2D)
 		{
 			// unset last 3d material
@@ -1935,7 +2045,45 @@ bool COGLES2Driver::endScene()
 
 			CurrentRenderMode = ERM_2D;
 		}
+		else if ( MaterialRenderer2DActive && MaterialRenderer2DActive != nextActiveRenderer)
+		{
+			MaterialRenderer2DActive->OnUnsetMaterial();
+		}
 
+		MaterialRenderer2DActive = nextActiveRenderer;
+
+		MaterialRenderer2DActive->OnSetMaterial(Material, LastMaterial, true, 0);
+		LastMaterial = Material;
+		CacheHandler->correctCacheMaterial(LastMaterial);
+
+		// no alphaChannel without texture
+		alphaChannel &= texture;
+
+		if (alphaChannel || alpha)
+		{
+			CacheHandler->setBlend(true);
+			CacheHandler->setBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		}
+		else
+			CacheHandler->setBlend(false);
+
+		Material.setTexture(0, const_cast<COGLES2Texture*>(CacheHandler->getTextureCache().get(0)));
+		setTransform(ETS_TEXTURE_0, core::IdentityMatrix);
+
+		if (texture)
+		{
+			if (OverrideMaterial2DEnabled)
+				setTextureRenderStates(OverrideMaterial2D, false);
+			else
+				setTextureRenderStates(InitMaterial2D, false);
+		}
+
+		MaterialRenderer2DActive->OnRender(this, video::EVT_STANDARD);
+	}
+
+
+	void COGLES2Driver::chooseMaterial2D()
+	{
 		if (!OverrideMaterial2DEnabled)
 			Material = InitMaterial2D;
 
@@ -1943,32 +2091,11 @@ bool COGLES2Driver::endScene()
 		{
 			OverrideMaterial2D.Lighting=false;
 			OverrideMaterial2D.ZWriteEnable=false;
-			OverrideMaterial2D.ZBuffer=ECFN_NEVER; // it will be ECFN_DISABLED after merge
+			OverrideMaterial2D.ZBuffer=ECFN_DISABLED; // it will be ECFN_DISABLED after merge
 			OverrideMaterial2D.Lighting=false;
 
 			Material = OverrideMaterial2D;
 		}
-
-		if (texture)
-			MaterialRenderer2D->setTexture(CurrentTexture[0]);
-		else
-			MaterialRenderer2D->setTexture(0);
-
-		MaterialRenderer2D->OnSetMaterial(Material, LastMaterial, true, 0);
-		LastMaterial = Material;
-
-		// no alphaChannel without texture
-		alphaChannel &= texture;
-
-		if (alphaChannel || alpha)
-		{
-			BridgeCalls->setBlend(true);
-			BridgeCalls->setBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		}
-		else
-			BridgeCalls->setBlend(false);
-
-		MaterialRenderer2D->OnRender(this, video::EVT_STANDARD);
 	}
 
 
@@ -2018,20 +2145,6 @@ bool COGLES2Driver::endScene()
 		return 8;
 	}
 
-
-	//! Sets the dynamic ambient light color.
-	void COGLES2Driver::setAmbientLight(const SColorf& color)
-	{
-		AmbientLight = color;
-	}
-
-	//! returns the dynamic ambient light color.
-	const SColorf& COGLES2Driver::getAmbientLight() const
-	{
-		return AmbientLight;
-	}
-
-	// this code was sent in by Oliver Klems, thank you
 	void COGLES2Driver::setViewPort(const core::rect<s32>& area)
 	{
 		core::rect<s32> vp = area;
@@ -2039,51 +2152,50 @@ bool COGLES2Driver::endScene()
 		vp.clipAgainst(rendert);
 
 		if (vp.getHeight() > 0 && vp.getWidth() > 0)
-			BridgeCalls->setViewport(core::rect<s32>(vp.UpperLeftCorner.X, getCurrentRenderTargetSize().Height - vp.UpperLeftCorner.Y - vp.getHeight(), vp.getWidth(), vp.getHeight()));
+			CacheHandler->setViewport(vp.UpperLeftCorner.X, getCurrentRenderTargetSize().Height - vp.UpperLeftCorner.Y - vp.getHeight(), vp.getWidth(), vp.getHeight());
 
 		ViewPort = vp;
-		testGLError();
 	}
 
 
 	//! Draws a shadow volume into the stencil buffer.
-	void COGLES2Driver::drawStencilShadowVolume(const core::vector3df* triangles, s32 count, bool zfail)
+	void COGLES2Driver::drawStencilShadowVolume(const core::array<core::vector3df>& triangles, bool zfail, u32 debugDataVisible)
 	{
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_SHADOW);)
+
+		const u32 count=triangles.size();
 		if (!StencilBuffer || !count)
 			return;
 
-		// unset last 3d material
-		if (CurrentRenderMode == ERM_3D &&
-			static_cast<u32>(Material.MaterialType) < MaterialRenderers.size())
+		bool fog = Material.FogEnable;
+		bool lighting = Material.Lighting;
+		E_MATERIAL_TYPE materialType = Material.MaterialType;
+
+		Material.FogEnable = false;
+		Material.Lighting = false;
+		Material.MaterialType = EMT_SOLID; // Dedicated material in future.
+
+		setRenderStates3DMode();
+
+		CacheHandler->setDepthTest(true);
+		CacheHandler->setDepthFunc(GL_LESS);
+		CacheHandler->setDepthMask(false);
+
+		if (!(debugDataVisible & (scene::EDS_SKELETON|scene::EDS_MESH_WIRE_OVERLAY)))
 		{
-			MaterialRenderers[Material.MaterialType].Renderer->OnUnsetMaterial();
-			ResetRenderStates = true;
+			CacheHandler->setColorMask(ECP_NONE);
+			glEnable(GL_STENCIL_TEST);
 		}
 
-		// store current OGLES state
-		const GLboolean cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
-		GLint cullFaceMode;
-		glGetIntegerv(GL_CULL_FACE_MODE, &cullFaceMode);
-		GLint depthFunc;
-		glGetIntegerv(GL_DEPTH_FUNC, &depthFunc);
-		GLboolean depthMask;
-		glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
-
-		glDepthFunc(GL_LEQUAL);
-		glDepthMask(GL_FALSE); // no depth buffer writing
-		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE); // no color buffer drawing
-		glEnable(GL_STENCIL_TEST);
-		glEnable(GL_POLYGON_OFFSET_FILL);
-		glPolygonOffset(0.0f, 1.0f);
-
 		glEnableVertexAttribArray(EVA_POSITION);
+		glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(core::vector3df), triangles.const_pointer());
 
-		glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(core::vector3df), &triangles[0]);
 		glStencilMask(~0);
 		glStencilFunc(GL_ALWAYS, 0, ~0);
 
 		GLenum decr = GL_DECR;
 		GLenum incr = GL_INCR;
+
 #if defined(GL_OES_stencil_wrap)
 		if (FeatureAvailable[IRR_OES_stencil_wrap])
 		{
@@ -2091,43 +2203,37 @@ bool COGLES2Driver::endScene()
 			incr = GL_INCR_WRAP_OES;
 		}
 #endif
-		glEnable(GL_CULL_FACE);
-		if (!zfail)
-		{
-			// ZPASS Method
 
-			glCullFace(GL_BACK);
+		CacheHandler->setCullFace(true);
+
+		if (zfail)
+		{
+			CacheHandler->setCullFaceFunc(GL_FRONT);
+			glStencilOp(GL_KEEP, incr, GL_KEEP);
+			glDrawArrays(GL_TRIANGLES, 0, count);
+
+			CacheHandler->setCullFaceFunc(GL_BACK);
+			glStencilOp(GL_KEEP, decr, GL_KEEP);
+			glDrawArrays(GL_TRIANGLES, 0, count);
+		}
+		else // zpass
+		{
+			CacheHandler->setCullFaceFunc(GL_BACK);
 			glStencilOp(GL_KEEP, GL_KEEP, incr);
 			glDrawArrays(GL_TRIANGLES, 0, count);
 
-			glCullFace(GL_FRONT);
+			CacheHandler->setCullFaceFunc(GL_FRONT);
 			glStencilOp(GL_KEEP, GL_KEEP, decr);
-			glDrawArrays(GL_TRIANGLES, 0, count);
-		}
-		else
-		{
-			// ZFAIL Method
-
-			glStencilOp(GL_KEEP, incr, GL_KEEP);
-			glCullFace(GL_FRONT);
-			glDrawArrays(GL_TRIANGLES, 0, count);
-
-			glStencilOp(GL_KEEP, decr, GL_KEEP);
-			glCullFace(GL_BACK);
 			glDrawArrays(GL_TRIANGLES, 0, count);
 		}
 
 		glDisableVertexAttribArray(EVA_POSITION);
-		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
 		glDisable(GL_STENCIL_TEST);
-		if (cullFaceEnabled)
-			glEnable(GL_CULL_FACE);
-		else
-			glDisable(GL_CULL_FACE);
-		glCullFace(cullFaceMode);
-		glDepthFunc(depthFunc);
-		glDepthMask(depthMask);
-		testGLError();
+
+		Material.FogEnable = fog;
+		Material.Lighting = lighting;
+		Material.MaterialType = materialType;
 	}
 
 
@@ -2135,60 +2241,45 @@ bool COGLES2Driver::endScene()
 			video::SColor leftUpEdge, video::SColor rightUpEdge,
 			video::SColor leftDownEdge, video::SColor rightDownEdge)
 	{
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_SHADOW);)
+
 		if (!StencilBuffer)
 			return;
 
-		disableTextures();
+		chooseMaterial2D();
+		setMaterialTexture(0, 0);
 
-		// store attributes
-		GLboolean depthMask;
-		glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
-//			GLint shadeModel;
-		//TODO : OpenGL ES 2.0 Port glGetIntegerv
-		//glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
+		setRenderStates2DMode(true, false, false);
 
-		glDepthMask(GL_FALSE);
+		CacheHandler->setDepthMask(false);
+		CacheHandler->setColorMask(ECP_ALL);
 
-		//TODO : OpenGL ES 2.0 Port glShadeModel
-		//glShadeModel(GL_FLAT);
-		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		CacheHandler->setBlend(true);
+		CacheHandler->setBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		glEnable(GL_STENCIL_TEST);
 		glStencilFunc(GL_NOTEQUAL, 0, ~0);
 		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
-		// draw a shadow rectangle covering the entire screen using stencil buffer
-		//Wrapper->glMatrixMode(GL_MODELVIEW);
-		//TODO : OpenGL ES 2.0 Port glPushMatrix
-		//glPushMatrix();
-		//Wrapper->glLoadIdentity();
-		//Wrapper->glMatrixMode(GL_PROJECTION);
-		//TODO : OpenGL ES 2.0 Port glPushMatrix
-		//glPushMatrix();
-		//Wrapper->glLoadIdentity();
-
 		u16 indices[] = {0, 1, 2, 3};
 		S3DVertex vertices[4];
-		vertices[0] = S3DVertex(-1.f, -1.f, 0.9f, 0, 0, 1, leftDownEdge, 0, 0);
-		vertices[1] = S3DVertex(-1.f, 1.f, 0.9f, 0, 0, 1, leftUpEdge, 0, 0);
-		vertices[2] = S3DVertex(1.f, 1.f, 0.9f, 0, 0, 1, rightUpEdge, 0, 0);
-		vertices[3] = S3DVertex(1.f, -1.f, 0.9f, 0, 0, 1, rightDownEdge, 0, 0);
-		drawVertexPrimitiveList2d3d(vertices, 4, indices, 2, video::EVT_STANDARD, scene::EPT_TRIANGLE_FAN, EIT_16BIT, false);
+		vertices[0] = S3DVertex(-1.f, 1.f, 0.9f, 0, 0, 1, leftDownEdge, 0, 0);
+		vertices[1] = S3DVertex(1.f, 1.f, 0.9f, 0, 0, 1, leftUpEdge, 0, 0);
+		vertices[2] = S3DVertex(1.f, -1.f, 0.9f, 0, 0, 1, rightUpEdge, 0, 0);
+		vertices[3] = S3DVertex(-1.f, -1.f, 0.9f, 0, 0, 1, rightDownEdge, 0, 0);
+
+		glEnableVertexAttribArray(EVA_POSITION);
+		glEnableVertexAttribArray(EVA_COLOR);
+		glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Pos);
+		glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Color);
+		glDrawElements(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_SHORT, indices);
+		glDisableVertexAttribArray(EVA_COLOR);
+		glDisableVertexAttribArray(EVA_POSITION);
 
 		if (clearStencilBuffer)
 			glClear(GL_STENCIL_BUFFER_BIT);
 
-		// restore settings
-		//TODO : OpenGL ES 2.0 Port glPopMatrix
-		//glPopMatrix();
-		//Wrapper->glMatrixMode(GL_MODELVIEW);
-		//TODO : OpenGL ES 2.0 Port glPopMatrix
-		//glPopMatrix();
 		glDisable(GL_STENCIL_TEST);
-
-		glDepthMask(depthMask);
-		//TODO : OpenGL ES 2.0 Port glShadeModel
-		//glShadeModel(shadeModel);
 	}
 
 
@@ -2196,13 +2287,22 @@ bool COGLES2Driver::endScene()
 	void COGLES2Driver::draw3DLine(const core::vector3df& start,
 			const core::vector3df& end, SColor color)
 	{
+		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_3DLINE);)
+
 		setRenderStates3DMode();
 
 		u16 indices[] = {0, 1};
 		S3DVertex vertices[2];
 		vertices[0] = S3DVertex(start.X, start.Y, start.Z, 0, 0, 1, color, 0, 0);
 		vertices[1] = S3DVertex(end.X, end.Y, end.Z, 0, 0, 1, color, 0, 0);
-		drawVertexPrimitiveList2d3d(vertices, 2, indices, 1, video::EVT_STANDARD, scene::EPT_LINES);
+
+		glEnableVertexAttribArray(EVA_POSITION);
+		glEnableVertexAttribArray(EVA_COLOR);
+		glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Pos);
+		glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Color);
+		glDrawElements(GL_LINES, 2, GL_UNSIGNED_SHORT, indices);
+		glDisableVertexAttribArray(EVA_COLOR);
+		glDisableVertexAttribArray(EVA_POSITION);
 	}
 
 
@@ -2211,8 +2311,8 @@ bool COGLES2Driver::endScene()
 	void COGLES2Driver::OnResize(const core::dimension2d<u32>& size)
 	{
 		CNullDriver::OnResize(size);
-		BridgeCalls->setViewport(core::rect<s32>(0, 0, size.Width, size.Height));
-		testGLError();
+		CacheHandler->setViewport(0, 0, size.Width, size.Height);
+		Transformation3DChanged = true;
 	}
 
 
@@ -2337,45 +2437,48 @@ bool COGLES2Driver::endScene()
 		return this;
 	}
 
-
-	ITexture* COGLES2Driver::addRenderTargetTexture(
-			const core::dimension2d<u32>& size,
-			const io::path& name, const ECOLOR_FORMAT format)
+	ITexture* COGLES2Driver::addRenderTargetTexture(const core::dimension2d<u32>& size,
+		const io::path& name, const ECOLOR_FORMAT format)
 	{
 		//disable mip-mapping
-		const bool generateMipLevels = getTextureCreationFlag(ETCF_CREATE_MIP_MAPS);
+		bool generateMipLevels = getTextureCreationFlag(ETCF_CREATE_MIP_MAPS);
 		setTextureCreationFlag(ETCF_CREATE_MIP_MAPS, false);
 
-		video::ITexture* rtt = 0;
-
-		rtt = new COGLES2FBOTexture(size, name, this, format);
-		if (rtt)
-		{
-			bool success = false;
-			addTexture(rtt);
-
-			ITexture* tex = createDepthTexture(rtt);
-			if (tex)
-			{
-				success = static_cast<video::COGLES2FBODepthTexture*>(tex)->attach(rtt);
-				if (!success)
-				{
-					removeDepthTexture(tex);
-				}
-				tex->drop();
-			}
-			rtt->drop();
-			if (!success)
-			{
-				removeTexture(rtt);
-				rtt=0;
-			}
-		}
+		COGLES2Texture* renderTargetTexture = new COGLES2Texture(name, size, ETT_2D, format, this);
+		addTexture(renderTargetTexture);
+		renderTargetTexture->drop();
 
 		//restore mip-mapping
 		setTextureCreationFlag(ETCF_CREATE_MIP_MAPS, generateMipLevels);
 
-		return rtt;
+		return renderTargetTexture;
+	}
+
+	ITexture* COGLES2Driver::addRenderTargetTextureCubemap(const irr::u32 sideLen, const io::path& name, const ECOLOR_FORMAT format)
+	{
+		//disable mip-mapping
+		bool generateMipLevels = getTextureCreationFlag(ETCF_CREATE_MIP_MAPS);
+		setTextureCreationFlag(ETCF_CREATE_MIP_MAPS, false);
+
+		bool supportForFBO = (Feature.ColorAttachment > 0);
+
+		const core::dimension2d<u32> size(sideLen, sideLen);
+		core::dimension2du destSize(size);
+
+		if (!supportForFBO)
+		{
+			destSize = core::dimension2d<u32>(core::min_(size.Width, ScreenSize.Width), core::min_(size.Height, ScreenSize.Height));
+			destSize = destSize.getOptimalSize((size == size.getOptimalSize()), false, false);
+		}
+
+		COGLES2Texture* renderTargetTexture = new COGLES2Texture(name, destSize, ETT_CUBEMAP, format, this);
+		addTexture(renderTargetTexture);
+		renderTargetTexture->drop();
+
+		//restore mip-mapping
+		setTextureCreationFlag(ETCF_CREATE_MIP_MAPS, generateMipLevels);
+
+		return renderTargetTexture;
 	}
 
 
@@ -2385,86 +2488,88 @@ bool COGLES2Driver::endScene()
 		return 65535;
 	}
 
-
-	//! set or reset render target
-	bool COGLES2Driver::setRenderTarget(video::ITexture* texture, bool clearBackBuffer,
-			bool clearZBuffer, SColor color)
+	bool COGLES2Driver::setRenderTargetEx(IRenderTarget* target, u16 clearFlag, SColor clearColor, f32 clearDepth, u8 clearStencil)
 	{
-		// check for right driver type
-
-		if (texture && texture->getDriverType() != EDT_OGLES2)
+		if (target && target->getDriverType() != EDT_OGLES2  && target->getDriverType() != EDT_WEBGL1)
 		{
-			os::Printer::log("Fatal Error: Tried to set a texture not owned by this driver.", ELL_ERROR);
+			os::Printer::log("Fatal Error: Tried to set a render target not owned by OGLES2 driver.", ELL_ERROR);
 			return false;
 		}
 
-		// check if we should set the previous RT back
+		core::dimension2d<u32> destRenderTargetSize(0, 0);
 
-		setActiveTexture(0, 0);
-		ResetRenderStates = true;
-		if (RenderTargetTexture != 0)
+		if (target)
 		{
-			RenderTargetTexture->unbindRTT();
-		}
+			COGLES2RenderTarget* renderTarget = static_cast<COGLES2RenderTarget*>(target);
 
-		if (texture)
-		{
-			// we want to set a new target. so do this.
-			BridgeCalls->setViewport(core::rect<s32>(0, 0, texture->getSize().Width, texture->getSize().Height));
-			RenderTargetTexture = static_cast<COGLES2Texture*>(texture);
-			RenderTargetTexture->bindRTT();
-			CurrentRendertargetSize = texture->getSize();
+			CacheHandler->setFBO(renderTarget->getBufferID());
+			renderTarget->update();
+
+			destRenderTargetSize = renderTarget->getSize();
+
+			CacheHandler->setViewport(0, 0, destRenderTargetSize.Width, destRenderTargetSize.Height);
 		}
 		else
 		{
-			BridgeCalls->setViewport(core::rect<s32>(0, 0, ScreenSize.Width, ScreenSize.Height));
-			RenderTargetTexture = 0;
-			CurrentRendertargetSize = core::dimension2d<u32>(0, 0);
+			CacheHandler->setFBO(0);
+
+			destRenderTargetSize = core::dimension2d<u32>(0, 0);
+
+			CacheHandler->setViewport(0, 0, ScreenSize.Width, ScreenSize.Height);
 		}
 
-		GLbitfield mask = 0;
-		if (clearBackBuffer)
+		if (CurrentRenderTargetSize != destRenderTargetSize)
 		{
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-			Material.ColorMask = ECP_ALL;
+			CurrentRenderTargetSize = destRenderTargetSize;
 
-			const f32 inv = 1.0f / 255.0f;
-			glClearColor(color.getRed() * inv, color.getGreen() * inv,
-						color.getBlue() * inv, color.getAlpha() * inv);
-
-			mask |= GL_COLOR_BUFFER_BIT;
-		}
-		if (clearZBuffer)
-		{
-			glDepthMask(GL_TRUE);
-			Material.ZWriteEnable = true;
-
-			mask |= GL_DEPTH_BUFFER_BIT;
+			Transformation3DChanged = true;
 		}
 
-		glClear(mask);
+		CurrentRenderTarget = target;
+
+		clearBuffers(clearFlag, clearColor, clearDepth, clearStencil);
 
 		return true;
 	}
 
-
-	// returns the current size of the screen or rendertarget
-	const core::dimension2d<u32>& COGLES2Driver::getCurrentRenderTargetSize() const
+	void COGLES2Driver::clearBuffers(u16 flag, SColor color, f32 depth, u8 stencil)
 	{
-		if (CurrentRendertargetSize.Width == 0)
-			return ScreenSize;
-		else
-			return CurrentRendertargetSize;
-	}
+		GLbitfield mask = 0;
+		u8 colorMask = 0;
+		bool depthMask = false;
 
+		CacheHandler->getColorMask(colorMask);
+		CacheHandler->getDepthMask(depthMask);
 
-	//! Clears the ZBuffer.
-	void COGLES2Driver::clearZBuffer()
-	{
-		glDepthMask(GL_TRUE);
-		Material.ZWriteEnable = true;
+		if (flag & ECBF_COLOR)
+		{
+			CacheHandler->setColorMask(ECP_ALL);
 
-		glClear(GL_DEPTH_BUFFER_BIT);
+			const f32 inv = 1.0f / 255.0f;
+			glClearColor(color.getRed() * inv, color.getGreen() * inv,
+				color.getBlue() * inv, color.getAlpha() * inv);
+
+			mask |= GL_COLOR_BUFFER_BIT;
+		}
+
+		if (flag & ECBF_DEPTH)
+		{
+			CacheHandler->setDepthMask(true);
+			glClearDepthf(depth);
+			mask |= GL_DEPTH_BUFFER_BIT;
+		}
+
+		if (flag & ECBF_STENCIL)
+		{
+			glClearStencil(stencil);
+			mask |= GL_STENCIL_BUFFER_BIT;
+		}
+
+		if (mask)
+			glClear(mask);
+
+		CacheHandler->setColorMask(colorMask);
+		CacheHandler->setDepthMask(depthMask);
 	}
 
 
@@ -2509,16 +2614,15 @@ bool COGLES2Driver::endScene()
 		if (!newImage)
 			return 0;
 
-		u8* pixels = static_cast<u8*>(newImage->lock());
+		u8* pixels = static_cast<u8*>(newImage->getData());
 		if (!pixels)
 		{
-			newImage->unlock();
 			newImage->drop();
 			return 0;
 		}
 
 		glReadPixels(0, 0, ScreenSize.Width, ScreenSize.Height, internalformat, type, pixels);
-		testGLError();
+		testGLError(__LINE__);
 
 		// opengl images are horizontally flipped, so we have to fix that here.
 		const s32 pitch = newImage->getPitch();
@@ -2534,74 +2638,19 @@ bool COGLES2Driver::endScene()
 		}
 		delete [] tmpBuffer;
 
-		newImage->unlock();
-
-		if (testGLError())
+		if (testGLError(__LINE__))
 		{
 			newImage->drop();
 			return 0;
 		}
-		testGLError();
+		testGLError(__LINE__);
 		return newImage;
-	}
-
-
-	//! get depth texture for the given render target texture
-	ITexture* COGLES2Driver::createDepthTexture(ITexture* texture, bool shared)
-	{
-		if ((texture->getDriverType() != EDT_OGLES2) || (!texture->isRenderTarget()))
-			return 0;
-		COGLES2Texture* tex = static_cast<COGLES2Texture*>(texture);
-
-		if (!tex->isFrameBufferObject())
-			return 0;
-
-		if (shared)
-		{
-			for (u32 i = 0; i < DepthTextures.size(); ++i)
-			{
-				if (DepthTextures[i]->getSize() == texture->getSize())
-				{
-					DepthTextures[i]->grab();
-					return DepthTextures[i];
-				}
-			}
-			DepthTextures.push_back(new COGLES2FBODepthTexture(texture->getSize(), "depth1", this));
-			return DepthTextures.getLast();
-		}
-		return (new COGLES2FBODepthTexture(texture->getSize(), "depth1", this));
-	}
-
-
-	void COGLES2Driver::removeDepthTexture(ITexture* texture)
-	{
-		for (u32 i = 0; i < DepthTextures.size(); ++i)
-		{
-			if (texture == DepthTextures[i])
-			{
-				DepthTextures.erase(i);
-				return;
-			}
-		}
 	}
 
 	void COGLES2Driver::removeTexture(ITexture* texture)
 	{
-		if (!texture)
-			return;
-
+		CacheHandler->getTextureCache().remove(texture);
 		CNullDriver::removeTexture(texture);
-		CurrentTexture.remove(texture);
-	}
-
-	void COGLES2Driver::deleteFramebuffers(s32 n, const u32 *framebuffers)
-	{
-		glDeleteFramebuffers(n, framebuffers);
-	}
-
-	void COGLES2Driver::deleteRenderbuffers(s32 n, const u32 *renderbuffers)
-	{
-		glDeleteRenderbuffers(n, renderbuffers);
 	}
 
 	//! Set/unset a clipping plane.
@@ -2632,7 +2681,11 @@ bool COGLES2Driver::endScene()
 		if (index < UserClipPlane.size())
 			return UserClipPlane[index].Plane;
 		else
-			return *((core::plane3df*)0);
+		{
+			_IRR_DEBUG_BREAK_IF(true)	// invalid index
+			static const core::plane3df dummy;
+			return dummy;
+		}
 	}
 
 	core::dimension2du COGLES2Driver::getMaxTextureSize() const
@@ -2642,54 +2695,325 @@ bool COGLES2Driver::endScene()
 
 	GLenum COGLES2Driver::getGLBlend(E_BLEND_FACTOR factor) const
 	{
-		GLenum r = 0;
-		switch (factor)
+		static GLenum const blendTable[] =
 		{
-			case EBF_ZERO:			r = GL_ZERO; break;
-			case EBF_ONE:			r = GL_ONE; break;
-			case EBF_DST_COLOR:		r = GL_DST_COLOR; break;
-			case EBF_ONE_MINUS_DST_COLOR:	r = GL_ONE_MINUS_DST_COLOR; break;
-			case EBF_SRC_COLOR:		r = GL_SRC_COLOR; break;
-			case EBF_ONE_MINUS_SRC_COLOR:	r = GL_ONE_MINUS_SRC_COLOR; break;
-			case EBF_SRC_ALPHA:		r = GL_SRC_ALPHA; break;
-			case EBF_ONE_MINUS_SRC_ALPHA:	r = GL_ONE_MINUS_SRC_ALPHA; break;
-			case EBF_DST_ALPHA:		r = GL_DST_ALPHA; break;
-			case EBF_ONE_MINUS_DST_ALPHA:	r = GL_ONE_MINUS_DST_ALPHA; break;
-			case EBF_SRC_ALPHA_SATURATE:	r = GL_SRC_ALPHA_SATURATE; break;
-		}
-		return r;
+			GL_ZERO,
+			GL_ONE,
+			GL_DST_COLOR,
+			GL_ONE_MINUS_DST_COLOR,
+			GL_SRC_COLOR,
+			GL_ONE_MINUS_SRC_COLOR,
+			GL_SRC_ALPHA,
+			GL_ONE_MINUS_SRC_ALPHA,
+			GL_DST_ALPHA,
+			GL_ONE_MINUS_DST_ALPHA,
+			GL_SRC_ALPHA_SATURATE
+		};
+
+		return blendTable[factor];
 	}
 
 	GLenum COGLES2Driver::getZBufferBits() const
 	{
-/*#if defined(GL_OES_depth24)
-		if (Driver->queryOpenGLFeature(COGLES2ExtensionHandler::IRR_OES_depth24))
-			InternalFormat = GL_DEPTH_COMPONENT24_OES;
-		else
-#endif
-#if defined(GL_OES_depth32)
-		if (Driver->queryOpenGLFeature(COGLES2ExtensionHandler::IRR_OES_depth32))
-			InternalFormat = GL_DEPTH_COMPONENT32_OES;
-		else
-#endif*/
+		// TODO: never used, so not sure what this was really about (zbuffer used by device? Or for RTT's?)
 
-		GLenum bits = GL_DEPTH_COMPONENT16;//0;
-		/*switch (Params.ZBufferBits)
+		GLenum bits = 0;
+
+		switch (Params.ZBufferBits)
 		{
-		case 16:
-			bits = GL_DEPTH_COMPONENT16;
-			break;
 		case 24:
-			bits = GL_DEPTH_COMPONENT24;
+#if defined(GL_OES_depth24)
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_OES_depth24))
+				bits = GL_DEPTH_COMPONENT24_OES;
+			else
+#endif
+				bits = GL_DEPTH_COMPONENT16;
 			break;
 		case 32:
-			bits = GL_DEPTH_COMPONENT32;
+#if defined(GL_OES_depth32)
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_OES_depth32))
+				bits = GL_DEPTH_COMPONENT32_OES;
+			else
+#endif
+				bits = GL_DEPTH_COMPONENT16;
 			break;
 		default:
-			bits = GL_DEPTH_COMPONENT;
+			bits = GL_DEPTH_COMPONENT16;
 			break;
-		}*/
+		}
+
 		return bits;
+	}
+
+	bool COGLES2Driver::getColorFormatParameters(ECOLOR_FORMAT format, GLint& internalFormat, GLenum& pixelFormat,
+		GLenum& pixelType, void(**converter)(const void*, s32, void*)) const
+	{
+		bool supported = false;
+		pixelFormat = GL_RGBA;
+		pixelType = GL_UNSIGNED_BYTE;
+		*converter = 0;
+
+		switch (format)
+		{
+		case ECF_A1R5G5B5:
+			supported = true;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_UNSIGNED_SHORT_5_5_5_1;
+			*converter = CColorConverter::convert_A1R5G5B5toR5G5B5A1;
+			break;
+		case ECF_R5G6B5:
+			supported = true;
+			pixelFormat = GL_RGB;
+			pixelType = GL_UNSIGNED_SHORT_5_6_5;
+			break;
+		case ECF_R8G8B8:
+			supported = true;
+			pixelFormat = GL_RGB;
+			pixelType = GL_UNSIGNED_BYTE;
+			break;
+		case ECF_A8R8G8B8:
+			supported = true;
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_IMG_texture_format_BGRA8888) ||
+				queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_EXT_texture_format_BGRA8888) ||
+				queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_APPLE_texture_format_BGRA8888))
+			{
+				pixelFormat = GL_BGRA;
+			}
+			else
+			{
+				pixelFormat = GL_RGBA;
+				*converter = CColorConverter::convert_A8R8G8B8toA8B8G8R8;
+			}
+			pixelType = GL_UNSIGNED_BYTE;
+			break;
+#ifdef GL_EXT_texture_compression_s3tc
+		case ECF_DXT1:
+			supported = true;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+			break;
+#endif
+#ifdef GL_EXT_texture_compression_s3tc
+		case ECF_DXT2:
+		case ECF_DXT3:
+			supported = true;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
+			break;
+#endif
+#ifdef GL_EXT_texture_compression_s3tc
+		case ECF_DXT4:
+		case ECF_DXT5:
+			supported = true;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+			break;
+#endif
+#ifdef GL_IMG_texture_compression_pvrtc
+		case ECF_PVRTC_RGB2:
+			supported = true;
+			pixelFormat = GL_RGB;
+			pixelType = GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG;
+			break;
+#endif
+#ifdef GL_IMG_texture_compression_pvrtc
+		case ECF_PVRTC_ARGB2:
+			supported = true;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG;
+			break;
+#endif
+#ifdef GL_IMG_texture_compression_pvrtc
+		case ECF_PVRTC_RGB4:
+			supported = true;
+			pixelFormat = GL_RGB;
+			pixelType = GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG;
+			break;
+#endif
+#ifdef GL_IMG_texture_compression_pvrtc
+		case ECF_PVRTC_ARGB4:
+			supported = true;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG;
+			break;
+#endif
+#ifdef GL_IMG_texture_compression_pvrtc2
+		case ECF_PVRTC2_ARGB2:
+			supported = true;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_COMPRESSED_RGBA_PVRTC_2BPPV2_IMG;
+			break;
+#endif
+#ifdef GL_IMG_texture_compression_pvrtc2
+		case ECF_PVRTC2_ARGB4:
+			supported = true;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_COMPRESSED_RGBA_PVRTC_4BPPV2_IMG;
+			break;
+#endif
+#ifdef GL_OES_compressed_ETC1_RGB8_texture
+		case ECF_ETC1:
+			supported = true;
+			pixelFormat = GL_RGB;
+			pixelType = GL_ETC1_RGB8_OES;
+			break;
+#endif
+#ifdef GL_ES_VERSION_3_0 // TO-DO - fix when extension name will be available
+		case ECF_ETC2_RGB:
+			supported = true;
+			pixelFormat = GL_RGB;
+			pixelType = GL_COMPRESSED_RGB8_ETC2;
+			break;
+#endif
+#ifdef GL_ES_VERSION_3_0 // TO-DO - fix when extension name will be available
+		case ECF_ETC2_ARGB:
+			supported = true;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_COMPRESSED_RGBA8_ETC2_EAC;
+			break;
+#endif
+		case ECF_D16:
+			supported = true;
+			pixelFormat = GL_DEPTH_COMPONENT;
+			pixelType = GL_UNSIGNED_SHORT;
+			break;
+		case ECF_D32:
+#if defined(GL_OES_depth32)
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_OES_depth32))
+			{
+				supported = true;
+				pixelFormat = GL_DEPTH_COMPONENT;
+				pixelType = GL_UNSIGNED_INT;
+			}
+#endif
+			break;
+		case ECF_D24S8:
+#ifdef GL_OES_packed_depth_stencil
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_OES_packed_depth_stencil))
+			{
+				supported = true;
+				pixelFormat = GL_DEPTH_STENCIL_OES;
+				pixelType = GL_UNSIGNED_INT_24_8_OES;
+			}
+#endif
+			break;
+		case ECF_R8:
+#if defined(GL_EXT_texture_rg)
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_EXT_texture_rg))
+			{
+				supported = true;
+				pixelFormat = GL_RED_EXT;
+				pixelType = GL_UNSIGNED_BYTE;
+			}
+#endif
+			break;
+		case ECF_R8G8:
+#if defined(GL_EXT_texture_rg)
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_EXT_texture_rg))
+			{
+				supported = true;
+				pixelFormat = GL_RG_EXT;
+				pixelType = GL_UNSIGNED_BYTE;
+			}
+#endif
+			break;
+		case ECF_R16:
+			break;
+		case ECF_R16G16:
+			break;
+		case ECF_R16F:
+#if defined(GL_OES_texture_half_float) && defined(GL_EXT_texture_rg)
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_EXT_texture_rg)
+				&& queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_OES_texture_half_float)
+				)
+			{
+				supported = true;
+				pixelFormat = GL_RED_EXT;
+				pixelType = GL_HALF_FLOAT_OES ;
+			}
+#endif
+			break;
+		case ECF_G16R16F:
+#if defined(GL_OES_texture_half_float) && defined(GL_EXT_texture_rg)
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_EXT_texture_rg)
+				&& queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_OES_texture_half_float)
+				)
+			{
+				supported = true;
+				pixelFormat = GL_RG_EXT;
+				pixelType = GL_HALF_FLOAT_OES ;
+			}
+#endif
+			break;
+		case ECF_A16B16G16R16F:
+#if defined(GL_OES_texture_half_float)
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_OES_texture_half_float))
+			{
+				supported = true;
+				pixelFormat = GL_RGBA;
+				pixelType = GL_HALF_FLOAT_OES ;
+			}
+#endif
+			break;
+		case ECF_R32F:
+#if defined(GL_OES_texture_float) && defined(GL_EXT_texture_rg)
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_EXT_texture_rg)
+				&& queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_OES_texture_float)
+				)
+			{
+				supported = true;
+				pixelFormat = GL_RED_EXT;
+				pixelType = GL_FLOAT;
+			}
+#endif
+			break;
+		case ECF_G32R32F:
+#if defined(GL_OES_texture_float) && defined(GL_EXT_texture_rg)
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_EXT_texture_rg)
+				&& queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_OES_texture_float)
+				)
+			{
+				supported = true;
+				pixelFormat = GL_RG_EXT;
+				pixelType = GL_FLOAT;
+			}
+#endif
+			break;
+		case ECF_A32B32G32R32F:
+#if defined(GL_OES_texture_float)
+			if (queryGLESFeature(COGLESCoreExtensionHandler::IRR_GL_OES_texture_half_float))
+			{
+				supported = true;
+				pixelFormat = GL_RGBA;
+				pixelType = GL_FLOAT ;
+			}
+#endif
+			break;
+		default:
+			break;
+		}
+
+		// ES 2.0 says internalFormat must match pixelFormat (chapter 3.7.1 in Spec).
+		// Doesn't mention if "match" means "equal" or some other way of matching, but
+		// some bug on Emscripten and browsing discussions by others lead me to believe
+		// it means they have to be equal. Note that this was different in OpenGL.
+		internalFormat = pixelFormat;
+
+#ifdef _IRR_IOS_PLATFORM_
+		if (internalFormat == GL_BGRA)
+			internalFormat = GL_RGBA;
+#endif
+
+		return supported;
+	}
+
+	bool COGLES2Driver::queryTextureFormat(ECOLOR_FORMAT format) const
+	{
+		GLint dummyInternalFormat;
+		GLenum dummyPixelFormat;
+		GLenum dummyPixelType;
+		void (*dummyConverter)(const void*, s32, void*);
+		return getColorFormatParameters(format, dummyInternalFormat, dummyPixelFormat, dummyPixelType, &dummyConverter);
 	}
 
 	const SMaterial& COGLES2Driver::getCurrentMaterial() const
@@ -2697,219 +3021,9 @@ bool COGLES2Driver::endScene()
 		return Material;
 	}
 
-	COGLES2CallBridge* COGLES2Driver::getBridgeCalls() const
+	COGLES2CacheHandler* COGLES2Driver::getCacheHandler() const
 	{
-		return BridgeCalls;
-	}
-
-	COGLES2CallBridge::COGLES2CallBridge(COGLES2Driver* driver) : Driver(driver),
-		BlendEquation(GL_FUNC_ADD), BlendSourceRGB(GL_ONE), BlendDestinationRGB(GL_ZERO),
-		BlendSourceAlpha(GL_ONE), BlendDestinationAlpha(GL_ZERO), Blend(false),
-		CullFaceMode(GL_BACK), CullFace(false),
-		DepthFunc(GL_LESS), DepthMask(true), DepthTest(false),
-		Program(0), ActiveTexture(GL_TEXTURE0), Viewport(core::rect<s32>(0, 0, 0, 0))
-	{
-		// Initial OpenGL values from specification.
-
-		for (u32 i = 0; i < MATERIAL_MAX_TEXTURES; ++i)
-		{
-			Texture[i] = 0;
-			TextureType[i] = GL_TEXTURE_2D;
-		}
-
-		glBlendFunc(GL_ONE, GL_ZERO);
-		glDisable(GL_BLEND);
-
-		glCullFace(GL_BACK);
-		glDisable(GL_CULL_FACE);
-
-		glDepthFunc(GL_LESS);
-		glDepthMask(GL_TRUE);
-		glDisable(GL_DEPTH_TEST);
-	}
-
-	void COGLES2CallBridge::setBlendEquation(GLenum mode)
-	{
-		if (BlendEquation != mode)
-		{
-			glBlendEquation(mode);
-
-			BlendEquation = mode;
-		}
-	}
-
-	void COGLES2CallBridge::setBlendFunc(GLenum source, GLenum destination)
-	{
-		if (BlendSourceRGB != source || BlendDestinationRGB != destination ||
-		    BlendSourceAlpha != source || BlendDestinationAlpha != destination)
-		{
-			glBlendFunc(source, destination);
-
-			BlendSourceRGB = source;
-			BlendDestinationRGB = destination;
-			BlendSourceAlpha = source;
-			BlendDestinationAlpha = destination;
-		}
-	}
-
-	void COGLES2CallBridge::setBlendFuncSeparate(GLenum sourceRGB, GLenum destinationRGB, GLenum sourceAlpha, GLenum destinationAlpha)
-	{
-		if (sourceRGB != sourceAlpha || destinationRGB != destinationAlpha)
-		{
-		    if (BlendSourceRGB != sourceRGB || BlendDestinationRGB != destinationRGB ||
-		        BlendSourceAlpha != sourceAlpha || BlendDestinationAlpha != destinationAlpha)
-		    {
-		        glBlendFuncSeparate(sourceRGB, destinationRGB, sourceAlpha, destinationAlpha);
-
-				BlendSourceRGB = sourceRGB;
-				BlendDestinationRGB = destinationRGB;
-				BlendSourceAlpha = sourceAlpha;
-				BlendDestinationAlpha = destinationAlpha;
-		    }
-		}
-		else
-		{
-		    setBlendFunc(sourceRGB, destinationRGB);
-		}
-	}
-
-	void COGLES2CallBridge::setBlend(bool enable)
-	{
-		if (Blend != enable)
-		{
-			if (enable)
-				glEnable(GL_BLEND);
-			else
-				glDisable(GL_BLEND);
-
-			Blend = enable;
-		}
-	}
-
-	void COGLES2CallBridge::setCullFaceFunc(GLenum mode)
-	{
-		if (CullFaceMode != mode)
-		{
-			glCullFace(mode);
-
-			CullFaceMode = mode;
-		}
-	}
-
-	void COGLES2CallBridge::setCullFace(bool enable)
-	{
-		if (CullFace != enable)
-		{
-			if (enable)
-				glEnable(GL_CULL_FACE);
-			else
-				glDisable(GL_CULL_FACE);
-
-			CullFace = enable;
-		}
-	}
-
-	void COGLES2CallBridge::setDepthFunc(GLenum mode)
-	{
-		if (DepthFunc != mode)
-		{
-			glDepthFunc(mode);
-
-			DepthFunc = mode;
-		}
-	}
-
-	void COGLES2CallBridge::setDepthMask(bool enable)
-	{
-		if (DepthMask != enable)
-		{
-			if (enable)
-				glDepthMask(GL_TRUE);
-			else
-				glDepthMask(GL_FALSE);
-
-			DepthMask = enable;
-		}
-	}
-
-	void COGLES2CallBridge::setDepthTest(bool enable)
-	{
-		if (DepthTest != enable)
-		{
-			if (enable)
-				glEnable(GL_DEPTH_TEST);
-			else
-				glDisable(GL_DEPTH_TEST);
-
-			DepthTest = enable;
-		}
-	}
-
-	void COGLES2CallBridge::setProgram(GLuint program)
-	{
-		if (Program != program)
-		{
-			glUseProgram(program);
-			Program = program;
-		}
-	}
-
-	void COGLES2CallBridge::resetTexture(const ITexture* texture)
-	{
-		for (u32 i = 0; i < MATERIAL_MAX_TEXTURES; ++i)
-		{
-			if (Texture[i] == texture)
-			{
-				setActiveTexture(GL_TEXTURE0 + i);
-				glBindTexture(GL_TEXTURE_2D, 0);
-
-				Texture[i] = 0;
-				TextureType[i] = GL_TEXTURE_2D;
-			}
-		}
-	}
-
-	void COGLES2CallBridge::setActiveTexture(GLenum texture)
-	{
-		if (ActiveTexture != texture)
-		{
-			glActiveTexture(texture);
-			ActiveTexture = texture;
-		}
-	}
-
-	void COGLES2CallBridge::getTexture(u32 stage, GLenum& type)
-	{
- 		if (stage < MATERIAL_MAX_TEXTURES)
-			type = TextureType[stage];
-	}
-
-	void COGLES2CallBridge::setTexture(u32 stage, GLenum type)
-	{
-		if (stage < MATERIAL_MAX_TEXTURES)
-		{
-			if (Texture[stage] != Driver->CurrentTexture[stage])
-			{
-				setActiveTexture(GL_TEXTURE0 + stage);
-
-				if (Driver->CurrentTexture[stage])
-					glBindTexture(type, static_cast<const COGLES2Texture*>(Driver->CurrentTexture[stage])->getOpenGLTextureName());
-				else
-					glBindTexture(type, 0);
-
-				TextureType[stage] = type;
-				Texture[stage] = Driver->CurrentTexture[stage];
-			}
-		}
-	}
-
-	void COGLES2CallBridge::setViewport(const core::rect<s32>& viewport)
-	{
-		if (Viewport != viewport)
-		{
-			glViewport(viewport.UpperLeftCorner.X, viewport.UpperLeftCorner.Y, viewport.LowerRightCorner.X, viewport.LowerRightCorner.Y);
-			Viewport = viewport;
-		}
+		return CacheHandler;
 	}
 
 
@@ -2924,26 +3038,16 @@ namespace video
 {
 
 #ifndef _IRR_COMPILE_WITH_OGLES2_
+class IVideoDriver;
 class IContextManager;
 #endif
 
-IVideoDriver* createOGLES2Driver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_) || defined(_IRR_WINDOWS_API_) || defined(_IRR_COMPILE_WITH_ANDROID_DEVICE_) || defined(_IRR_COMPILE_WITH_FB_DEVICE_)
-        , IContextManager* contextManager
-#elif defined(_IRR_COMPILE_WITH_IPHONE_DEVICE_)
-        , CIrrDeviceIPhone* device
-#endif
-    )
+IVideoDriver* createOGLES2Driver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, IContextManager* contextManager)
 {
 #ifdef _IRR_COMPILE_WITH_OGLES2_
-	return new COGLES2Driver(params, io
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_) || defined(_IRR_WINDOWS_API_) || defined(_IRR_COMPILE_WITH_ANDROID_DEVICE_) || defined(_IRR_COMPILE_WITH_FB_DEVICE_)
-        , contextManager
-#elif defined(_IRR_COMPILE_WITH_IPHONE_DEVICE_)
-        , device
-#endif
-    );
+	COGLES2Driver* driver = new COGLES2Driver(params, io, contextManager);
+	driver->genericDriverInit(params.WindowSize, params.Stencilbuffer);	// don't call in constructor, it uses virtual function calls of driver
+	return driver;
 #else
 	return 0;
 #endif //  _IRR_COMPILE_WITH_OGLES2_

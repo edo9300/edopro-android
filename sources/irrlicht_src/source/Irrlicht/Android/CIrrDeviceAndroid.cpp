@@ -33,14 +33,14 @@ namespace irr
 {
 
 CIrrDeviceAndroid::CIrrDeviceAndroid(const SIrrlichtCreationParameters& param)
-	: CIrrDeviceStub(param), Focused(false), Initialized(false), Paused(true), JNIEnvAttachedToVM(0)
+	: CIrrDeviceStub(param), Accelerometer(0), Gyroscope(0), Focused(false), Initialized(false), Paused(true), JNIEnvAttachedToVM(0)
 {
 #ifdef _DEBUG
 	setDebugName("CIrrDeviceAndroid");
 #endif
 
 	// Get the interface to the native Android activity.
-	Android = (ANDROID_APP)(param.PrivateData);
+	Android = (android_app*)(param.PrivateData);
 
 	// Set the private data so we can use it in any static callbacks.
 	Android->userData = this;
@@ -48,7 +48,7 @@ CIrrDeviceAndroid::CIrrDeviceAndroid(const SIrrlichtCreationParameters& param)
 	// Set the default command handler. This is a callback function that the Android
 	// OS invokes to send the native activity messages.
 	Android->onAppCmd = handleAndroidCommand;
-	
+
 	createKeyMap();
 
 	// Create a sensor manager to receive touch screen events from the java activity.
@@ -104,13 +104,47 @@ bool CIrrDeviceAndroid::run()
 
 	os::Timer::tick();
 
+	s32 id;
 	s32 Events = 0;
 	android_poll_source* Source = 0;
 
-	while ((ALooper_pollAll(((Focused && !Paused) || !Initialized) ? 0 : -1, 0, &Events, (void**)&Source)) >= 0)
+	while ((id = ALooper_pollAll(((Focused && !Paused) || !Initialized) ? 0 : -1, 0, &Events, (void**)&Source)) >= 0)
 	{
 		if(Source)
 			Source->process(Android, Source);
+
+		// if a sensor has data, we'll process it now.
+        if (id == LOOPER_ID_USER)
+		{
+			ASensorEvent sensorEvent;
+			while (ASensorEventQueue_getEvents(SensorEventQueue, &sensorEvent, 1) > 0)
+			{
+				switch (sensorEvent.type)
+				{
+					case ASENSOR_TYPE_ACCELEROMETER:
+						SEvent accEvent;
+						accEvent.EventType = EET_ACCELEROMETER_EVENT;
+						accEvent.AccelerometerEvent.X = sensorEvent.acceleration.x;
+						accEvent.AccelerometerEvent.Y = sensorEvent.acceleration.y;
+						accEvent.AccelerometerEvent.Z = sensorEvent.acceleration.z;
+
+						postEventFromUser(accEvent);
+					break;
+
+					case ASENSOR_TYPE_GYROSCOPE:
+						SEvent gyroEvent;
+						gyroEvent.EventType = EET_GYROSCOPE_EVENT;
+						gyroEvent.GyroscopeEvent.X = sensorEvent.vector.x;
+						gyroEvent.GyroscopeEvent.Y = sensorEvent.vector.y;
+						gyroEvent.GyroscopeEvent.Z = sensorEvent.vector.z;
+
+						postEventFromUser(gyroEvent);
+					break;
+					default:
+					break;
+				}
+			}
+		}
 
 		if(!Initialized)
 			break;
@@ -122,7 +156,7 @@ bool CIrrDeviceAndroid::run()
 void CIrrDeviceAndroid::yield()
 {
 	struct timespec ts = {0,1};
-	nanosleep(&ts, NULL);	
+	nanosleep(&ts, NULL);
 }
 
 void CIrrDeviceAndroid::sleep(u32 timeMs, bool pauseTimer)
@@ -139,7 +173,7 @@ void CIrrDeviceAndroid::sleep(u32 timeMs, bool pauseTimer)
 	nanosleep(&ts, NULL);
 
 	if (pauseTimer && !wasStopped)
-		Timer->start();	
+		Timer->start();
 }
 
 void CIrrDeviceAndroid::setWindowCaption(const wchar_t* text)
@@ -197,17 +231,44 @@ E_DEVICE_TYPE CIrrDeviceAndroid::getType() const
 	return EIDT_ANDROID;
 }
 
-void CIrrDeviceAndroid::handleAndroidCommand(ANDROID_APP app, int32_t cmd)
+void CIrrDeviceAndroid::handleAndroidCommand(android_app* app, int32_t cmd)
 {
 	CIrrDeviceAndroid* device = (CIrrDeviceAndroid*)app->userData;
 
+	SEvent event;
+	event.EventType = EET_SYSTEM_EVENT;
+	event.SystemEvent.EventType = ESET_ANDROID_CMD;
+	event.SystemEvent.AndroidCmd.Cmd = cmd;
+	if ( device->postEventFromUser(event) )
+		return;
+
 	switch (cmd)
 	{
+		case APP_CMD_INPUT_CHANGED:
+			os::Printer::log("Android command APP_CMD_INPUT_CHANGED", ELL_DEBUG);
+		break;
+		case APP_CMD_WINDOW_RESIZED:
+			os::Printer::log("Android command APP_CMD_WINDOW_RESIZED", ELL_DEBUG);
+		break;
+		case APP_CMD_WINDOW_REDRAW_NEEDED:
+			os::Printer::log("Android command APP_CMD_WINDOW_REDRAW_NEEDED", ELL_DEBUG);
+		break;
 		case APP_CMD_SAVE_STATE:
 			os::Printer::log("Android command APP_CMD_SAVE_STATE", ELL_DEBUG);
 		break;
+		case APP_CMD_CONTENT_RECT_CHANGED:
+			os::Printer::log("Android command APP_CMD_CONTENT_RECT_CHANGED", ELL_DEBUG);
+		break;
+		case APP_CMD_CONFIG_CHANGED:
+			os::Printer::log("Android command APP_CMD_CONFIG_CHANGED", ELL_DEBUG);
+		break;
+		case APP_CMD_LOW_MEMORY:
+			os::Printer::log("Android command APP_CMD_LOW_MEMORY", ELL_DEBUG);
+		break;
+		case APP_CMD_START:
+			os::Printer::log("Android command APP_CMD_START", ELL_DEBUG);
+		break;
 		case APP_CMD_INIT_WINDOW:
-			char log_init_window[256];
 			os::Printer::log("Android command APP_CMD_INIT_WINDOW", ELL_DEBUG);
 			device->getExposedVideoData().OGLESAndroid.Window = app->window;
 
@@ -216,72 +277,45 @@ void CIrrDeviceAndroid::handleAndroidCommand(ANDROID_APP app, int32_t cmd)
 				device->CreationParams.WindowSize.Width = ANativeWindow_getWidth(app->window);
 				device->CreationParams.WindowSize.Height = ANativeWindow_getHeight(app->window);
 			}
-			sprintf(log_init_window, "init window: width = %d, height = %d", ANativeWindow_getWidth(app->window), ANativeWindow_getHeight(app->window));
-			os::Printer::log(log_init_window);
+
 			device->getContextManager()->initialize(device->CreationParams, device->ExposedVideoData);
 			device->getContextManager()->generateSurface();
 			device->getContextManager()->generateContext();
 			device->getContextManager()->activateContext(device->getContextManager()->getContext());
-			if (device->CreationParams.WindowSize.Width != 1 && device->CreationParams.WindowSize.Height != 1)
+
+			if (!device->Initialized)
 			{
-				if (!device->Initialized)
-		        {
-				    io::CAndroidAssetFileArchive* assets = new io::CAndroidAssetFileArchive( device->Android->activity->assetManager, false, false);
-				    assets->addDirectoryToFileList("");
-				    device->FileSystem->addFileArchive(assets);
-				    assets->drop();
+				io::CAndroidAssetFileArchive* assets = new io::CAndroidAssetFileArchive( device->Android->activity->assetManager, false, false);
+				assets->addDirectoryToFileList("");
+				device->FileSystem->addFileArchive(assets);
+				assets->drop();
 
-				    device->createDriver();
+				device->createDriver();
 
-				    if (device->VideoDriver)
-					    device->createGUIAndScene();
-			    }
-			    device->Initialized = true;
+				if (device->VideoDriver)
+					device->createGUIAndScene();
 			}
-		    break;
+			device->Initialized = true;
+		break;
 		case APP_CMD_TERM_WINDOW:
 			os::Printer::log("Android command APP_CMD_TERM_WINDOW", ELL_DEBUG);
 			device->getContextManager()->destroySurface();
-		    break;
+		break;
 		case APP_CMD_GAINED_FOCUS:
-		     os::Printer::log("Android command APP_CMD_GAINED_FOCUS", ELL_DEBUG);
-		     {
-		          s32 surfaceWidth = ANativeWindow_getWidth(app->window);
-		          s32 surfaceHeight = ANativeWindow_getHeight(app->window);
-				  char log_focus_window[256];
-				  sprintf(log_focus_window, "focus window: width = %d, height = %d", surfaceWidth, surfaceHeight);
-				  os::Printer::log(log_focus_window);
-		          if (device->CreationParams.WindowSize.Width != surfaceWidth || device->CreationParams.WindowSize.Height != surfaceHeight)
-		          {
-		               device->CreationParams.WindowSize.Width = surfaceWidth;
-		               device->CreationParams.WindowSize.Height = surfaceHeight;
-		               device->getContextManager()->destroySurface();
-		               device->getContextManager()->generateSurface();
-		               device->getContextManager()->activateContext(device->getContextManager()->getContext());
-					   if (!device->Initialized)
-					   {
-						   io::CAndroidAssetFileArchive* assets = new io::CAndroidAssetFileArchive( device->Android->activity->assetManager, false, false);
-						   assets->addDirectoryToFileList("");
-						   device->FileSystem->addFileArchive(assets);
-						   assets->drop();
-
-						   device->createDriver();
-
-						   if (device->VideoDriver)
-						   device->createGUIAndScene();
-					   }
-					   device->Initialized = true;
-		          }
-
-		     }
-		     device->Focused = true;
-		    break;
+			os::Printer::log("Android command APP_CMD_GAINED_FOCUS", ELL_DEBUG);
+			device->Focused = true;
+		break;
 		case APP_CMD_LOST_FOCUS:
 			os::Printer::log("Android command APP_CMD_LOST_FOCUS", ELL_DEBUG);
 			device->Focused = false;
 		break;
 		case APP_CMD_DESTROY:
 			os::Printer::log("Android command APP_CMD_DESTROY", ELL_DEBUG);
+			if ( device->JNIEnvAttachedToVM )
+			{
+				device->JNIEnvAttachedToVM  = 0;
+				device->Android->activity->vm->DetachCurrentThread();
+			}
 			device->Initialized = false;
 			break;
 		case APP_CMD_PAUSE:
@@ -295,15 +329,12 @@ void CIrrDeviceAndroid::handleAndroidCommand(ANDROID_APP app, int32_t cmd)
 			os::Printer::log("Android command APP_CMD_RESUME", ELL_DEBUG);
 			device->Paused = false;
 			break;
-		case APP_CMD_WINDOW_RESIZED:
-			os::Printer::log("Android command APP_CMD_WINDOW_RESIZED", ELL_DEBUG);
-			break;
 		default:
 			break;
 	}
 }
 
-s32 CIrrDeviceAndroid::handleInput(ANDROID_APP app, AInputEvent* androidEvent)
+s32 CIrrDeviceAndroid::handleInput(android_app* app, AInputEvent* androidEvent)
 {
 	CIrrDeviceAndroid* device = (CIrrDeviceAndroid*)app->userData;
 	s32 status = 0;
@@ -317,6 +348,17 @@ s32 CIrrDeviceAndroid::handleInput(ANDROID_APP app, AInputEvent* androidEvent)
 
 			s32 eventAction = AMotionEvent_getAction(androidEvent);
 			s32 eventType =  eventAction & AMOTION_EVENT_ACTION_MASK;
+
+#if 0
+			// Useful for debugging. We might have to pass some of those infos on at some point.
+			// but preferably device independent (so iphone can use same irrlicht flags).
+			int32_t flags = AMotionEvent_getFlags(androidEvent);
+			os::Printer::log("flags: ", core::stringc(flags).c_str(), ELL_DEBUG);
+			int32_t metaState = AMotionEvent_getMetaState(androidEvent);
+			os::Printer::log("metaState: ", core::stringc(metaState).c_str(), ELL_DEBUG);
+			int32_t edgeFlags = AMotionEvent_getEdgeFlags(androidEvent);
+			os::Printer::log("edgeFlags: ", core::stringc(flags).c_str(), ELL_DEBUG);
+#endif
 
 			bool touchReceived = true;
 
@@ -378,6 +420,8 @@ s32 CIrrDeviceAndroid::handleInput(ANDROID_APP app, AInputEvent* androidEvent)
 			event.EventType = EET_KEY_INPUT_EVENT;
 
 			int32_t keyCode = AKeyEvent_getKeyCode(androidEvent);
+			// os::Printer::log("keyCode: ", core::stringc(keyCode).c_str(), ELL_DEBUG);
+
 			int32_t keyAction = AKeyEvent_getAction(androidEvent);
 			int32_t keyMetaState = AKeyEvent_getMetaState(androidEvent);
 
@@ -416,48 +460,55 @@ s32 CIrrDeviceAndroid::handleInput(ANDROID_APP app, AInputEvent* androidEvent)
 			else
 				event.KeyInput.Shift = false;
 			event.KeyInput.Control = false;
-			
-			// Having memory allocations + going through JNI for each key-press is pretty bad (slow). 
+
+			// Having memory allocations + going through JNI for each key-press is pretty bad (slow).
 			// So we do it only for those keys which are likely text-characters and avoid it for all other keys.
-			// So it's fast for keys like game controller input and special keys. And text keys are typically 
+			// So it's fast for keys like game controller input and special keys. And text keys are typically
 			// only used or entering text and not for gaming on Android, so speed likely doesn't matter there too much.
 			if ( event.KeyInput.Key > 0 )
 			{
 				// TODO:
-				// Not sure why we have to attach a JNIEnv here, but it won't work when doing that in the constructor or 
+				// Not sure why we have to attach a JNIEnv here, but it won't work when doing that in the constructor or
 				// trying to use the activity->env. My best guess is that the event-handling happens in an own thread.
-				// It means JNIEnvAttachedToVM will never get detached as I don't know a safe way where to do that 
+				// It means JNIEnvAttachedToVM will never get detached as I don't know a safe way where to do that
 				// (we could attach & detach each time, but that would probably be slow)
 				// Also - it has to be each time as it get's invalid when the application mode changes.
-				if ( device->Android && device->Android->activity && device->Android->activity->vm )
+				if ( device->Initialized && device->Android && device->Android->activity && device->Android->activity->vm )
 				{
 					JavaVMAttachArgs attachArgs;
 					attachArgs.version = JNI_VERSION_1_6;
 					attachArgs.name = 0;
 					attachArgs.group = NULL;
 
-					// Not a big problem calling it each time - it's a no-op when the thread already is attached
+					// Not a big problem calling it each time - it's a no-op when the thread already is attached.
+					// And we have to do that as someone else can have detached the thread in the meantime.
 					jint result = device->Android->activity->vm->AttachCurrentThread(&device->JNIEnvAttachedToVM, &attachArgs);
 					if(result == JNI_ERR)
 					{
 						os::Printer::log("AttachCurrentThread for the JNI environment failed.", ELL_WARNING);
 						device->JNIEnvAttachedToVM = 0;
 					}
-				}				
-				
-				if ( device->JNIEnvAttachedToVM )
-				{
-					jni::CKeyEventWrapper * keyEventWrapper = new jni::CKeyEventWrapper(device->JNIEnvAttachedToVM, keyAction, keyCode);
-					event.KeyInput.Char = keyEventWrapper->getUnicodeChar(keyMetaState);
-					delete keyEventWrapper;
+
+					if ( device->JNIEnvAttachedToVM )
+					{
+						jni::CKeyEventWrapper * keyEventWrapper = new jni::CKeyEventWrapper(device->JNIEnvAttachedToVM, keyAction, keyCode);
+						event.KeyInput.Char = keyEventWrapper->getUnicodeChar(keyMetaState);
+						delete keyEventWrapper;
+					}
 				}
+				if ( event.KeyInput.Key == KEY_BACK )
+				{
+					event.KeyInput.Char =  0x08;	// same key-code as on other operating systems. Otherwise we have to handle too much system specific stuff in the editbox.
+				}
+				//os::Printer::log("char-code: ", core::stringc((int)event.KeyInput.Char).c_str(), ELL_DEBUG);
+
 			}
 			else
 			{
 				// os::Printer::log("keyCode: ", core::stringc(keyCode).c_str(), ELL_DEBUG);
 				event.KeyInput.Char = 0;
 			}
-			
+
 			device->postEventFromUser(event);
 		}
 		break;
@@ -492,7 +543,7 @@ void CIrrDeviceAndroid::createDriver()
 	case video::EDT_SOFTWARE:
 	case video::EDT_BURNINGSVIDEO:
 	case video::EDT_OPENGL:
-	case video::EDT_DIRECT3D8:
+	case video::DEPRECATED_EDT_DIRECT3D8_NO_LONGER_EXISTS:
 	case video::EDT_DIRECT3D9:
 		os::Printer::log("This driver is not available in Android. Try OpenGL ES 1.0 or ES 2.0.", ELL_ERROR);
 		break;
@@ -739,7 +790,82 @@ void CIrrDeviceAndroid::createKeyMap()
     KeyMap[222] = KEY_UNKNOWN; // AKEYCODE_MEDIA_AUDIO_TRACK
 }
 
+bool CIrrDeviceAndroid::activateAccelerometer(float updateInterval)
+{
+	if (!isAccelerometerAvailable())
+		return false;
+
+	ASensorEventQueue_enableSensor(SensorEventQueue, Accelerometer);
+	ASensorEventQueue_setEventRate(SensorEventQueue, Accelerometer, (int32_t)(updateInterval*1000.f*1000.f)); // in microseconds
+
+	os::Printer::log("Activated accelerometer", ELL_DEBUG);
+	return true;
+}
+
+bool CIrrDeviceAndroid::deactivateAccelerometer()
+{
+	if (Accelerometer)
+	{
+		ASensorEventQueue_disableSensor(SensorEventQueue, Accelerometer);
+		Accelerometer = 0;
+		os::Printer::log("Deactivated accelerometer", ELL_DEBUG);
+		return true;
+	}
+
+	return false;
+}
+
+bool CIrrDeviceAndroid::isAccelerometerActive()
+{
+	return (Accelerometer != 0);
+}
+
+bool CIrrDeviceAndroid::isAccelerometerAvailable()
+{
+	if (!Accelerometer)
+		Accelerometer = ASensorManager_getDefaultSensor(SensorManager, ASENSOR_TYPE_ACCELEROMETER);
+
+	return (Accelerometer != 0);
+}
+
+bool CIrrDeviceAndroid::activateGyroscope(float updateInterval)
+{
+	if (!isGyroscopeAvailable())
+		return false;
+
+	ASensorEventQueue_enableSensor(SensorEventQueue, Gyroscope);
+	ASensorEventQueue_setEventRate(SensorEventQueue, Gyroscope, (int32_t)(updateInterval*1000.f*1000.f)); // in microseconds
+
+	os::Printer::log("Activated gyroscope", ELL_DEBUG);
+	return true;
+}
+
+bool CIrrDeviceAndroid::deactivateGyroscope()
+{
+	if (Gyroscope)
+	{
+		ASensorEventQueue_disableSensor(SensorEventQueue, Gyroscope);
+		Gyroscope = 0;
+		os::Printer::log("Deactivated gyroscope", ELL_DEBUG);
+		return true;
+	}
+
+	return false;
+}
+
+bool CIrrDeviceAndroid::isGyroscopeActive()
+{
+	return (Gyroscope != 0);
+}
+
+bool CIrrDeviceAndroid::isGyroscopeAvailable()
+{
+	if (!Gyroscope)
+		Gyroscope = ASensorManager_getDefaultSensor(SensorManager, ASENSOR_TYPE_GYROSCOPE);
+
+	return (Gyroscope != 0);
+}
+
 } // end namespace irr
 
 #endif
-

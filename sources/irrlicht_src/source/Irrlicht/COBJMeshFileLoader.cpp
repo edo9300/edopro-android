@@ -78,9 +78,9 @@ IAnimatedMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 
 	const u32 WORD_BUFFER_LENGTH = 512;
 
-	core::array<core::vector3df> vertexBuffer;
-	core::array<core::vector3df> normalsBuffer;
-	core::array<core::vector2df> textureCoordBuffer;
+	core::array<core::vector3df, core::irrAllocatorFast<core::vector3df> > vertexBuffer(1000);
+	core::array<core::vector3df, core::irrAllocatorFast<core::vector3df> > normalsBuffer(1000);
+	core::array<core::vector2df, core::irrAllocatorFast<core::vector2df> > textureCoordBuffer(1000);
 
 	SObjMtl * currMtl = new SObjMtl();
 	Materials.push_back(currMtl);
@@ -100,6 +100,11 @@ IAnimatedMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 	bool mtlChanged=false;
 	bool useGroups = !SceneManager->getParameters()->getAttributeAsBool(OBJ_LOADER_IGNORE_GROUPS);
 	bool useMaterials = !SceneManager->getParameters()->getAttributeAsBool(OBJ_LOADER_IGNORE_MATERIAL_FILES);
+	irr::u32 lineNr = 1;	// only counts non-empty lines, still useful in debugging to locate errors
+	core::array<int> faceCorners;
+	faceCorners.reallocate(32); // should be large enough
+	const core::stringc TAG_OFF = "off";
+
 	while(bufPtr != bufEnd)
 	{
 		switch(bufPtr[0])
@@ -172,7 +177,7 @@ IAnimatedMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 #ifdef _IRR_DEBUG_OBJ_LOADER_
 	os::Printer::log("Loaded smoothing group start",smooth, ELL_DEBUG);
 #endif
-				if (core::stringc("off")==smooth)
+				if (TAG_OFF==smooth)
 					smoothingGroup=0;
 				else
 					smoothingGroup=core::strtoul10(smooth);
@@ -214,8 +219,7 @@ IAnimatedMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 			const c8* linePtr = wordBuffer.c_str();
 			const c8* const endPtr = linePtr+wordBuffer.size();
 
-			core::array<int> faceCorners;
-			faceCorners.reallocate(32); // should be large enough
+			faceCorners.set_used(0); // fast clear
 
 			// read in all vertices
 			linePtr = goNextWord(linePtr, endPtr);
@@ -225,18 +229,25 @@ IAnimatedMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 				// sends the buffer sizes and gets the actual indices
 				// if index not set returns -1
 				s32 Idx[3];
-				Idx[1] = Idx[2] = -1;
+				Idx[0] = Idx[1] = Idx[2] = -1;
 
 				// read in next vertex's data
 				u32 wlength = copyWord(vertexWord, linePtr, WORD_BUFFER_LENGTH, endPtr);
 				// this function will also convert obj's 1-based index to c++'s 0-based index
 				retrieveVertexIndices(vertexWord, Idx, vertexWord+wlength+1, vertexBuffer.size(), textureCoordBuffer.size(), normalsBuffer.size());
-				v.Pos = vertexBuffer[Idx[0]];
-				if ( -1 != Idx[1] )
+				if ( -1 != Idx[0] && Idx[0] < (irr::s32)vertexBuffer.size() )
+					v.Pos = vertexBuffer[Idx[0]];
+				else
+				{
+					os::Printer::log("Invalid vertex index in this line:", wordBuffer.c_str(), ELL_ERROR);
+					delete [] buf;
+					return 0;
+				}
+				if ( -1 != Idx[1] && Idx[1] < (irr::s32)textureCoordBuffer.size() )
 					v.TCoords = textureCoordBuffer[Idx[1]];
 				else
 					v.TCoords.set(0.0f,0.0f);
-				if ( -1 != Idx[2] )
+				if ( -1 != Idx[2] && Idx[2] < (irr::s32)normalsBuffer.size() )
 					v.Normal = normalsBuffer[Idx[2]];
 				else
 				{
@@ -271,8 +282,6 @@ IAnimatedMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 				currMtl->Meshbuffer->Indices.push_back( faceCorners[i] );
 				currMtl->Meshbuffer->Indices.push_back( faceCorners[0] );
 			}
-			faceCorners.set_used(0); // fast clear
-			faceCorners.reallocate(32);
 		}
 		break;
 
@@ -282,6 +291,7 @@ IAnimatedMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 		}	// end switch(bufPtr[0])
 		// eat up rest of line
 		bufPtr = goNextLine(bufPtr, bufEnd);
+		++lineNr;
 	}	// end while(bufPtr && (bufPtr-buf<filesize))
 
 	SMesh* mesh = new SMesh();
@@ -346,6 +356,8 @@ const c8* COBJMeshFileLoader::readTextures(const c8* bufPtr, const c8* const buf
 
 	f32 bumpiness = 6.0f;
 	bool clamp = false;
+	core::vector3df tscale(1.f);  //For  map_Kd texture scaling
+	core::vector3df tpos(0.f);    //For  map_Kd texture translation
 	// handle options
 	while (textureNameBuf[0]=='-')
 	{
@@ -384,25 +396,35 @@ const c8* COBJMeshFileLoader::readTextures(const c8* bufPtr, const c8* const buf
 		if (!strncmp(bufPtr,"-o",2)) // texture coord translation
 		{
 			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
+			if (core::isdigit(textureNameBuf[0]) || (textureNameBuf[0] == '-' && core::isdigit(textureNameBuf[1])))
+				tpos.X = core::fast_atof(textureNameBuf);
+
 			// next parameters are optional, so skip rest of loop if no number is found
 			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
+			if (!(core::isdigit(textureNameBuf[0]) || (textureNameBuf[0] == '-' && core::isdigit(textureNameBuf[1]))))
 				continue;
+			tpos.Y = core::fast_atof(textureNameBuf);
 			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
+			if (!(core::isdigit(textureNameBuf[0]) || (textureNameBuf[0] == '-' && core::isdigit(textureNameBuf[1]))))
 				continue;
+			tpos.Z = core::fast_atof(textureNameBuf);
 		}
 		else
 		if (!strncmp(bufPtr,"-s",2)) // texture coord scale
 		{
 			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
+			if (core::isdigit(textureNameBuf[0]) || (textureNameBuf[0] == '-' && core::isdigit(textureNameBuf[1])))
+				tscale.X = core::fast_atof(textureNameBuf);
+
 			// next parameters are optional, so skip rest of loop if no number is found
 			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
+			if (!(core::isdigit(textureNameBuf[0]) || (textureNameBuf[0] == '-' && core::isdigit(textureNameBuf[1]))))
 				continue;
+			tscale.Y = core::fast_atof(textureNameBuf);
 			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
+			if (!(core::isdigit(textureNameBuf[0]) || (textureNameBuf[0] == '-' && core::isdigit(textureNameBuf[1]))))
 				continue;
+			tscale.Z = core::fast_atof(textureNameBuf);
 		}
 		else
 		if (!strncmp(bufPtr,"-t",2))
@@ -410,10 +432,10 @@ const c8* COBJMeshFileLoader::readTextures(const c8* bufPtr, const c8* const buf
 			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 			// next parameters are optional, so skip rest of loop if no number is found
 			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
+			if (!(core::isdigit(textureNameBuf[0]) || (textureNameBuf[0] == '-' && core::isdigit(textureNameBuf[1]))))
 				continue;
 			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
+			if (!(core::isdigit(textureNameBuf[0]) || (textureNameBuf[0] == '-' && core::isdigit(textureNameBuf[1]))))
 				continue;
 		}
 		// get next word
@@ -435,7 +457,15 @@ const c8* COBJMeshFileLoader::readTextures(const c8* bufPtr, const c8* const buf
 		if ( texture )
 		{
 			if (type==0)
+			{
 				currMaterial->Meshbuffer->Material.setTexture(0, texture);
+				bool needsTextureMatrix = tscale != core::vector3df(1.f) || tpos != core::vector3df(0.f);
+				if (needsTextureMatrix)
+				{
+					currMaterial->Meshbuffer->Material.getTextureMatrix(0).setTextureScale(tscale.X, tscale.Y);
+					currMaterial->Meshbuffer->Material.getTextureMatrix(0).setTextureTranslate(tpos.X, tpos.Y);
+				}
+			}
 			else if (type==1)
 			{
 				if ( texture->getSource() == video::ETS_FROM_FILE)
@@ -451,8 +481,8 @@ const c8* COBJMeshFileLoader::readTextures(const c8* bufPtr, const c8* const buf
 			}
 			else if (type==3)
 			{
-	//						currMaterial->Meshbuffer->Material.Textures[1] = texture;
-	//						currMaterial->Meshbuffer->Material.MaterialType=video::EMT_REFLECTION_2_LAYER;
+	//			currMaterial->Meshbuffer->Material.Textures[1] = texture;
+	//			currMaterial->Meshbuffer->Material.MaterialType=video::EMT_REFLECTION_2_LAYER;
 			}
 			// Set diffuse material color to white so as not to affect texture color
 			// Because Maya set diffuse color Kd to black when you use a diffuse color map

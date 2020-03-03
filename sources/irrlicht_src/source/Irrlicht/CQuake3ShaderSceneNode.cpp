@@ -14,7 +14,11 @@
 #include "IMeshManipulator.h"
 #include "SMesh.h"
 #include "IMaterialRenderer.h"
+#ifdef _IRR_COMPILE_WITH_SHADOW_VOLUME_SCENENODE_
 #include "CShadowVolumeSceneNode.h"
+#else
+#include "IShadowVolumeSceneNode.h"
+#endif
 
 namespace irr
 {
@@ -262,7 +266,6 @@ E_SCENE_NODE_RENDER_PASS CQuake3ShaderSceneNode::getRenderStage() const
 	else
 	if (	strstr ( Shader->name.c_str(), "flame" ) ||
 			group->isDefined( "surfaceparm", "water" ) ||
-			group->isDefined( "sort", "underwater" ) ||
 			group->isDefined( "sort", "underwater" )
 		)
 	{
@@ -384,6 +387,7 @@ void CQuake3ShaderSceneNode::render()
 
 		material.TextureLayer[0].TextureWrapU = q.TextureAddressMode;
 		material.TextureLayer[0].TextureWrapV = q.TextureAddressMode;
+		material.TextureLayer[0].TextureWrapW = q.TextureAddressMode;
 		//material.TextureLayer[0].TrilinearFilter = 1;
 		//material.TextureLayer[0].AnisotropicFilter = 0xFF;
 		material.setTextureMatrix( 0, textureMatrix );
@@ -516,6 +520,7 @@ bool CQuake3ShaderSceneNode::removeChild(ISceneNode* child)
 IShadowVolumeSceneNode* CQuake3ShaderSceneNode::addShadowVolumeSceneNode(
 		const IMesh* shadowMesh, s32 id, bool zfailmethod, f32 infinity)
 {
+#ifdef _IRR_COMPILE_WITH_SHADOW_VOLUME_SCENENODE_
 	if (!SceneManager->getVideoDriver()->queryFeature(video::EVDF_STENCIL_BUFFER))
 		return 0;
 
@@ -527,6 +532,9 @@ IShadowVolumeSceneNode* CQuake3ShaderSceneNode::addShadowVolumeSceneNode(
 
 	Shadow = new CShadowVolumeSceneNode(shadowMesh, this, SceneManager, id,  zfailmethod, infinity);
 	return Shadow;
+#else
+	return 0;
+#endif
 }
 
 
@@ -735,7 +743,7 @@ void CQuake3ShaderSceneNode::deformvertexes_bulge( f32 dt, SModifierFunction &fu
 	function.count = 1;
 }
 
-						
+
 /*!
 	deformVertexes autosprite
 
@@ -859,7 +867,7 @@ void CQuake3ShaderSceneNode::vertextransform_rgbgen( f32 dt, SModifierFunction &
 				MeshBuffer->Vertices[i].Color.set(0xFF7F7F7F);
 			break;
 
-		case EXACTVERTEX:		
+		case EXACTVERTEX:
 			// alphagen exactvertex TODO lighting
 		case VERTEX:
 			// rgbgen vertex
@@ -905,7 +913,7 @@ void CQuake3ShaderSceneNode::vertextransform_alphagen( f32 dt, SModifierFunction
 				MeshBuffer->Vertices[i].Color.setAlpha ( 0xFF );
 			break;
 
-		case EXACTVERTEX:	
+		case EXACTVERTEX:
 			// alphagen exactvertex TODO lighting
 		case VERTEX:
 			// alphagen vertex
@@ -1155,7 +1163,7 @@ void CQuake3ShaderSceneNode::animate( u32 stage,core::matrix4 &texture )
 				m2.setTextureScale( f[0], f[1] );
 				break;
 			case ROTATE:
-				// tcmod rotate <degress per second>
+				// tcmod rotate <degrees per second>
 				m2.setTextureRotationCenter(	getAsFloat( v.content, pos ) *
 												core::DEGTORAD *
 												TimeAbs
@@ -1283,7 +1291,7 @@ void CQuake3ShaderSceneNode::animate( u32 stage,core::matrix4 &texture )
 					default:
 						break;
 				}
-				
+
 			} break;
 			case TEXTURE:
 			case LIGHTMAP:
@@ -1366,7 +1374,7 @@ video::SMaterial& CQuake3ShaderSceneNode::getMaterial(u32 i)
 	if ( Q3Texture [ i ].TextureIndex )
 		m.setTexture(0, Q3Texture [ i ].Texture [ Q3Texture [ i ].TextureIndex ]);
 	return m;
-}	
+}
 
 
 } // end namespace scene

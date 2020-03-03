@@ -342,7 +342,7 @@ inline u32 PixelBlend16_simd ( const u32 c2, const u32 c1 )
 #endif
 
 /*!
-	Pixel = dest * ( 1 - SourceAlpha ) + source * SourceAlpha
+	Pixel = dest * ( 1 - SourceAlpha ) + source * SourceAlpha (OpenGL blending)
 */
 inline u32 PixelBlend32 ( const u32 c2, const u32 c1 )
 {
@@ -351,7 +351,6 @@ inline u32 PixelBlend32 ( const u32 c2, const u32 c1 )
 
 	if ( 0 == alpha )
 		return c2;
-
 	if ( 0xFF000000 == alpha )
 	{
 		return c1;
@@ -384,6 +383,71 @@ inline u32 PixelBlend32 ( const u32 c2, const u32 c1 )
 	xg &= 0x0000FF00;
 
 	return (c1 & 0xFF000000) | rb | xg;
+}
+
+/*!
+	Pixel =>
+			color = sourceAlpha > 0 ? source, else dest
+			alpha = max(destAlpha, sourceAlpha)
+*/
+inline u16 PixelCombine16 ( const u16 c2, const u16 c1 )
+{
+	if ( video::getAlpha(c1) > 0 )
+		return c1;
+	else
+		return c2;
+}
+
+/*!
+	Pixel =>
+			color = dest * ( 1 - SourceAlpha ) + source * SourceAlpha,
+			alpha = destAlpha * ( 1 - SourceAlpha ) + sourceAlpha
+
+	where "1" means "full scale" (255)
+*/
+inline u32 PixelCombine32 ( const u32 c2, const u32 c1 )
+{
+	// alpha test
+	u32 alpha = c1 & 0xFF000000;
+
+	if ( 0 == alpha )
+		return c2;
+	if ( 0xFF000000 == alpha )
+	{
+		return c1;
+	}
+
+	alpha >>= 24;
+
+	// add highbit alpha, if ( alpha > 127 ) alpha += 1;
+	// stretches [0;255] to [0;256] to avoid division by 255. use division 256 == shr 8
+	alpha += ( alpha >> 7);
+
+	u32 srcRB = c1 & 0x00FF00FF;
+	u32 srcXG = c1 & 0x0000FF00;
+
+	u32 dstRB = c2 & 0x00FF00FF;
+	u32 dstXG = c2 & 0x0000FF00;
+
+
+	u32 rb = srcRB - dstRB;
+	u32 xg = srcXG - dstXG;
+
+	rb *= alpha;
+	xg *= alpha;
+	rb >>= 8;
+	xg >>= 8;
+
+	rb += dstRB;
+	xg += dstXG;
+
+	rb &= 0x00FF00FF;
+	xg &= 0x0000FF00;
+
+	u32 sa = c1 >> 24;
+	u32 da = c2 >> 24;
+	u32 blendAlpha_fix8 = (sa*256 + da*(256-alpha))>>8;
+	return blendAlpha_fix8 << 24 | rb | xg;
 }
 
 
@@ -461,10 +525,7 @@ inline u32 fixPointu_to_u32 (const tFixPointu x)
 
 
 // 1/x * FIX_POINT
-REALINLINE f32 fix_inverse32 ( const f32 x )
-{
-	return FIX_POINT_F32_MUL / x;
-}
+#define fix_inverse32(x) (FIX_POINT_F32_MUL / (x))
 
 
 /*
@@ -483,11 +544,11 @@ static inline int f_round2(f32 f)
 	convert f32 to Fix Point.
 	multiply is needed anyway, so scale mulby
 */
-REALINLINE tFixPoint tofix (const f32 x, const f32 mulby = FIX_POINT_F32_MUL )
+REALINLINE tFixPoint tofix0 (const f32 x, const f32 mulby = FIX_POINT_F32_MUL )
 {
 	return (tFixPoint) (x * mulby);
 }
-
+#define tofix(x,y) (tFixPoint)(x * y)
 
 /*
 	Fix Point , Fix Point Multiply
@@ -585,17 +646,10 @@ inline s32 f32_to_23Bits(const f32 x)
 */
 REALINLINE tVideoSample fix_to_color ( const tFixPoint r, const tFixPoint g, const tFixPoint b )
 {
-#ifdef __BIG_ENDIAN__
-	return	FIXPOINT_COLOR_MAX |
-			( r & FIXPOINT_COLOR_MAX) >> ( FIX_POINT_PRE - 8) |
-			( g & FIXPOINT_COLOR_MAX) << ( 16 - FIX_POINT_PRE ) |
-			( b & FIXPOINT_COLOR_MAX) << ( 24 - FIX_POINT_PRE );
-#else
 	return	( FIXPOINT_COLOR_MAX & FIXPOINT_COLOR_MAX) << ( SHIFT_A - FIX_POINT_PRE ) |
 			( r & FIXPOINT_COLOR_MAX) << ( SHIFT_R - FIX_POINT_PRE ) |
 			( g & FIXPOINT_COLOR_MAX) >> ( FIX_POINT_PRE - SHIFT_G ) |
 			( b & FIXPOINT_COLOR_MAX) >> ( FIX_POINT_PRE - SHIFT_B );
-#endif
 }
 
 
@@ -604,18 +658,10 @@ REALINLINE tVideoSample fix_to_color ( const tFixPoint r, const tFixPoint g, con
 */
 REALINLINE tVideoSample fix4_to_color ( const tFixPoint a, const tFixPoint r, const tFixPoint g, const tFixPoint b )
 {
-#ifdef __BIG_ENDIAN__
-	return	( a & (FIX_POINT_FRACT_MASK - 1 )) >> ( FIX_POINT_PRE ) |
-			( r & FIXPOINT_COLOR_MAX) >> ( FIX_POINT_PRE - 8) |
-			( g & FIXPOINT_COLOR_MAX) << ( 16 - FIX_POINT_PRE ) |
-			( b & FIXPOINT_COLOR_MAX) << ( 24 - FIX_POINT_PRE );
-#else
 	return	( a & (FIX_POINT_FRACT_MASK - 1 )) << ( SHIFT_A - 1 ) |
 			( r & FIXPOINT_COLOR_MAX) << ( SHIFT_R - FIX_POINT_PRE ) |
 			( g & FIXPOINT_COLOR_MAX) >> ( FIX_POINT_PRE - SHIFT_G ) |
 			( b & FIXPOINT_COLOR_MAX) >> ( FIX_POINT_PRE - SHIFT_B );
-#endif
-
 }
 
 /*!
@@ -820,7 +866,7 @@ inline void getSample_texture ( tFixPoint &r, tFixPoint &g, tFixPoint &b,
 	(tFixPointu &) b =	(t00 & MASK_B) << ( FIX_POINT_PRE - SHIFT_B );
 }
 
-inline void getSample_texture ( tFixPointu &a, tFixPointu &r, tFixPointu &g, tFixPointu &b,
+inline void getSample_texture ( tFixPoint &a, tFixPoint &r, tFixPoint &g, tFixPoint &b,
 						const sInternalTexture * t, const tFixPointu tx, const tFixPointu ty
 								)
 {

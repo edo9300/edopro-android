@@ -23,10 +23,16 @@
 #include "SIrrCreationParameters.h"
 #include "SExposedVideoData.h"
 #include "IGUISpriteBank.h"
-#include "CEGLManager.h"
-#include "CGLXManager.h"
 #include <X11/XKBlib.h>
 #include <X11/Xatom.h>
+
+#if defined(_IRR_COMPILE_WITH_OGLES1_) || defined(_IRR_COMPILE_WITH_OGLES2_)
+#include "CEGLManager.h"
+#endif
+
+#if defined(_IRR_COMPILE_WITH_OPENGL_)
+#include "CGLXManager.h"
+#endif
 
 #ifdef _IRR_LINUX_XCURSOR_
 #include <X11/Xcursor/Xcursor.h>
@@ -36,7 +42,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#ifdef __FREE_BSD_
+#ifdef __FreeBSD__
 #include <sys/joystick.h>
 #else
 
@@ -56,30 +62,21 @@ namespace irr
 {
 	namespace video
 	{
-	#ifdef _IRR_COMPILE_WITH_OPENGL_
-		IVideoDriver* createOpenGLDriver(const irr::SIrrlichtCreationParameters& params,
-				io::IFileSystem* io, IContextManager* contextManager);
-	#endif
-
-	#ifdef _IRR_COMPILE_WITH_OGLES1_
-        IVideoDriver* createOGLES1Driver(const SIrrlichtCreationParameters& params, io::IFileSystem* io
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_) || defined(_IRR_WINDOWS_API_) || defined(_IRR_COMPILE_WITH_ANDROID_DEVICE_)
-        , IContextManager* contextManager
-#elif defined(_IRR_COMPILE_WITH_IPHONE_DEVICE_)
-        , CIrrDeviceIPhone* device
+#ifdef _IRR_COMPILE_WITH_OPENGL_
+		IVideoDriver* createOpenGLDriver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, IContextManager* contextManager);
 #endif
-	);
-        #endif
 
-	#ifdef _IRR_COMPILE_WITH_OGLES2_
-	IVideoDriver* createOGLES2Driver(const SIrrlichtCreationParameters& params, io::IFileSystem* io
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_) || defined(_IRR_WINDOWS_API_) || defined(_IRR_COMPILE_WITH_ANDROID_DEVICE_)
-        , IContextManager* contextManager
-#elif defined(_IRR_COMPILE_WITH_IPHONE_DEVICE_)
-        , CIrrDeviceIPhone* device
+#ifdef _IRR_COMPILE_WITH_OGLES1_
+        IVideoDriver* createOGLES1Driver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, IContextManager* contextManager);
 #endif
-	);
-	#endif
+
+#ifdef _IRR_COMPILE_WITH_OGLES2_
+        IVideoDriver* createOGLES2Driver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, IContextManager* contextManager);
+#endif
+
+#ifdef _IRR_COMPILE_WITH_WEBGL1_
+		IVideoDriver* createWebGL1Driver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, IContextManager* contextManager);
+#endif
 	}
 } // end namespace irr
 
@@ -89,6 +86,9 @@ namespace
 	Atom X_ATOM_TARGETS;
 	Atom X_ATOM_UTF8_STRING;
 	Atom X_ATOM_TEXT;
+	Atom X_ATOM_NETWM_MAXIMIZE_VERT;
+	Atom X_ATOM_NETWM_MAXIMIZE_HORZ;
+	Atom X_ATOM_NETWM_STATE;
 };
 
 namespace irr
@@ -102,6 +102,7 @@ CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 #ifdef _IRR_COMPILE_WITH_X11_
 	XDisplay(0), VisualInfo(0), Screennr(0), XWindow(0), StdHints(0), SoftwareImage(0),
 	XInputMethod(0), XInputContext(0),
+	HasNetWM(false),
 #endif
 	Width(param.WindowSize.Width), Height(param.WindowSize.Height),
 	WindowHasFocus(false), WindowMinimized(false),
@@ -232,7 +233,7 @@ int IrrPrintXError(Display *display, XErrorEvent *event)
 	char msg[256];
 	char msg2[256];
 
-	snprintf(msg, 256, "%d", event->request_code);
+	snprintf_irr(msg, 256, "%d", event->request_code);
 	XGetErrorDatabaseText(display, "XRequest", msg, "unknown", msg2, 256);
 	XGetErrorText(display, event->error_code, msg, 256);
 	os::Printer::log("X Error", msg, ELL_WARNING);
@@ -406,15 +407,17 @@ bool CIrrDeviceLinux::createWindow()
 
 	switchToFullscreen();
 
+#if defined(_IRR_COMPILE_WITH_OPENGL_)
 	// don't use the XVisual with OpenGL, because it ignores all requested
 	// properties of the CreationParams
-	if (CreationParams.DriverType==video::EDT_OPENGL)
+	if (CreationParams.DriverType == video::EDT_OPENGL)
 	{
 		video::SExposedVideoData data;
 		data.OpenGLLinux.X11Display = XDisplay;
-		ContextManager = new video::CGLXManager(CreationParams,data, Screennr);
+		ContextManager = new video::CGLXManager(CreationParams, data, Screennr);
 		VisualInfo = ((video::CGLXManager*)ContextManager)->getVisual();
 	}
+#endif
 
 	if (!VisualInfo)
 	{
@@ -499,6 +502,11 @@ bool CIrrDeviceLinux::createWindow()
 			IrrPrintXGrabError(grabPointer, "XGrabPointer");
 			XWarpPointer(XDisplay, None, XWindow, 0, 0, 0, 0, 0, 0);
 		}
+		else if (CreationParams.WindowPosition.X >= 0 || CreationParams.WindowPosition.Y >= 0)	// default is -1, -1
+		{
+			// Window managers are free to ignore positions above, so give it another shot
+			XMoveWindow(XDisplay,XWindow,x,y);
+		}
 	}
 	else
 	{
@@ -556,6 +564,11 @@ bool CIrrDeviceLinux::createWindow()
 
 	initXAtoms();
 
+	// check netwm support
+	Atom WMCheck = XInternAtom(XDisplay, "_NET_SUPPORTING_WM_CHECK", true);
+	if (WMCheck != None)
+		HasNetWM = true;
+
 #endif // #ifdef _IRR_COMPILE_WITH_X11_
 	return true;
 }
@@ -567,77 +580,91 @@ void CIrrDeviceLinux::createDriver()
 	switch(CreationParams.DriverType)
 	{
 #ifdef _IRR_COMPILE_WITH_X11_
-
 	case video::EDT_SOFTWARE:
-		#ifdef _IRR_COMPILE_WITH_SOFTWARE_
+#ifdef _IRR_COMPILE_WITH_SOFTWARE_
 		VideoDriver = video::createSoftwareDriver(CreationParams.WindowSize, CreationParams.Fullscreen, FileSystem, this);
-		#else
+#else
 		os::Printer::log("No Software driver support compiled in.", ELL_ERROR);
-		#endif
+#endif
 		break;
-
 	case video::EDT_BURNINGSVIDEO:
-		#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
+#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
 		VideoDriver = video::createBurningVideoDriver(CreationParams, FileSystem, this);
-		#else
+#else
 		os::Printer::log("Burning's video driver was not compiled in.", ELL_ERROR);
-		#endif
+#endif
 		break;
-
 	case video::EDT_OPENGL:
-		#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _IRR_COMPILE_WITH_OPENGL_
 		{
 			video::SExposedVideoData data;
 			data.OpenGLLinux.X11Window = XWindow;
 			data.OpenGLLinux.X11Display = XDisplay;
+
 			ContextManager->initialize(CreationParams, data);
+
 			VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem, ContextManager);
 		}
-		#else
+#else
 		os::Printer::log("No OpenGL support compiled in.", ELL_ERROR);
-		#endif
+#endif
 		break;
-
 	case video::EDT_OGLES1:
-		#ifdef _IRR_COMPILE_WITH_OGLES1_
+#ifdef _IRR_COMPILE_WITH_OGLES1_
 		{
 			video::SExposedVideoData data;
 			data.OpenGLLinux.X11Window = XWindow;
 			data.OpenGLLinux.X11Display = XDisplay;
+
 			ContextManager = new video::CEGLManager();
 			ContextManager->initialize(CreationParams, data);
+
 			VideoDriver = video::createOGLES1Driver(CreationParams, FileSystem, ContextManager);
 		}
-		#else
+#else
 		os::Printer::log("No OpenGL-ES1 support compiled in.", ELL_ERROR);
-		#endif
+#endif
 		break;
-
 	case video::EDT_OGLES2:
-		#ifdef _IRR_COMPILE_WITH_OGLES2_
+#ifdef _IRR_COMPILE_WITH_OGLES2_
 		{
 			video::SExposedVideoData data;
 			data.OpenGLLinux.X11Window = XWindow;
 			data.OpenGLLinux.X11Display = XDisplay;
+
 			ContextManager = new video::CEGLManager();
 			ContextManager->initialize(CreationParams, data);
+
 			VideoDriver = video::createOGLES2Driver(CreationParams, FileSystem, ContextManager);
 		}
-		#else
+#else
 		os::Printer::log("No OpenGL-ES2 support compiled in.", ELL_ERROR);
-		#endif
+#endif
 		break;
+	case video::EDT_WEBGL1:
+#ifdef _IRR_COMPILE_WITH_WEBGL1_
+		{
+			video::SExposedVideoData data;
+			data.OpenGLLinux.X11Window = XWindow;
+			data.OpenGLLinux.X11Display = XDisplay;
 
-	case video::EDT_DIRECT3D8:
+			ContextManager = new video::CEGLManager();
+			ContextManager->initialize(CreationParams, data);
+
+			VideoDriver = video::createWebGL1Driver(CreationParams, FileSystem, ContextManager);
+		}
+#else
+		os::Printer::log("No WebGL1 support compiled in.", ELL_ERROR);
+#endif
+		break;
+	case video::DEPRECATED_EDT_DIRECT3D8_NO_LONGER_EXISTS:
 	case video::EDT_DIRECT3D9:
 		os::Printer::log("This driver is not available in Linux. Try OpenGL or Software renderer.",
 			ELL_ERROR);
 		break;
-
 	case video::EDT_NULL:
 		VideoDriver = video::createNullDriver(FileSystem, CreationParams.WindowSize);
 		break;
-
 	default:
 		os::Printer::log("Unable to create video driver of unknown type.", ELL_ERROR);
 		break;
@@ -997,9 +1024,13 @@ bool CIrrDeviceLinux::run()
 					}
 					else	// Old version without InputContext. Does not support i18n, but good to have as fallback.
 					{
-						char buf[8]={0};
-						XLookupString(&event.xkey, buf, sizeof(buf), &mp.X11Key, NULL);
-						irrevent.KeyInput.Char = ((wchar_t*)(buf))[0];
+						union
+						{
+							char buf[8];
+							wchar_t wbuf[2];
+						} tmp = {{0}};
+						XLookupString(&event.xkey, tmp.buf, sizeof(tmp.buf), &mp.X11Key, NULL);
+						irrevent.KeyInput.Char = tmp.wbuf[0];
 					}
 
 					irrevent.EventType = irr::EET_KEY_INPUT_EVENT;
@@ -1024,8 +1055,8 @@ bool CIrrDeviceLinux::run()
 					{
 						// we assume it's a user message
 						irrevent.EventType = irr::EET_USER_EVENT;
-						irrevent.UserEvent.UserData1 = (s32)event.xclient.data.l[0];
-						irrevent.UserEvent.UserData2 = (s32)event.xclient.data.l[1];
+						irrevent.UserEvent.UserData1 = static_cast<size_t>(event.xclient.data.l[0]);
+						irrevent.UserEvent.UserData2 = static_cast<size_t>(event.xclient.data.l[1]);
 						postEventFromUser(irrevent);
 					}
 					XFree(atom);
@@ -1168,7 +1199,7 @@ bool CIrrDeviceLinux::present(video::IImage* image, void* windowId, core::rect<s
 			return false;
 	}
 
-	u8* srcdata = reinterpret_cast<u8*>(image->lock());
+	u8* srcdata = reinterpret_cast<u8*>(image->getData());
 	u8* destData = reinterpret_cast<u8*>(SoftwareImage->data);
 
 	const u32 destheight = SoftwareImage->height;
@@ -1180,7 +1211,6 @@ bool CIrrDeviceLinux::present(video::IImage* image, void* windowId, core::rect<s
 		srcdata+=srcPitch;
 		destData+=destPitch;
 	}
-	image->unlock();
 
 	GC gc = DefaultGC(XDisplay, DefaultScreen(XDisplay));
 	Window myWindow=XWindow;
@@ -1239,7 +1269,6 @@ void CIrrDeviceLinux::setResizable(bool resize)
 	if (CreationParams.DriverType == video::EDT_NULL || CreationParams.Fullscreen )
 		return;
 
-	XUnmapWindow(XDisplay, XWindow);
 	if ( !resize )
 	{
 		// Must be heap memory because data size depends on X Server
@@ -1254,7 +1283,6 @@ void CIrrDeviceLinux::setResizable(bool resize)
 	{
 		XSetWMNormalHints(XDisplay, XWindow, StdHints);
 	}
-	XMapWindow(XDisplay, XWindow);
 	XFlush(XDisplay);
 #endif // #ifdef _IRR_COMPILE_WITH_X11_
 }
@@ -1366,6 +1394,23 @@ void CIrrDeviceLinux::minimizeWindow()
 void CIrrDeviceLinux::maximizeWindow()
 {
 #ifdef _IRR_COMPILE_WITH_X11_
+	// Maximize is not implemented in bare X, it's a WM construct.
+	if (HasNetWM)
+	{
+		XEvent ev = {0};
+
+		ev.type = ClientMessage;
+		ev.xclient.window = XWindow;
+		ev.xclient.message_type = X_ATOM_NETWM_STATE;
+		ev.xclient.format = 32;
+		ev.xclient.data.l[0] = 1; // _NET_WM_STATE_ADD
+		ev.xclient.data.l[1] = X_ATOM_NETWM_MAXIMIZE_VERT;
+		ev.xclient.data.l[2] = X_ATOM_NETWM_MAXIMIZE_HORZ;
+
+		XSendEvent(XDisplay, DefaultRootWindow(XDisplay), false,
+				SubstructureNotifyMask|SubstructureRedirectMask, &ev);
+	}
+
 	XMapWindow(XDisplay, XWindow);
 #endif
 }
@@ -1375,6 +1420,23 @@ void CIrrDeviceLinux::maximizeWindow()
 void CIrrDeviceLinux::restoreWindow()
 {
 #ifdef _IRR_COMPILE_WITH_X11_
+	// Maximize is not implemented in bare X, it's a WM construct.
+	if (HasNetWM)
+	{
+		XEvent ev = {0};
+
+		ev.type = ClientMessage;
+		ev.xclient.window = XWindow;
+		ev.xclient.message_type = X_ATOM_NETWM_STATE;
+		ev.xclient.format = 32;
+		ev.xclient.data.l[0] = 0; // _NET_WM_STATE_REMOVE
+		ev.xclient.data.l[1] = X_ATOM_NETWM_MAXIMIZE_VERT;
+		ev.xclient.data.l[2] = X_ATOM_NETWM_MAXIMIZE_HORZ;
+
+		XSendEvent(XDisplay, DefaultRootWindow(XDisplay), false,
+				SubstructureNotifyMask|SubstructureRedirectMask, &ev);
+	}
+
 	XMapWindow(XDisplay, XWindow);
 #endif
 }
@@ -1382,8 +1444,10 @@ void CIrrDeviceLinux::restoreWindow()
 core::position2di CIrrDeviceLinux::getWindowPosition()
 {
 	int wx = 0, wy = 0;
+#ifdef _IRR_COMPILE_WITH_X11_
 	Window child;
 	XTranslateCoordinates(XDisplay, XWindow, DefaultRootWindow(XDisplay), 0, 0, &wx, &wy, &child);
+#endif
 	return core::position2di(wx, wy);
 }
 
@@ -1395,7 +1459,7 @@ void CIrrDeviceLinux::createKeyMap()
 	// Search for missing numbers in keysymdef.h
 
 #ifdef _IRR_COMPILE_WITH_X11_
-	KeyMap.reallocate(84);
+	KeyMap.reallocate(190);
 	KeyMap.push_back(SKeyMap(XK_BackSpace, KEY_BACK));
 	KeyMap.push_back(SKeyMap(XK_Tab, KEY_TAB));
 	KeyMap.push_back(SKeyMap(XK_ISO_Left_Tab, KEY_TAB));
@@ -1448,16 +1512,16 @@ void CIrrDeviceLinux::createKeyMap()
 	KeyMap.push_back(SKeyMap(XK_KP_Subtract, KEY_SUBTRACT));
 	KeyMap.push_back(SKeyMap(XK_KP_Decimal, KEY_DECIMAL));
 	KeyMap.push_back(SKeyMap(XK_KP_Divide, KEY_DIVIDE));
-	KeyMap.push_back(SKeyMap(XK_KP_0, KEY_KEY_0));
-	KeyMap.push_back(SKeyMap(XK_KP_1, KEY_KEY_1));
-	KeyMap.push_back(SKeyMap(XK_KP_2, KEY_KEY_2));
-	KeyMap.push_back(SKeyMap(XK_KP_3, KEY_KEY_3));
-	KeyMap.push_back(SKeyMap(XK_KP_4, KEY_KEY_4));
-	KeyMap.push_back(SKeyMap(XK_KP_5, KEY_KEY_5));
-	KeyMap.push_back(SKeyMap(XK_KP_6, KEY_KEY_6));
-	KeyMap.push_back(SKeyMap(XK_KP_7, KEY_KEY_7));
-	KeyMap.push_back(SKeyMap(XK_KP_8, KEY_KEY_8));
-	KeyMap.push_back(SKeyMap(XK_KP_9, KEY_KEY_9));
+	KeyMap.push_back(SKeyMap(XK_KP_0, KEY_NUMPAD0));
+	KeyMap.push_back(SKeyMap(XK_KP_1, KEY_NUMPAD1));
+	KeyMap.push_back(SKeyMap(XK_KP_2, KEY_NUMPAD2));
+	KeyMap.push_back(SKeyMap(XK_KP_3, KEY_NUMPAD3));
+	KeyMap.push_back(SKeyMap(XK_KP_4, KEY_NUMPAD4));
+	KeyMap.push_back(SKeyMap(XK_KP_5, KEY_NUMPAD5));
+	KeyMap.push_back(SKeyMap(XK_KP_6, KEY_NUMPAD6));
+	KeyMap.push_back(SKeyMap(XK_KP_7, KEY_NUMPAD7));
+	KeyMap.push_back(SKeyMap(XK_KP_8, KEY_NUMPAD8));
+	KeyMap.push_back(SKeyMap(XK_KP_9, KEY_NUMPAD9));
 	KeyMap.push_back(SKeyMap(XK_F1, KEY_F1));
 	KeyMap.push_back(SKeyMap(XK_F2, KEY_F2));
 	KeyMap.push_back(SKeyMap(XK_F3, KEY_F3));
@@ -1628,7 +1692,7 @@ bool CIrrDeviceLinux::activateJoysticks(core::array<SJoystickInfo> & joystickInf
 		if (-1 == info.fd)
 			continue;
 
-#ifdef __FREE_BSD_
+#ifdef __FreeBSD__
 		info.axes=2;
 		info.buttons=2;
 #else
@@ -1652,7 +1716,7 @@ bool CIrrDeviceLinux::activateJoysticks(core::array<SJoystickInfo> & joystickInf
 		returnInfo.Axes = info.axes;
 		returnInfo.Buttons = info.buttons;
 
-#ifndef __FREE_BSD_
+#ifndef __FreeBSD__
 		char name[80];
 		ioctl( info.fd, JSIOCGNAME(80), name);
 		returnInfo.Name = name;
@@ -1687,13 +1751,14 @@ void CIrrDeviceLinux::pollJoysticks()
 	{
 		JoystickInfo & info =  ActiveJoysticks[j];
 
-#ifdef __FREE_BSD_
+#ifdef __FreeBSD__
 		struct joystick js;
-		if (read(info.fd, &js, JS_RETURN) == JS_RETURN)
+		if (read(info.fd, &js, sizeof(js)) == sizeof(js))
 		{
-			info.persistentData.JoystickEvent.ButtonStates = js.buttons; /* should be a two-bit field */
+			info.persistentData.JoystickEvent.ButtonStates = js.b1 | (js.b2 << 1); /* should be a two-bit field */
 			info.persistentData.JoystickEvent.Axis[0] = js.x; /* X axis */
 			info.persistentData.JoystickEvent.Axis[1] = js.y; /* Y axis */
+		}
 #else
 		struct js_event event;
 		while (sizeof(event) == read(info.fd, &event, sizeof(event)))
@@ -1829,7 +1894,7 @@ const c8* CIrrDeviceLinux::getTextFromClipboard() const
 	Clipboard = "";
 	if (ownerWindow != None )
 	{
-		XConvertSelection (XDisplay, X_ATOM_CLIPBOARD, XA_STRING, None, ownerWindow, CurrentTime);
+		XConvertSelection (XDisplay, X_ATOM_CLIPBOARD, XA_STRING, XA_PRIMARY, ownerWindow, CurrentTime);
 		XFlush (XDisplay);
 
 		// check for data
@@ -1838,7 +1903,7 @@ const c8* CIrrDeviceLinux::getTextFromClipboard() const
 		unsigned long numItems, bytesLeft, dummy;
 		unsigned char *data;
 		XGetWindowProperty (XDisplay, ownerWindow,
-				XA_STRING, // property name
+				XA_PRIMARY, // property name
 				0, // offset
 				0, // length (we only check for data, so 0)
 				0, // Delete 0==false
@@ -1851,7 +1916,7 @@ const c8* CIrrDeviceLinux::getTextFromClipboard() const
 		if ( bytesLeft > 0 )
 		{
 			// there is some data to get
-			int result = XGetWindowProperty (XDisplay, ownerWindow, XA_STRING, 0,
+			int result = XGetWindowProperty (XDisplay, ownerWindow, XA_PRIMARY, 0,
 										bytesLeft, 0, AnyPropertyType, &type, &format,
 										&numItems, &dummy, &data);
 			if (result == Success)
@@ -1920,6 +1985,9 @@ void CIrrDeviceLinux::initXAtoms()
 	X_ATOM_TARGETS = XInternAtom(XDisplay, "TARGETS", False);
 	X_ATOM_UTF8_STRING = XInternAtom (XDisplay, "UTF8_STRING", False);
 	X_ATOM_TEXT = XInternAtom (XDisplay, "TEXT", False);
+	X_ATOM_NETWM_MAXIMIZE_VERT = XInternAtom(XDisplay, "_NET_WM_STATE_MAXIMIZED_VERT", true);
+	X_ATOM_NETWM_MAXIMIZE_HORZ = XInternAtom(XDisplay, "_NET_WM_STATE_MAXIMIZED_HORZ", true);
+	X_ATOM_NETWM_STATE = XInternAtom(XDisplay, "_NET_WM_STATE", true);
 #endif
 }
 
@@ -2026,7 +2094,7 @@ Cursor CIrrDeviceLinux::TextureToARGBCursor(irr::video::ITexture * tex, const co
 	u32 bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
 	u32 bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
 	XcursorPixel* target = image->pixels;
-	const u8* data = (const u8*)tex->lock(ETLM_READ_ONLY, 0);
+	const u8* data = (const u8*)tex->lock(video::ETLM_READ_ONLY, 0);
 	data += sourceRect.UpperLeftCorner.Y*tex->getPitch();
 	for ( s32 y = 0; y < sourceRect.getHeight(); ++y )
 	{

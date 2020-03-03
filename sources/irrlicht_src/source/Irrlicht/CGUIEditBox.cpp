@@ -145,7 +145,7 @@ bool CGUIEditBox::isDrawBackgroundEnabled() const
 	return Background;
 }
 
-//! Sets if the text should use the overide color or the color in the gui skin.
+//! Sets if the text should use the override color or the color in the gui skin.
 void CGUIEditBox::enableOverrideColor(bool enable)
 {
 	OverrideColorEnabled = enable;
@@ -153,7 +153,6 @@ void CGUIEditBox::enableOverrideColor(bool enable)
 
 bool CGUIEditBox::isOverrideColorEnabled() const
 {
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return OverrideColorEnabled;
 }
 
@@ -181,7 +180,6 @@ void CGUIEditBox::updateAbsolutePosition()
 //! Checks if word wrap is enabled
 bool CGUIEditBox::isWordWrapEnabled() const
 {
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return WordWrap;
 }
 
@@ -197,7 +195,6 @@ void CGUIEditBox::setMultiLine(bool enable)
 //! Checks if multi line editing is enabled
 bool CGUIEditBox::isMultiLineEnabled() const
 {
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return MultiLine;
 }
 
@@ -217,7 +214,6 @@ void CGUIEditBox::setPasswordBox(bool passwordBox, wchar_t passwordChar)
 
 bool CGUIEditBox::isPasswordBox() const
 {
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return PasswordBox;
 }
 
@@ -345,13 +341,8 @@ bool CGUIEditBox::processKey(const SEvent& event)
 				const c8* p = Operator->getTextFromClipboard();
 				if (p)
 				{
-					// TODO: we should have such a function in core::string
-					size_t lenOld = strlen(p);
-					wchar_t *ws = new wchar_t[lenOld + 1];
-					size_t len = mbstowcs(ws,p,lenOld);
-					ws[len] = 0;
-					irr::core::stringw widep(ws);
-					delete[] ws;
+					irr::core::stringw widep;
+					core::multibyteToWString(widep, p);
 
 					if (MarkBegin == MarkEnd)
 					{
@@ -423,133 +414,74 @@ bool CGUIEditBox::processKey(const SEvent& event)
 			return false;
 		}
 	}
-	// default keyboard handling
-	else
-	switch(event.KeyInput.Key)
+	// Some special keys - but only handle them if KeyInput.Char is null as on some systems (X11) they might have same key-code as ansi-keys otherwise
+	else if (event.KeyInput.Char == 0)
 	{
-	case KEY_END:
+		switch(event.KeyInput.Key)
 		{
-			s32 p = Text.size();
-			if (WordWrap || MultiLine)
+		case KEY_END:
 			{
-				p = getLineFromPos(CursorPos);
-				p = BrokenTextPositions[p] + (s32)BrokenText[p].size();
-				if (p > 0 && (Text[p-1] == L'\r' || Text[p-1] == L'\n' ))
-					p-=1;
-			}
+				s32 p = Text.size();
+				if (WordWrap || MultiLine)
+				{
+					p = getLineFromPos(CursorPos);
+					p = BrokenTextPositions[p] + (s32)BrokenText[p].size();
+					if (p > 0 && (Text[p-1] == L'\r' || Text[p-1] == L'\n' ))
+						p-=1;
+				}
 
-			if (event.KeyInput.Shift)
-			{
-				if (MarkBegin == MarkEnd)
-					newMarkBegin = CursorPos;
+				if (event.KeyInput.Shift)
+				{
+					if (MarkBegin == MarkEnd)
+						newMarkBegin = CursorPos;
 
-				newMarkEnd = p;
-			}
-			else
-			{
-				newMarkBegin = 0;
-				newMarkEnd = 0;
-			}
-			CursorPos = p;
-			BlinkStartTime = os::Timer::getTime();
-		}
-		break;
-	case KEY_HOME:
-		{
-
-			s32 p = 0;
-			if (WordWrap || MultiLine)
-			{
-				p = getLineFromPos(CursorPos);
-				p = BrokenTextPositions[p];
-			}
-
-			if (event.KeyInput.Shift)
-			{
-				if (MarkBegin == MarkEnd)
-					newMarkBegin = CursorPos;
-				newMarkEnd = p;
-			}
-			else
-			{
-				newMarkBegin = 0;
-				newMarkEnd = 0;
-			}
-			CursorPos = p;
-			BlinkStartTime = os::Timer::getTime();
-		}
-		break;
-	case KEY_RETURN:
-		if (MultiLine)
-		{
-			inputChar(L'\n');
-		}
-		else
-		{
-			calculateScrollPos();
-			sendGuiEvent( EGET_EDITBOX_ENTER );
-		}
-		return true;
-	case KEY_LEFT:
-
-		if (event.KeyInput.Shift)
-		{
-			if (CursorPos > 0)
-			{
-				if (MarkBegin == MarkEnd)
-					newMarkBegin = CursorPos;
-
-				newMarkEnd = CursorPos-1;
-			}
-		}
-		else
-		{
-			newMarkBegin = 0;
-			newMarkEnd = 0;
-		}
-
-		if (CursorPos > 0) CursorPos--;
-		BlinkStartTime = os::Timer::getTime();
-		break;
-
-	case KEY_RIGHT:
-		if (event.KeyInput.Shift)
-		{
-			if (Text.size() > (u32)CursorPos)
-			{
-				if (MarkBegin == MarkEnd)
-					newMarkBegin = CursorPos;
-
-				newMarkEnd = CursorPos+1;
-			}
-		}
-		else
-		{
-			newMarkBegin = 0;
-			newMarkEnd = 0;
-		}
-
-		if (Text.size() > (u32)CursorPos) CursorPos++;
-		BlinkStartTime = os::Timer::getTime();
-		break;
-	case KEY_UP:
-		if (MultiLine || (WordWrap && BrokenText.size() > 1) )
-		{
-			s32 lineNo = getLineFromPos(CursorPos);
-			s32 mb = (MarkBegin == MarkEnd) ? CursorPos : (MarkBegin > MarkEnd ? MarkBegin : MarkEnd);
-			if (lineNo > 0)
-			{
-				s32 cp = CursorPos - BrokenTextPositions[lineNo];
-				if ((s32)BrokenText[lineNo-1].size() < cp)
-					CursorPos = BrokenTextPositions[lineNo-1] + core::max_((u32)1, BrokenText[lineNo-1].size())-1;
+					newMarkEnd = p;
+				}
 				else
-					CursorPos = BrokenTextPositions[lineNo-1] + cp;
+				{
+					newMarkBegin = 0;
+					newMarkEnd = 0;
+				}
+				CursorPos = p;
+				BlinkStartTime = os::Timer::getTime();
 			}
+			break;
+		case KEY_HOME:
+			{
+
+				s32 p = 0;
+				if (WordWrap || MultiLine)
+				{
+					p = getLineFromPos(CursorPos);
+					p = BrokenTextPositions[p];
+				}
+
+				if (event.KeyInput.Shift)
+				{
+					if (MarkBegin == MarkEnd)
+						newMarkBegin = CursorPos;
+					newMarkEnd = p;
+				}
+				else
+				{
+					newMarkBegin = 0;
+					newMarkEnd = 0;
+				}
+				CursorPos = p;
+				BlinkStartTime = os::Timer::getTime();
+			}
+			break;
+		case KEY_LEFT:
 
 			if (event.KeyInput.Shift)
 			{
-				newMarkBegin = mb;
-				newMarkEnd = CursorPos;
+				if (CursorPos > 0)
+				{
+					if (MarkBegin == MarkEnd)
+						newMarkBegin = CursorPos;
+
+					newMarkEnd = CursorPos-1;
+				}
 			}
 			else
 			{
@@ -557,161 +489,231 @@ bool CGUIEditBox::processKey(const SEvent& event)
 				newMarkEnd = 0;
 			}
 
-		}
-		else
-		{
+			if (CursorPos > 0) CursorPos--;
+			BlinkStartTime = os::Timer::getTime();
+			break;
+
+		case KEY_RIGHT:
+			if (event.KeyInput.Shift)
+			{
+				if (Text.size() > (u32)CursorPos)
+				{
+					if (MarkBegin == MarkEnd)
+						newMarkBegin = CursorPos;
+
+					newMarkEnd = CursorPos+1;
+				}
+			}
+			else
+			{
+				newMarkBegin = 0;
+				newMarkEnd = 0;
+			}
+
+			if (Text.size() > (u32)CursorPos) CursorPos++;
+			BlinkStartTime = os::Timer::getTime();
+			break;
+		case KEY_UP:
+			if (MultiLine || (WordWrap && BrokenText.size() > 1) )
+			{
+				s32 lineNo = getLineFromPos(CursorPos);
+				s32 mb = (MarkBegin == MarkEnd) ? CursorPos : (MarkBegin > MarkEnd ? MarkBegin : MarkEnd);
+				if (lineNo > 0)
+				{
+					s32 cp = CursorPos - BrokenTextPositions[lineNo];
+					if ((s32)BrokenText[lineNo-1].size() < cp)
+						CursorPos = BrokenTextPositions[lineNo-1] + core::max_((u32)1, BrokenText[lineNo-1].size())-1;
+					else
+						CursorPos = BrokenTextPositions[lineNo-1] + cp;
+				}
+
+				if (event.KeyInput.Shift)
+				{
+					newMarkBegin = mb;
+					newMarkEnd = CursorPos;
+				}
+				else
+				{
+					newMarkBegin = 0;
+					newMarkEnd = 0;
+				}
+
+			}
+			else
+			{
+				return false;
+			}
+			break;
+		case KEY_DOWN:
+			if (MultiLine || (WordWrap && BrokenText.size() > 1) )
+			{
+				s32 lineNo = getLineFromPos(CursorPos);
+				s32 mb = (MarkBegin == MarkEnd) ? CursorPos : (MarkBegin < MarkEnd ? MarkBegin : MarkEnd);
+				if (lineNo < (s32)BrokenText.size()-1)
+				{
+					s32 cp = CursorPos - BrokenTextPositions[lineNo];
+					if ((s32)BrokenText[lineNo+1].size() < cp)
+						CursorPos = BrokenTextPositions[lineNo+1] + core::max_((u32)1, BrokenText[lineNo+1].size())-1;
+					else
+						CursorPos = BrokenTextPositions[lineNo+1] + cp;
+				}
+
+				if (event.KeyInput.Shift)
+				{
+					newMarkBegin = mb;
+					newMarkEnd = CursorPos;
+				}
+				else
+				{
+					newMarkBegin = 0;
+					newMarkEnd = 0;
+				}
+
+			}
+			else
+			{
+				return false;
+			}
+			break;
+		case KEY_INSERT:
+			if ( !isEnabled() )
+				break;
+
+			OverwriteMode = !OverwriteMode;
+			break;
+		case KEY_DELETE:
+			if ( !isEnabled() )
+				break;
+
+			if (keyDelete())
+			{
+				BlinkStartTime = os::Timer::getTime();
+				newMarkBegin = 0;
+				newMarkEnd = 0;
+				textChanged = true;
+			}
+			break;
+		default:
 			return false;
 		}
-		break;
-	case KEY_DOWN:
-		if (MultiLine || (WordWrap && BrokenText.size() > 1) )
+	}
+	else
+	{
+		// default keyboard handling
+		switch(event.KeyInput.Key)
 		{
-			s32 lineNo = getLineFromPos(CursorPos);
-			s32 mb = (MarkBegin == MarkEnd) ? CursorPos : (MarkBegin < MarkEnd ? MarkBegin : MarkEnd);
-			if (lineNo < (s32)BrokenText.size()-1)
+		case KEY_RETURN:
+			if (MultiLine)
 			{
-				s32 cp = CursorPos - BrokenTextPositions[lineNo];
-				if ((s32)BrokenText[lineNo+1].size() < cp)
-					CursorPos = BrokenTextPositions[lineNo+1] + core::max_((u32)1, BrokenText[lineNo+1].size())-1;
-				else
-					CursorPos = BrokenTextPositions[lineNo+1] + cp;
-			}
-
-			if (event.KeyInput.Shift)
-			{
-				newMarkBegin = mb;
-				newMarkEnd = CursorPos;
+				inputChar(L'\n');
 			}
 			else
 			{
+				calculateScrollPos();
+				sendGuiEvent( EGET_EDITBOX_ENTER );
+			}
+			return true;
+
+		case KEY_BACK:
+			if ( !isEnabled() )
+				break;
+
+			if (Text.size())
+			{
+				core::stringw s;
+
+				if (MarkBegin != MarkEnd)
+				{
+					// delete marked text
+					const s32 realmbgn = MarkBegin < MarkEnd ? MarkBegin : MarkEnd;
+					const s32 realmend = MarkBegin < MarkEnd ? MarkEnd : MarkBegin;
+
+					s = Text.subString(0, realmbgn);
+					s.append( Text.subString(realmend, Text.size()-realmend) );
+					Text = s;
+
+					CursorPos = realmbgn;
+				}
+				else
+				{
+					// delete text behind cursor
+					if (CursorPos>0)
+						s = Text.subString(0, CursorPos-1);
+					else
+						s = L"";
+					s.append( Text.subString(CursorPos, Text.size()-CursorPos) );
+					Text = s;
+					--CursorPos;
+				}
+
+				if (CursorPos < 0)
+					CursorPos = 0;
+				BlinkStartTime = os::Timer::getTime();
 				newMarkBegin = 0;
 				newMarkEnd = 0;
+				textChanged = true;
+			}
+			break;
+
+		case KEY_DELETE:
+
+			// At least on X11 we get a char with 127 when the delete key is pressed.
+			// We get no char when the delete key on numkeys is pressed with numlock off (handled in the other case calling keyDelete as Char is then 0).
+			// We get a keykode != 127 when delete key on numlock is pressed with numlock on.
+			if (event.KeyInput.Char == 127)
+			{
+				if ( !isEnabled() )
+					break;
+
+				if (keyDelete())
+				{
+					BlinkStartTime = os::Timer::getTime();
+					newMarkBegin = 0;
+					newMarkEnd = 0;
+					textChanged = true;
+				}
+				break;
+			}
+			else
+			{
+				inputChar(event.KeyInput.Char);
+				return true;
 			}
 
-		}
-		else
-		{
+		case KEY_ESCAPE:
+		case KEY_TAB:
+		case KEY_SHIFT:
+		case KEY_F1:
+		case KEY_F2:
+		case KEY_F3:
+		case KEY_F4:
+		case KEY_F5:
+		case KEY_F6:
+		case KEY_F7:
+		case KEY_F8:
+		case KEY_F9:
+		case KEY_F10:
+		case KEY_F11:
+		case KEY_F12:
+		case KEY_F13:
+		case KEY_F14:
+		case KEY_F15:
+		case KEY_F16:
+		case KEY_F17:
+		case KEY_F18:
+		case KEY_F19:
+		case KEY_F20:
+		case KEY_F21:
+		case KEY_F22:
+		case KEY_F23:
+		case KEY_F24:
+			// ignore these keys
 			return false;
+
+		default:
+			inputChar(event.KeyInput.Char);
+			return true;
 		}
-		break;
-
-	case KEY_BACK:
-		if ( !isEnabled() )
-			break;
-
-		if (Text.size())
-		{
-			core::stringw s;
-
-			if (MarkBegin != MarkEnd)
-			{
-				// delete marked text
-				const s32 realmbgn = MarkBegin < MarkEnd ? MarkBegin : MarkEnd;
-				const s32 realmend = MarkBegin < MarkEnd ? MarkEnd : MarkBegin;
-
-				s = Text.subString(0, realmbgn);
-				s.append( Text.subString(realmend, Text.size()-realmend) );
-				Text = s;
-
-				CursorPos = realmbgn;
-			}
-			else
-			{
-				// delete text behind cursor
-				if (CursorPos>0)
-					s = Text.subString(0, CursorPos-1);
-				else
-					s = L"";
-				s.append( Text.subString(CursorPos, Text.size()-CursorPos) );
-				Text = s;
-				--CursorPos;
-			}
-
-			if (CursorPos < 0)
-				CursorPos = 0;
-			BlinkStartTime = os::Timer::getTime();
-			newMarkBegin = 0;
-			newMarkEnd = 0;
-			textChanged = true;
-		}
-		break;
-	case KEY_INSERT:
-		if ( !isEnabled() )
-			break;
-
-		OverwriteMode = !OverwriteMode;
-		break;
-	case KEY_DELETE:
-		if ( !isEnabled() )
-			break;
-
-		if (Text.size() != 0)
-		{
-			core::stringw s;
-
-			if (MarkBegin != MarkEnd)
-			{
-				// delete marked text
-				const s32 realmbgn = MarkBegin < MarkEnd ? MarkBegin : MarkEnd;
-				const s32 realmend = MarkBegin < MarkEnd ? MarkEnd : MarkBegin;
-
-				s = Text.subString(0, realmbgn);
-				s.append( Text.subString(realmend, Text.size()-realmend) );
-				Text = s;
-
-				CursorPos = realmbgn;
-			}
-			else
-			{
-				// delete text before cursor
-				s = Text.subString(0, CursorPos);
-				s.append( Text.subString(CursorPos+1, Text.size()-CursorPos-1) );
-				Text = s;
-			}
-
-			if (CursorPos > (s32)Text.size())
-				CursorPos = (s32)Text.size();
-
-			BlinkStartTime = os::Timer::getTime();
-			newMarkBegin = 0;
-			newMarkEnd = 0;
-			textChanged = true;
-		}
-		break;
-
-	case KEY_ESCAPE:
-	case KEY_TAB:
-	case KEY_SHIFT:
-	case KEY_F1:
-	case KEY_F2:
-	case KEY_F3:
-	case KEY_F4:
-	case KEY_F5:
-	case KEY_F6:
-	case KEY_F7:
-	case KEY_F8:
-	case KEY_F9:
-	case KEY_F10:
-	case KEY_F11:
-	case KEY_F12:
-	case KEY_F13:
-	case KEY_F14:
-	case KEY_F15:
-	case KEY_F16:
-	case KEY_F17:
-	case KEY_F18:
-	case KEY_F19:
-	case KEY_F20:
-	case KEY_F21:
-	case KEY_F22:
-	case KEY_F23:
-	case KEY_F24:
-		// ignore these keys
-		return false;
-
-	default:
-		inputChar(event.KeyInput.Char);
-		return true;
 	}
 
 	// Set new text markers
@@ -732,6 +734,40 @@ bool CGUIEditBox::processKey(const SEvent& event)
 	return true;
 }
 
+bool CGUIEditBox::keyDelete()
+{
+	if (Text.size() != 0)
+	{
+		core::stringw s;
+
+		if (MarkBegin != MarkEnd)
+		{
+			// delete marked text
+			const s32 realmbgn = MarkBegin < MarkEnd ? MarkBegin : MarkEnd;
+			const s32 realmend = MarkBegin < MarkEnd ? MarkEnd : MarkBegin;
+
+			s = Text.subString(0, realmbgn);
+			s.append( Text.subString(realmend, Text.size()-realmend) );
+			Text = s;
+
+			CursorPos = realmbgn;
+		}
+		else
+		{
+			// delete text before cursor
+			s = Text.subString(0, CursorPos);
+			s.append( Text.subString(CursorPos+1, Text.size()-CursorPos-1) );
+			Text = s;
+		}
+
+		if (CursorPos > (s32)Text.size())
+			CursorPos = (s32)Text.size();
+
+		return true;
+	}
+
+	return false;
+}
 
 //! draws the element and its children
 void CGUIEditBox::draw()
@@ -901,7 +937,7 @@ void CGUIEditBox::draw()
 		}
 
 		// draw cursor
-		if ( IsEnabled )
+		if ( isEnabled() )
 		{
 			if (WordWrap || MultiLine)
 			{
@@ -969,7 +1005,6 @@ void CGUIEditBox::setAutoScroll(bool enable)
 //! \return true if automatic scrolling is enabled, false if not
 bool CGUIEditBox::isAutoScrollEnabled() const
 {
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return AutoScroll;
 }
 
@@ -1362,7 +1397,6 @@ void CGUIEditBox::inputChar(wchar_t c)
 
 	if (c != 0)
 	{
-		if (Text.size() < Max || Max == 0)
 		{
 			core::stringw s;
 
@@ -1383,23 +1417,27 @@ void CGUIEditBox::inputChar(wchar_t c)
 				//check to see if we are at the end of the text
 				if ( (u32)CursorPos != Text.size())
 				{
-					s = Text.subString(0, CursorPos);
-					s.append(c);
-					if ( Text[CursorPos] == L'\n')
+					bool isEOL = (Text[CursorPos] == L'\n' ||Text[CursorPos] == L'\r' );
+					if (!isEOL || Text.size() < Max || Max == 0)
 					{
-						//just keep appending to the current line
-						//This follows the behavior of over gui libraries behaviors
-						s.append( Text.subString(CursorPos, Text.size()-CursorPos) );
+						s = Text.subString(0, CursorPos);
+						s.append(c);
+						if ( isEOL )
+						{
+							//just keep appending to the current line
+							//This follows the behavior of other gui libraries behaviors
+							s.append( Text.subString(CursorPos, Text.size()-CursorPos) );
+						}
+						else
+						{
+							//replace the next character
+							s.append( Text.subString(CursorPos + 1,Text.size() - CursorPos + 1));
+						}
+						Text = s;
+						++CursorPos;
 					}
-					else
-					{
-						//replace the next character
-						s.append( Text.subString(CursorPos + 1,Text.size() - CursorPos + 1));
-					}
-					Text = s;
-					++CursorPos;
 				}
-				else
+				else if (Text.size() < Max || Max == 0)
 				{
 					// add new character because we are at the end of the string
 					s = Text.subString(0, CursorPos);
@@ -1409,7 +1447,7 @@ void CGUIEditBox::inputChar(wchar_t c)
 					++CursorPos;
 				}
 			}
-			else
+			else if (Text.size() < Max || Max == 0)
 			{
 				// add new character
 				s = Text.subString(0, CursorPos);
@@ -1624,23 +1662,25 @@ void CGUIEditBox::deserializeAttributes(io::IAttributes* in, io::SAttributeReadW
 {
 	IGUIEditBox::deserializeAttributes(in,options);
 
-	setDrawBorder( in->getAttributeAsBool("Border") );
-	setDrawBackground( in->getAttributeAsBool("Background") );
-	setOverrideColor(in->getAttributeAsColor("OverrideColor"));
-	enableOverrideColor(in->getAttributeAsBool("OverrideColorEnabled"));
-	setMax(in->getAttributeAsInt("MaxChars"));
-	setWordWrap(in->getAttributeAsBool("WordWrap"));
-	setMultiLine(in->getAttributeAsBool("MultiLine"));
-	setAutoScroll(in->getAttributeAsBool("AutoScroll"));
-	core::stringw ch = in->getAttributeAsStringW("PasswordChar");
+	setDrawBorder( in->getAttributeAsBool("Border", Border) );
+	setDrawBackground( in->getAttributeAsBool("Background", Background) );
+	setOverrideColor(in->getAttributeAsColor("OverrideColor", OverrideColor));
+	enableOverrideColor(in->getAttributeAsBool("OverrideColorEnabled", OverrideColorEnabled));
+	setMax(in->getAttributeAsInt("MaxChars", Max));
+	setWordWrap(in->getAttributeAsBool("WordWrap", WordWrap));
+	setMultiLine(in->getAttributeAsBool("MultiLine", MultiLine));
+	setAutoScroll(in->getAttributeAsBool("AutoScroll", AutoScroll));
+	core::stringw ch = L" ";
+	ch[0] = PasswordChar;
+	ch = in->getAttributeAsStringW("PasswordChar", ch);
 
 	if (!ch.size())
-		setPasswordBox(in->getAttributeAsBool("PasswordBox"));
+		setPasswordBox(in->getAttributeAsBool("PasswordBox", PasswordBox));
 	else
-		setPasswordBox(in->getAttributeAsBool("PasswordBox"), ch[0]);
+		setPasswordBox(in->getAttributeAsBool("PasswordBox", PasswordBox), ch[0]);
 
-	setTextAlignment( (EGUI_ALIGNMENT) in->getAttributeAsEnumeration("HTextAlign", GUIAlignmentNames),
-			(EGUI_ALIGNMENT) in->getAttributeAsEnumeration("VTextAlign", GUIAlignmentNames));
+	setTextAlignment( (EGUI_ALIGNMENT) in->getAttributeAsEnumeration("HTextAlign", GUIAlignmentNames, (s32)HAlign),
+			(EGUI_ALIGNMENT) in->getAttributeAsEnumeration("VTextAlign", GUIAlignmentNames, (s32)VAlign));
 
 	// setOverrideFont(in->getAttributeAsFont("OverrideFont"));
 }

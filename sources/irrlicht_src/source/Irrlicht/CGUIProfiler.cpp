@@ -16,17 +16,21 @@ namespace gui
 {
 
 //! constructor
-CGUIProfiler::CGUIProfiler(IGUIEnvironment* environment, IGUIElement* parent, s32 id, core::rect<s32> rectangle)
-	: IGUIProfiler(environment, parent, id, rectangle)
-	, DisplayTable(0), CurrentGroupIdx(0), CurrentGroupPage(0), NumGroupPages(1), IgnoreUncalled(false)
+CGUIProfiler::CGUIProfiler(IGUIEnvironment* environment, IGUIElement* parent, s32 id, core::rect<s32> rectangle, IProfiler* profiler)
+	: IGUIProfiler(environment, parent, id, rectangle, profiler)
+	, Profiler(profiler)
+	, DisplayTable(0), CurrentGroupIdx(0), CurrentGroupPage(0), NumGroupPages(1)
+	, DrawBackground(false), Frozen(false), UnfreezeOnce(false), ShowGroupsTogether(false)
+	, MinCalls(0), MinTimeSum(0), MinTimeAverage(0.f), MinTimeMax(0)
 {
-	Profiler = &getProfiler();
+	if ( !Profiler )
+		Profiler = &getProfiler();
 
 	core::recti r(0, 0, rectangle.getWidth(), rectangle.getHeight());
 
 	// Really just too lazy to code a complete new element for this.
     // If anyone can do this nicer he's welcome.
-	DisplayTable = Environment->addTable(r, this, -1, true);
+	DisplayTable = Environment->addTable(r, this, -1, DrawBackground);
 	DisplayTable->setAlignment(EGUIA_UPPERLEFT, EGUIA_LOWERRIGHT, EGUIA_UPPERLEFT, EGUIA_LOWERRIGHT);
 	DisplayTable->setSubElement(true);
 	rebuildColumns();
@@ -66,6 +70,24 @@ void CGUIProfiler::rebuildColumns()
 	}
 }
 
+u32 CGUIProfiler::addDataToTable(u32 rowIndex, u32 dataIndex, u32 groupIndex)
+{
+	const SProfileData& data = Profiler->getProfileDataByIndex(dataIndex);
+	if ( data.getGroupIndex() == groupIndex
+		&& data.getCallsCounter() >= MinCalls
+		&& ( data.getCallsCounter() == 0 ||
+			(data.getTimeSum() >= MinTimeSum &&
+			 (f32)data.getTimeSum()/(f32)data.getCallsCounter() >= MinTimeAverage &&
+			 data.getLongestTime() >= MinTimeMax))
+		 )
+	{
+		rowIndex = DisplayTable->addRow(rowIndex);
+		fillRow(rowIndex, data, false, false);
+		++rowIndex;
+	}
+	return rowIndex;
+}
+
 void CGUIProfiler::updateDisplay()
 {
 	if ( DisplayTable )
@@ -76,21 +98,23 @@ void CGUIProfiler::updateDisplay()
 		{
 			bool overview = CurrentGroupIdx == 0;
 			u32 rowIndex = 0;
+
+			// show description row (overview or name of the following group)
 			const SProfileData& groupData = Profiler->getGroupData(CurrentGroupIdx);
-			if ( overview || !IgnoreUncalled || groupData.getCallsCounter() > 0 )
+			if ( !ShowGroupsTogether && (overview || groupData.getCallsCounter() >= MinCalls) )
 			{
 				rowIndex = DisplayTable->addRow(rowIndex);
 				fillRow(rowIndex, groupData, overview, true);
 				++rowIndex;
 			}
 
-			// show overview over groups?
+			// show overview over all groups?
 			if ( overview )
 			{
 				for ( u32 i=1; i<Profiler->getGroupCount(); ++i )
 				{
 					const SProfileData& groupData = Profiler->getGroupData(i);
-					if ( !IgnoreUncalled || groupData.getCallsCounter() > 0 )
+					if ( groupData.getCallsCounter() >= MinCalls )
 					{
 						rowIndex = DisplayTable->addRow(rowIndex);
 						fillRow(rowIndex, groupData, false, false);
@@ -101,16 +125,19 @@ void CGUIProfiler::updateDisplay()
 			// show data for all elements in current group
 			else
 			{
-
 				for ( u32 i=0; i < Profiler->getProfileDataCount(); ++i )
 				{
-					const SProfileData& data = Profiler->getProfileDataByIndex(i);
-					if ( data.getGroupIndex() == CurrentGroupIdx
-						&& (!IgnoreUncalled || data.getCallsCounter() > 0) )
+					rowIndex = addDataToTable(rowIndex, i, CurrentGroupIdx);
+				}
+			}
+			// Show the rest of the groups
+			if (ShowGroupsTogether)
+			{
+				for ( u32 groupIdx = CurrentGroupIdx+1; groupIdx < Profiler->getGroupCount(); ++groupIdx)
+				{
+					for ( u32 i=0; i < Profiler->getProfileDataCount(); ++i )
 					{
-						rowIndex = DisplayTable->addRow(rowIndex);
-						fillRow(rowIndex, data, false, false);
-						++rowIndex;
+						rowIndex = addDataToTable(rowIndex, i, groupIdx);
 					}
 				}
 			}
@@ -165,7 +192,11 @@ void CGUIProfiler::draw()
 {
 	if ( isVisible() )
 	{
-		updateDisplay();
+		if (!Frozen || UnfreezeOnce)
+		{
+			UnfreezeOnce = false;
+			updateDisplay();
+		}
 	}
 
 	IGUIElement::draw();
@@ -173,6 +204,7 @@ void CGUIProfiler::draw()
 
 void CGUIProfiler::nextPage(bool includeOverview)
 {
+	UnfreezeOnce = true;
 	if ( CurrentGroupPage < NumGroupPages-1 )
 		++CurrentGroupPage;
 	else
@@ -190,6 +222,7 @@ void CGUIProfiler::nextPage(bool includeOverview)
 
 void CGUIProfiler::previousPage(bool includeOverview)
 {
+	UnfreezeOnce = true;
 	if ( CurrentGroupPage > 0 )
 	{
 		--CurrentGroupPage;
@@ -211,24 +244,24 @@ void CGUIProfiler::previousPage(bool includeOverview)
 	}
 }
 
+void CGUIProfiler::setShowGroupsTogether(bool groupsTogether)
+{
+	ShowGroupsTogether = groupsTogether;
+}
+
+bool CGUIProfiler::getShowGroupsTogether() const
+{
+	return ShowGroupsTogether;
+}
+
 void CGUIProfiler::firstPage(bool includeOverview)
 {
+	UnfreezeOnce = true;
 	if ( includeOverview )
 		CurrentGroupIdx = 0;
     else
 		CurrentGroupIdx = 1; // can be invalid
 	CurrentGroupPage = 0;
-}
-
-
-void CGUIProfiler::setIgnoreUncalled(bool ignore)
-{
-	IgnoreUncalled = ignore;
-}
-
-bool CGUIProfiler::getIgnoreUncalled() const
-{
-	return IgnoreUncalled;
 }
 
 //! Sets another skin independent font.
@@ -257,6 +290,39 @@ IGUIFont* CGUIProfiler::getActiveFont() const
 	return 0;
 }
 
+//! Sets whether to draw the background. By default disabled,
+void CGUIProfiler::setDrawBackground(bool draw)
+{
+	DrawBackground = draw;
+	if ( DisplayTable )
+		DisplayTable->setDrawBackground(draw);
+}
+
+//! Checks if background drawing is enabled
+bool CGUIProfiler::isDrawBackgroundEnabled() const
+{
+	return DrawBackground;
+}
+
+//! Allows to freeze updates which makes it easier to read the numbers
+void CGUIProfiler::setFrozen(bool freeze)
+{
+	Frozen = freeze;
+}
+
+//! Are updates currently frozen
+bool CGUIProfiler::getFrozen() const
+{
+	return Frozen;
+}
+
+void CGUIProfiler::setFilters(irr::u32 minCalls, irr::u32 minTimeSum, irr::f32 minTimeAverage, irr::u32 minTimeMax)
+{
+	MinCalls = minCalls;
+	MinTimeSum = minTimeSum;
+	MinTimeAverage = minTimeAverage;
+	MinTimeMax = minTimeMax;
+}
 
 } // end namespace gui
 } // end namespace irr

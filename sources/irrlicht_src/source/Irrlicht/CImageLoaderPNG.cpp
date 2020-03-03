@@ -133,8 +133,7 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	if (setjmp(png_jmpbuf(png_ptr)))
 	{
 		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-		if (RowPointers)
-			delete [] RowPointers;
+		delete [] RowPointers;
 		return 0;
 	}
 
@@ -150,7 +149,7 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	s32 BitDepth;
 	s32 ColorType;
 	{
-		// Use temporary variables to avoid passing casted pointers
+		// Use temporary variables to avoid passing cast pointers
 		png_uint_32 w,h;
 		// Extract info
 		png_get_IHDR(png_ptr, info_ptr,
@@ -202,7 +201,7 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	// for proper processing of the RGBA type
 	png_read_update_info(png_ptr, info_ptr);
 	{
-		// Use temporary variables to avoid passing casted pointers
+		// Use temporary variables to avoid passing cast pointers
 		png_uint_32 w,h;
 		// Extract info
 		png_get_IHDR(png_ptr, info_ptr,
@@ -245,7 +244,7 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	}
 
 	// Fill array of pointers to rows in image data
-	unsigned char* data = (unsigned char*)image->lock();
+	unsigned char* data = (unsigned char*)image->getData();
 	for (u32 i=0; i<Height; ++i)
 	{
 		RowPointers[i]=data;
@@ -257,8 +256,7 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	{
 		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 		delete [] RowPointers;
-		image->unlock();
-		delete [] image;
+		delete image;
 		return 0;
 	}
 
@@ -267,7 +265,6 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 
 	png_read_end(png_ptr, NULL);
 	delete [] RowPointers;
-	image->unlock();
 	png_destroy_read_struct(&png_ptr,&info_ptr, 0); // Clean up memory
 
 	return image;

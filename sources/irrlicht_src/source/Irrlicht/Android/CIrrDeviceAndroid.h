@@ -53,14 +53,30 @@ namespace irr
 		virtual void restoreWindow();
 
 		virtual core::position2di getWindowPosition();
-		
+
 		virtual E_DEVICE_TYPE getType() const;
 
-	private:
-		
-		static void handleAndroidCommand(ANDROID_APP app, int32_t cmd);
+		virtual bool activateAccelerometer(float updateInterval);
 
-		static s32 handleInput(ANDROID_APP app, AInputEvent* event);
+		virtual bool deactivateAccelerometer();
+
+		virtual bool isAccelerometerActive();
+
+		virtual bool isAccelerometerAvailable();
+
+		virtual bool activateGyroscope(float updateInterval);
+
+		virtual bool deactivateGyroscope();
+
+		virtual bool isGyroscopeActive();
+
+		virtual bool isGyroscopeAvailable();
+
+	private:
+
+		static void handleAndroidCommand(android_app* app, int32_t cmd);
+
+		static s32 handleInput(android_app* app, AInputEvent* event);
 
 		void createDriver();
 
@@ -68,14 +84,16 @@ namespace irr
 
 		video::SExposedVideoData& getExposedVideoData();
 
-		ANDROID_APP Android;
+		android_app* Android;
 		ASensorManager* SensorManager;
 		ASensorEventQueue* SensorEventQueue;
+		const ASensor* Accelerometer;
+		const ASensor* Gyroscope;
 
 		bool Focused;
 		bool Initialized;
 		bool Paused;
-	
+
 		JNIEnv* JNIEnvAttachedToVM;
 
 		video::SExposedVideoData ExposedVideoData;

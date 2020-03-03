@@ -59,7 +59,7 @@ CSoftwareDriver::CSoftwareDriver(const core::dimension2d<u32>& windowSize, bool 
 
 	// select render target
 
-	setRenderTarget(BackBuffer);
+	setRenderTargetImage(BackBuffer);
 
 	// select the right renderer
 
@@ -174,6 +174,16 @@ bool CSoftwareDriver::queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
 }
 
 
+//! Create render target.
+IRenderTarget* CSoftwareDriver::addRenderTarget()
+{
+	CSoftwareRenderTarget* renderTarget = new CSoftwareRenderTarget(this);
+	RenderTargets.push_back(renderTarget);
+
+	return renderTarget;
+}
+
+
 //! sets transformation
 void CSoftwareDriver::setTransform(E_TRANSFORMATION_STATE state, const core::matrix4& mat)
 {
@@ -217,26 +227,17 @@ void CSoftwareDriver::setMaterial(const SMaterial& material)
 	}
 }
 
-
-//! clears the zbuffer
-bool CSoftwareDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
-		const SExposedVideoData& videoData, core::rect<s32>* sourceRect)
+bool CSoftwareDriver::beginScene(u16 clearFlag, SColor clearColor, f32 clearDepth, u8 clearStencil, const SExposedVideoData& videoData, core::rect<s32>* sourceRect)
 {
-	CNullDriver::beginScene(backBuffer, zBuffer, color, videoData, sourceRect);
+	CNullDriver::beginScene(clearFlag, clearColor, clearDepth, clearStencil, videoData, sourceRect);
 	WindowId=videoData.D3D9.HWnd;
 	SceneSourceRect = sourceRect;
 
-	if (backBuffer && BackBuffer)
-		BackBuffer->fill(color);
-
-	if (ZBuffer && zBuffer)
-		ZBuffer->clear();
+	clearBuffers(clearFlag, clearColor, clearDepth, clearStencil);
 
 	return true;
 }
 
-
-//! presents the rendered scene on the screen, returns false if failed
 bool CSoftwareDriver::endScene()
 {
 	CNullDriver::endScene();
@@ -244,60 +245,45 @@ bool CSoftwareDriver::endScene()
 	return Presenter->present(BackBuffer, WindowId, SceneSourceRect);
 }
 
-
-//! returns a device dependent texture from a software surface (IImage)
-//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-ITexture* CSoftwareDriver::createDeviceDependentTexture(IImage* surface, const io::path& name, void* mipmapData)
+ITexture* CSoftwareDriver::createDeviceDependentTexture(const io::path& name, IImage* image)
 {
-	CSoftwareTexture* texture = 0;
-
-	if (surface && checkColorFormat(surface->getColorFormat(), surface->getDimension()))
-		texture = new CSoftwareTexture(surface, name, false, mipmapData);
+	CSoftwareTexture* texture = new CSoftwareTexture(image, name, false);
 
 	return texture;
 }
 
-
-//! sets a render target
-bool CSoftwareDriver::setRenderTarget(video::ITexture* texture, bool clearBackBuffer,
-								bool clearZBuffer, SColor color)
+bool CSoftwareDriver::setRenderTargetEx(IRenderTarget* target, u16 clearFlag, SColor clearColor, f32 clearDepth, u8 clearStencil)
 {
-	if (texture && texture->getDriverType() != EDT_SOFTWARE)
+	if (target && target->getDriverType() != EDT_SOFTWARE)
 	{
-		os::Printer::log("Fatal Error: Tried to set a texture not owned by this driver.", ELL_ERROR);
+		os::Printer::log("Fatal Error: Tried to set a render target not owned by this driver.", ELL_ERROR);
 		return false;
 	}
 
 	if (RenderTargetTexture)
 		RenderTargetTexture->drop();
 
-	RenderTargetTexture = texture;
+	CSoftwareRenderTarget* renderTarget = static_cast<CSoftwareRenderTarget*>(target);
+	RenderTargetTexture = (renderTarget) ? renderTarget->getTexture() : 0;
 
 	if (RenderTargetTexture)
 	{
 		RenderTargetTexture->grab();
-		setRenderTarget(((CSoftwareTexture*)RenderTargetTexture)->getTexture());
+		setRenderTargetImage(((CSoftwareTexture*)RenderTargetTexture)->getTexture());
 	}
 	else
 	{
-		setRenderTarget(BackBuffer);
+		setRenderTargetImage(BackBuffer);
 	}
 
-	if (RenderTargetSurface && (clearBackBuffer || clearZBuffer))
-	{
-		if (clearZBuffer)
-			ZBuffer->clear();
-
-		if (clearBackBuffer)
-			RenderTargetSurface->fill(color);
-	}
+	clearBuffers(clearFlag, clearColor, clearDepth, clearStencil);
 
 	return true;
 }
 
 
 //! sets a render target
-void CSoftwareDriver::setRenderTarget(video::CImage* image)
+void CSoftwareDriver::setRenderTargetImage(video::CImage* image)
 {
 	if (RenderTargetSurface)
 		RenderTargetSurface->drop();
@@ -505,7 +491,7 @@ void CSoftwareDriver::drawClippedIndexedTriangleListT(const VERTEXTYPE* vertices
 	worldinv.makeInverse();
 
 	// calculate view frustum planes
-	scene::SViewFrustum frustum(TransformationMatrix[ETS_PROJECTION] * TransformationMatrix[ETS_VIEW]);
+	scene::SViewFrustum frustum(TransformationMatrix[ETS_PROJECTION] * TransformationMatrix[ETS_VIEW], true);
 
 	// copy and transform clipping planes ignoring far plane
 	core::plane3df planes[5]; // ordered by near, left, right, bottom, top
@@ -785,7 +771,7 @@ void CSoftwareDriver::OnResize(const core::dimension2d<u32>& size)
 		BackBuffer = new CImage(ECF_A1R5G5B5, realSize);
 
 		if (resetRT)
-			setRenderTarget(BackBuffer);
+			setRenderTargetImage(BackBuffer);
 	}
 }
 
@@ -917,11 +903,12 @@ ITexture* CSoftwareDriver::addRenderTargetTexture(const core::dimension2d<u32>& 
 	return tex;
 }
 
-
-//! Clears the ZBuffer.
-void CSoftwareDriver::clearZBuffer()
+void CSoftwareDriver::clearBuffers(u16 flag, SColor color, f32 depth, u8 stencil)
 {
-	if (ZBuffer)
+	if ((flag & ECBF_COLOR) && RenderTargetSurface)
+		RenderTargetSurface->fill(color);
+
+	if ((flag & ECBF_DEPTH) && ZBuffer)
 		ZBuffer->clear();
 }
 
@@ -950,6 +937,12 @@ u32 CSoftwareDriver::getMaximalPrimitiveCount() const
 {
 	return 0x00800000;
 }
+
+bool CSoftwareDriver::queryTextureFormat(ECOLOR_FORMAT format) const
+{
+	return format == ECF_A1R5G5B5;
+}
+
 
 } // end namespace video
 } // end namespace irr

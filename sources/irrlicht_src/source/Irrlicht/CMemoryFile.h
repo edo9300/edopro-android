@@ -5,7 +5,7 @@
 #ifndef __C_MEMORY_READ_FILE_H_INCLUDED__
 #define __C_MEMORY_READ_FILE_H_INCLUDED__
 
-#include "IReadFile.h"
+#include "IMemoryReadFile.h"
 #include "IWriteFile.h"
 #include "irrString.h"
 
@@ -18,7 +18,7 @@ namespace io
 	/*!
 		Class for reading from memory.
 	*/
-	class CMemoryReadFile : public IReadFile
+	class CMemoryReadFile : public IMemoryReadFile
 	{
 	public:
 
@@ -29,7 +29,7 @@ namespace io
 		virtual ~CMemoryReadFile();
 
 		//! returns how much was read
-		virtual s32 read(void* buffer, u32 sizeToRead) _IRR_OVERRIDE_;
+		virtual size_t read(void* buffer, size_t sizeToRead) _IRR_OVERRIDE_;
 
 		//! changes position in file, returns true if successful
 		virtual bool seek(long finalPos, bool relativeMovement = false) _IRR_OVERRIDE_;
@@ -42,6 +42,18 @@ namespace io
 
 		//! returns name of file
 		virtual const io::path& getFileName() const _IRR_OVERRIDE_;
+
+		//! Get the type of the class implementing this interface
+		virtual EREAD_FILE_TYPE getType() const _IRR_OVERRIDE_
+		{
+			return ERFT_MEMORY_READ_FILE;
+		}
+
+		//! Get direct access to internal buffer
+		virtual const void *getBuffer() const _IRR_OVERRIDE_
+		{
+			return Buffer;
+		}
 
 	private:
 
@@ -66,7 +78,7 @@ namespace io
 		virtual ~CMemoryWriteFile();
 
 		//! returns how much was written
-		virtual s32 write(const void* buffer, u32 sizeToWrite) _IRR_OVERRIDE_;
+		virtual size_t write(const void* buffer, size_t sizeToWrite) _IRR_OVERRIDE_;
 
 		//! changes position in file, returns true if successful
 		virtual bool seek(long finalPos, bool relativeMovement = false) _IRR_OVERRIDE_;
@@ -76,6 +88,8 @@ namespace io
 
 		//! returns name of file
 		virtual const io::path& getFileName() const _IRR_OVERRIDE_;
+
+		virtual bool flush() _IRR_OVERRIDE_;
 
 	private:
 

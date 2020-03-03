@@ -1,21 +1,21 @@
-// Copyright (C) 2013 Patryk Nadrowski
-// Heavily based on the OpenGL driver implemented by Nikolaus Gebhardt
-// OpenGL ES driver implemented by Christian Stehno and first OpenGL ES 2.0
-// driver implemented by Amundis.
+// Copyright (C) 2014 Patryk Nadrowski
 // This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in Irrlicht.h
+// For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "IrrCompileConfig.h"
+#include "COGLES2MaterialRenderer.h"
+
 #ifdef _IRR_COMPILE_WITH_OGLES2_
 
-#include "COGLES2MaterialRenderer.h"
+#include "EVertexAttributes.h"
 #include "IGPUProgrammingServices.h"
 #include "IShaderConstantSetCallBack.h"
-#include "IMaterialRendererServices.h"
 #include "IVideoDriver.h"
 #include "os.h"
+
 #include "COGLES2Driver.h"
-#include "COGLES2MaterialRenderer.h"
+
+#include "COpenGLCoreTexture.h"
+#include "COpenGLCoreCacheHandler.h"
 
 namespace irr
 {
@@ -23,7 +23,6 @@ namespace video
 {
 
 
-//! Constructor
 COGLES2MaterialRenderer::COGLES2MaterialRenderer(COGLES2Driver* driver,
 		s32& outMaterialTypeNr,
 		const c8* vertexShaderProgram,
@@ -33,23 +32,29 @@ COGLES2MaterialRenderer::COGLES2MaterialRenderer(COGLES2Driver* driver,
 		s32 userData)
 	: Driver(driver), CallBack(callback), Alpha(false), Blending(false), FixedBlending(false), Program(0), UserData(userData)
 {
-	#ifdef _DEBUG
+#ifdef _DEBUG
 	setDebugName("COGLES2MaterialRenderer");
-	#endif
+#endif
 
-	if (baseMaterial == EMT_TRANSPARENT_VERTEX_ALPHA || baseMaterial == EMT_TRANSPARENT_ALPHA_CHANNEL ||
-		baseMaterial == EMT_TRANSPARENT_ALPHA_CHANNEL_REF || baseMaterial == EMT_NORMAL_MAP_TRANSPARENT_VERTEX_ALPHA ||
-		baseMaterial == EMT_PARALLAX_MAP_TRANSPARENT_VERTEX_ALPHA)
+	switch (baseMaterial)
 	{
+	case EMT_TRANSPARENT_VERTEX_ALPHA:
+	case EMT_TRANSPARENT_ALPHA_CHANNEL:
+	case EMT_NORMAL_MAP_TRANSPARENT_VERTEX_ALPHA:
+	case EMT_PARALLAX_MAP_TRANSPARENT_VERTEX_ALPHA:
 		Alpha = true;
-	}
-	else if (baseMaterial == EMT_TRANSPARENT_ADD_COLOR || baseMaterial == EMT_NORMAL_MAP_TRANSPARENT_ADD_COLOR ||
-		baseMaterial == EMT_PARALLAX_MAP_TRANSPARENT_ADD_COLOR)
-	{
+		break;
+	case EMT_TRANSPARENT_ADD_COLOR:
+	case EMT_NORMAL_MAP_TRANSPARENT_ADD_COLOR:
+	case EMT_PARALLAX_MAP_TRANSPARENT_ADD_COLOR:
 		FixedBlending = true;
-	}
-	else if (baseMaterial == EMT_ONETEXTURE_BLEND)
+		break;
+	case EMT_ONETEXTURE_BLEND:
 		Blending = true;
+		break;
+	default:
+		break;
+	}
 
 	if (CallBack)
 		CallBack->grab();
@@ -58,33 +63,36 @@ COGLES2MaterialRenderer::COGLES2MaterialRenderer(COGLES2Driver* driver,
 }
 
 
-//! constructor only for use by derived classes who want to
-//! create a fall back material for example.
 COGLES2MaterialRenderer::COGLES2MaterialRenderer(COGLES2Driver* driver,
 					IShaderConstantSetCallBack* callback,
 					E_MATERIAL_TYPE baseMaterial, s32 userData)
 : Driver(driver), CallBack(callback), Alpha(false), Blending(false), FixedBlending(false), Program(0), UserData(userData)
 {
-	if (baseMaterial == EMT_TRANSPARENT_VERTEX_ALPHA || baseMaterial == EMT_TRANSPARENT_ALPHA_CHANNEL ||
-		baseMaterial == EMT_TRANSPARENT_ALPHA_CHANNEL_REF || baseMaterial == EMT_NORMAL_MAP_TRANSPARENT_VERTEX_ALPHA ||
-		baseMaterial == EMT_PARALLAX_MAP_TRANSPARENT_VERTEX_ALPHA)
+	switch (baseMaterial)
 	{
+	case EMT_TRANSPARENT_VERTEX_ALPHA:
+	case EMT_TRANSPARENT_ALPHA_CHANNEL:
+	case EMT_NORMAL_MAP_TRANSPARENT_VERTEX_ALPHA:
+	case EMT_PARALLAX_MAP_TRANSPARENT_VERTEX_ALPHA:
 		Alpha = true;
-	}
-	else if (baseMaterial == EMT_TRANSPARENT_ADD_COLOR || baseMaterial == EMT_NORMAL_MAP_TRANSPARENT_ADD_COLOR ||
-		baseMaterial == EMT_PARALLAX_MAP_TRANSPARENT_ADD_COLOR)
-	{
+		break;
+	case EMT_TRANSPARENT_ADD_COLOR:
+	case EMT_NORMAL_MAP_TRANSPARENT_ADD_COLOR:
+	case EMT_PARALLAX_MAP_TRANSPARENT_ADD_COLOR:
 		FixedBlending = true;
-	}
-	else if (baseMaterial == EMT_ONETEXTURE_BLEND)
+		break;
+	case EMT_ONETEXTURE_BLEND:
 		Blending = true;
+		break;
+	default:
+		break;
+	}
 
 	if (CallBack)
 		CallBack->grab();
 }
 
 
-//! Destructor
 COGLES2MaterialRenderer::~COGLES2MaterialRenderer()
 {
 	if (CallBack)
@@ -137,7 +145,6 @@ void COGLES2MaterialRenderer::init(s32& outMaterialTypeNr,
 	if (!linkProgram())
 		return;
 
-	// register myself as new material
 	if (addMaterial)
 		outMaterialTypeNr = Driver->addMaterialRenderer(this);
 }
@@ -145,9 +152,6 @@ void COGLES2MaterialRenderer::init(s32& outMaterialTypeNr,
 
 bool COGLES2MaterialRenderer::OnRender(IMaterialRendererServices* service, E_VERTEX_TYPE vtxtype)
 {
-    Driver->setTextureRenderStates(Driver->getCurrentMaterial(), false);
-
-	// call callback to set shader constants
 	if (CallBack && Program)
 		CallBack->OnSetConstants(this, UserData);
 
@@ -160,21 +164,21 @@ void COGLES2MaterialRenderer::OnSetMaterial(const video::SMaterial& material,
 				bool resetAllRenderstates,
 				video::IMaterialRendererServices* services)
 {
-	COGLES2CallBridge* bridgeCalls = Driver->getBridgeCalls();
+	COGLES2CacheHandler* cacheHandler = Driver->getCacheHandler();
 
-	bridgeCalls->setProgram(Program);
+	cacheHandler->setProgram(Program);
 
 	Driver->setBasicRenderStates(material, lastMaterial, resetAllRenderstates);
 
 	if (Alpha)
 	{
-		bridgeCalls->setBlend(true);
-		bridgeCalls->setBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		cacheHandler->setBlend(true);
+		cacheHandler->setBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
 	else if (FixedBlending)
 	{
-		bridgeCalls->setBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_COLOR);
-		bridgeCalls->setBlend(true);
+		cacheHandler->setBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_COLOR);
+		cacheHandler->setBlend(true);
 	}
 	else if (Blending)
 	{
@@ -183,13 +187,11 @@ void COGLES2MaterialRenderer::OnSetMaterial(const video::SMaterial& material,
 		u32 alphaSource;
 		unpack_textureBlendFuncSeparate(srcRGBFact, dstRGBFact, srcAlphaFact, dstAlphaFact, modulate, alphaSource, material.MaterialTypeParam);
 
-		bridgeCalls->setBlendFuncSeparate(Driver->getGLBlend(srcRGBFact), Driver->getGLBlend(dstRGBFact),
+		cacheHandler->setBlendFuncSeparate(Driver->getGLBlend(srcRGBFact), Driver->getGLBlend(dstRGBFact),
 			Driver->getGLBlend(srcAlphaFact), Driver->getGLBlend(dstAlphaFact));
 
-		bridgeCalls->setBlend(true);
+		cacheHandler->setBlend(true);
 	}
-	else
-		bridgeCalls->setBlend(false);
 
 	if (CallBack)
 		CallBack->OnSetMaterial(material);
@@ -201,10 +203,15 @@ void COGLES2MaterialRenderer::OnUnsetMaterial()
 }
 
 
-//! Returns if the material is transparent.
 bool COGLES2MaterialRenderer::isTransparent() const
 {
 	return (Alpha || Blending || FixedBlending);
+}
+
+
+s32 COGLES2MaterialRenderer::getRenderCapability() const
+{
+	return 0;
 }
 
 
@@ -223,7 +230,7 @@ bool COGLES2MaterialRenderer::createShader(GLenum shaderType, const char* shader
 		if (status != GL_TRUE)
 		{
 			os::Printer::log("GLSL shader failed to compile", ELL_ERROR);
-			// check error message and log it
+
 			GLint maxLength=0;
 			GLint length;
 
@@ -261,7 +268,7 @@ bool COGLES2MaterialRenderer::linkProgram()
 		if (!status)
 		{
 			os::Printer::log("GLSL shader program failed to link", ELL_ERROR);
-			// check error message and log it
+
 			GLint maxLength=0;
 			GLsizei length;
 
@@ -278,17 +285,12 @@ bool COGLES2MaterialRenderer::linkProgram()
 			return false;
 		}
 
-		// get uniforms information
-
 		GLint num = 0;
 
 		glGetProgramiv(Program, GL_ACTIVE_UNIFORMS, &num);
 
 		if (num == 0)
-		{
-			// no uniforms
 			return true;
-		}
 
 		GLint maxlen = 0;
 
@@ -300,7 +302,7 @@ bool COGLES2MaterialRenderer::linkProgram()
 			return false;
 		}
 
-		// seems that some implementations use an extra null terminator
+		// seems that some implementations use an extra null terminator.
 		++maxlen;
 		c8 *buf = new c8[maxlen];
 
@@ -314,7 +316,19 @@ bool COGLES2MaterialRenderer::linkProgram()
 
 			GLint size;
 			glGetActiveUniform(Program, i, maxlen, 0, &size, &ui.type, reinterpret_cast<GLchar*>(buf));
-			ui.name = buf;
+
+            core::stringc name = "";
+
+			// array support, workaround for some bugged drivers.
+			for (s32 i = 0; i < maxlen; ++i)
+			{
+				if (buf[i] == '[' || buf[i] == '\0')
+					break;
+
+                name += buf[i];
+			}
+
+			ui.name = name;
 			ui.location = glGetUniformLocation(Program, buf);
 
 			UniformInfo.push_back(ui);
@@ -331,7 +345,6 @@ void COGLES2MaterialRenderer::setBasicRenderStates(const SMaterial& material,
 						const SMaterial& lastMaterial,
 						bool resetAllRenderstates)
 {
-	// forward
 	Driver->setBasicRenderStates(material, lastMaterial, resetAllRenderstates);
 }
 
@@ -463,8 +476,9 @@ IVideoDriver* COGLES2MaterialRenderer::getVideoDriver()
 	return Driver;
 }
 
-} // end namespace video
-} // end namespace irr
+}
+}
 
 
 #endif
+

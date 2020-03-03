@@ -1,12 +1,12 @@
 LOCAL_PATH := $(call my-dir)/../..
-IRRLICHT_LIB_PATH := $(LOCAL_PATH)/../../lib/Android/$(TARGET_ARCH_ABI)
+IRRLICHT_LIB_PATH := $(LOCAL_PATH)/../../lib/Android
 
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := Irrlicht
 IRRLICHT_LIB_NAME := lib$(LOCAL_MODULE).a
 
-LOCAL_CFLAGS := -D_IRR_ANDROID_PLATFORM_ -Wall -pipe -fno-exceptions -fno-rtti -fstrict-aliasing
+LOCAL_CFLAGS := -Wall -pipe -fno-exceptions -fno-rtti -fstrict-aliasing
 
 ifndef NDEBUG
 LOCAL_CFLAGS += -g -D_DEBUG
@@ -14,11 +14,8 @@ else
 LOCAL_CFLAGS += -fexpensive-optimizations -O3
 endif
 
-ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
-LOCAL_CFLAGS += -mno-unaligned-access
-endif
-
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/../../include
+LOCAL_C_INCLUDES := ../../../include
+LOCAL_C_INCLUDES += ../zlib ../jpeglib ../libpng
 
 LOCAL_SRC_FILES := \
 					Android/CIrrDeviceAndroid.cpp \
@@ -41,6 +38,7 @@ LOCAL_SRC_FILES := \
 					CAnimatedMeshSceneNode.cpp \
 					CAttributes.cpp \
 					CB3DMeshFileLoader.cpp \
+					CB3DMeshWriter.cpp \
 					CBillboardSceneNode.cpp \
 					CBoneSceneNode.cpp \
 					CBSPMeshFileLoader.cpp \
@@ -51,11 +49,6 @@ LOCAL_SRC_FILES := \
 					CColorConverter.cpp \
 					CCSMLoader.cpp \
 					CCubeSceneNode.cpp \
-					CD3D8Driver.cpp \
-					CD3D8NormalMapRenderer.cpp \
-					CD3D8ParallaxMapRenderer.cpp \
-					CD3D8ShaderMaterialRenderer.cpp \
-					CD3D8Texture.cpp \
 					CD3D9Driver.cpp \
 					CD3D9HLSLMaterialRenderer.cpp \
 					CD3D9NormalMapRenderer.cpp \
@@ -121,14 +114,12 @@ LOCAL_SRC_FILES := \
 					CImageWriterPSD.cpp \
 					CImageWriterTGA.cpp \
 					CImageLoaderPVR.cpp \
-					CImageLoaderBPG.cpp \
 					CIrrDeviceConsole.cpp \
 					CIrrDeviceFB.cpp \
 					CIrrDeviceLinux.cpp \
 					CIrrDeviceSDL.cpp \
 					CIrrDeviceStub.cpp \
 					CIrrDeviceWin32.cpp \
-					CIrrDeviceWinCE.cpp \
 					CIrrMeshFileLoader.cpp \
 					CIrrMeshWriter.cpp \
 					CLightSceneNode.cpp \
@@ -162,18 +153,16 @@ LOCAL_SRC_FILES := \
 					COGLES2NormalMapRenderer.cpp \
 					COGLES2ParallaxMapRenderer.cpp \
 					COGLES2Renderer2D.cpp \
-					COGLES2Texture.cpp \
 					COGLESDriver.cpp \
 					COGLESExtensionHandler.cpp \
-					COGLESTexture.cpp \
 					COgreMeshFileLoader.cpp \
+					COpenGLCacheHandler.cpp \
 					COpenGLDriver.cpp \
 					COpenGLExtensionHandler.cpp \
 					COpenGLNormalMapRenderer.cpp \
 					COpenGLParallaxMapRenderer.cpp \
 					COpenGLShaderMaterialRenderer.cpp \
 					COpenGLSLMaterialRenderer.cpp \
-					COpenGLTexture.cpp \
 					COSOperator.cpp \
 					CPakReader.cpp \
 					CParticleAnimatedMeshSceneNodeEmitter.cpp \
@@ -337,28 +326,6 @@ LOCAL_SRC_FILES := \
 					libpng/pngwrite.c \
 					libpng/pngwtran.c \
 					libpng/pngwutil.c \
-					libavcodec/allcodecs.c \
-					libavcodec/bit_depth_template.c \
-					libavcodec/cabac.c \
-					libavcodec/golomb.c \
-					libavcodec/hevc.c \
-					libavcodec/hevcdsp.c \
-					libavcodec/hevcpred.c \
-					libavcodec/hevc_cabac.c \
-					libavcodec/hevc_filter.c \
-					libavcodec/hevc_mvs.c \
-					libavcodec/hevc_ps.c \
-					libavcodec/hevc_refs.c \
-					libavcodec/hevc_sei.c \
-					libavcodec/utils.c \
-					libavutil/buffer.c \
-					libavutil/frame.c \
-					libavutil/intmath.c \
-					libavutil/log2_tab.c \
-					libavutil/md5.c \
-					libavutil/mem.c \
-					libavutil/pixdesc.c \
-					libbpg/libbpg.c \
 					lzma/LzmaDec.c \
 zlib/adler32.c   zlib/crc32.c    zlib/gzclose.c  zlib/gzread.c   zlib/infback.c  zlib/inflate.c   zlib/trees.c    zlib/zutil.c\
 zlib/compress.c  zlib/deflate.c  zlib/gzlib.c    zlib/gzwrite.c  zlib/inffast.c  zlib/inftrees.c  zlib/uncompr.c
@@ -369,16 +336,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 $(call import-module,android/native_app_glue)
 
-#ifeq ($(HOST_OS),cygwin)
-#CP := $(CYGWIN_PATH)/bin/cp
-#MKDIR := $(CYGWIN_PATH/bin/mkdir) -p
-#else
-#CP := cp -f
-#MKDIR := mkdir -p 
-#endif
-
-#all: $(IRRLICHT_LIB_PATH)
-#$(IRRLICHT_LIB_PATH) : $(TARGET_OUT)/$(IRRLICHT_LIB_NAME)
-#	$(MKDIR) "$(IRRLICHT_LIB_PATH)"
-#	$(CP) "$(TARGET_OUT)/$(IRRLICHT_LIB_NAME)" "$(IRRLICHT_LIB_PATH)"
+all: $(IRRLICHT_LIB_PATH)
+$(IRRLICHT_LIB_PATH) : $(TARGET_OUT)/$(IRRLICHT_LIB_NAME)
+	cp $< $@
 
