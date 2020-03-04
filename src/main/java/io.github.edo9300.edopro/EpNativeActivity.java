@@ -16,9 +16,11 @@ import libwindbot.windbot.WindBot;
 
 import android.net.wifi.WifiManager;
 
+import org.libsdl.app.SDLAudioManager;
+
 public class EpNativeActivity extends NativeActivity {
 
-    private static native void putComboBoxResult(int index);
+	private static native void putComboBoxResult(int index);
 	private static native void pauseApp(boolean pause);
 	static {
 		System.loadLibrary("EdoproClient");
@@ -27,6 +29,8 @@ public class EpNativeActivity extends NativeActivity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		SDLAudioManager.nativeSetupJNI();
+		SDLAudioManager.initialize();
 		IntentFilter filter = new IntentFilter();
 		filter.addAction("RUN_WINDBOT");
 		filter.addAction("MAKE_CHOICE");
@@ -41,7 +45,7 @@ public class EpNativeActivity extends NativeActivity {
 		pauseApp(false);
 	}
 
-    private void makeFullScreen() {
+	private void makeFullScreen() {
 		if (Build.VERSION.SDK_INT >= 19) {
 			this.getWindow().getDecorView().setSystemUiVisibility(
 					View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
@@ -71,12 +75,12 @@ public class EpNativeActivity extends NativeActivity {
 		@Override
 		public void onReceive(Context context, Intent intent) {
 			String action = intent.getAction();
-			if (action.equals("RUN_WINDBOT")) {
+			if ("RUN_WINDBOT".equals(action)) {
 				String args = intent.getStringExtra("args");
 				Log.i("Edoprowindbot", "Launching windbot with " + args + " as parameters.");
 				WindBot.runAndroid(args);
-			} else if(action.equals("MAKE_CHOICE")){
-				String parameters[] = intent.getStringArrayExtra("args");
+			} else if("MAKE_CHOICE".equals(action)){
+				String[] parameters = intent.getStringArrayExtra("args");
 				AlertDialog.Builder builder = new AlertDialog.Builder(EpNativeActivity.this);
 				// Add the buttons
 				//builder.setCancelable(false);
@@ -97,7 +101,7 @@ public class EpNativeActivity extends NativeActivity {
 		getApplicationContext().sendBroadcast(intent);
 	}
 
-	public void showComboBox(String parameters[]) {
+	public void showComboBox(String[] parameters) {
 		Intent intent = new Intent();
 		intent.putExtra("args", parameters);
 		intent.setAction("MAKE_CHOICE");

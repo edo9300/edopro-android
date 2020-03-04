@@ -6,8 +6,8 @@ import android.content.res.AssetFileDescriptor;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.Display;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -38,8 +38,9 @@ public class AssetCopy extends Activity {
         setContentView(R.layout.assetcopy);
         m_ProgressBar = findViewById(R.id.progressBar1);
         m_Filename = findViewById(R.id.textView1);
-        Display display = getWindowManager().getDefaultDisplay();
-        m_ProgressBar.getLayoutParams().width = (int) (display.getWidth() * 0.8);
+        DisplayMetrics displaymetrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displaymetrics);
+        m_ProgressBar.getLayoutParams().width = (int) (displaymetrics.widthPixels * 0.8);
         m_ProgressBar.invalidate();
 
         /* check if there's already a copy in progress and reuse in case it is*/

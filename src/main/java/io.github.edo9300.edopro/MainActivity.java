@@ -41,7 +41,7 @@ public class MainActivity extends Activity {
 	}
 
 	protected void checkPermission() {
-		final List<String> missingPermissions = new ArrayList<String>();
+		final List<String> missingPermissions = new ArrayList<>();
 		// check required permission
 		for (final String permission : REQUIRED_SDK_PERMISSIONS) {
 			final int result = ContextCompat.checkSelfPermission(this, permission);
@@ -52,7 +52,7 @@ public class MainActivity extends Activity {
 		if (!missingPermissions.isEmpty()) {
 			// request permission
 			final String[] permissions = missingPermissions
-					.toArray(new String[missingPermissions.size()]);
+					.toArray(new String[0]);
 			ActivityCompat.requestPermissions(this, permissions, PERMISSIONS);
 		} else {
 			final int[] grantResults = new int[REQUIRED_SDK_PERMISSIONS.length];
@@ -63,7 +63,7 @@ public class MainActivity extends Activity {
 	}
 
 	@Override
-	public void onRequestPermissionsResult(int requestCode, @NonNull String permissions[],
+	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
 										   @NonNull int[] grantResults) {
 		switch (requestCode) {
 			case PERMISSIONS:
@@ -120,7 +120,7 @@ public class MainActivity extends Activity {
 
 	public void next() {
 		WindBot.initAndroid(working_directory + "/Windbot");
-		Intent intent = new Intent(this, SdlLauncher.class);
+		Intent intent = new Intent(this, EpNativeActivity.class);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 		startActivity(intent);
 	}
