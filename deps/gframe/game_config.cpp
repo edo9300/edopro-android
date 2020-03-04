@@ -170,9 +170,12 @@ bool GameConfig::Load(const char* filename)
 				musicVolume = std::min(std::max(std::stoi(str), 0), 100);
 			else if (type == "sound_volume")
 				soundVolume = std::min(std::max(std::stoi(str), 0), 100);
+#ifdef __ANDROID__
 			else if (type == "native_keyboard")
 				native_keyboard = !!std::stoi(str);
 			else if (type == "native_mouse")
+				native_mouse = !!std::stoi(str);
+#endif
 		}
 		catch (...) {}
 	}
@@ -258,8 +261,10 @@ bool GameConfig::Save(const char* filename)
 	conf_file << "enable_sound = "       << enablesound << "\n";
 	conf_file << "music_volume = "       << musicVolume << "\n";
 	conf_file << "sound_volume = "       << soundVolume << "\n";
+#ifdef __ANDROID__
 	conf_file << "native_keyboard = "    << native_keyboard << "\n";
 	conf_file << "native_mouse = "       << native_mouse << "\n";
+#endif
 #undef SERIALIZE
 	return true;
 }
