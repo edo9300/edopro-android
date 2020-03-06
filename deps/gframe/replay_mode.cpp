@@ -12,7 +12,6 @@ namespace ygo {
 void* ReplayMode::pduel = 0;
 bool ReplayMode::yrp = false;
 Replay ReplayMode::cur_replay;
-ReplayStream ReplayMode::current_stream;
 bool ReplayMode::is_continuing = true;
 bool ReplayMode::is_closing = false;
 bool ReplayMode::is_pausing = false;
@@ -78,11 +77,10 @@ int ReplayMode::ReplayThread() {
 	mainGame->dInfo.opponames.clear();
 	mainGame->dInfo.selfnames.insert(mainGame->dInfo.selfnames.end(), names.begin(), names.begin() + mainGame->dInfo.team1);
 	mainGame->dInfo.opponames.insert(mainGame->dInfo.opponames.end(), names.begin() + mainGame->dInfo.team1, names.end());
-	int opt = cur_replay.params.duel_flags;
-	mainGame->dInfo.duel_field = mainGame->GetMasterRule(opt, 0);
-	mainGame->dInfo.duel_params = opt;
+	mainGame->dInfo.duel_params = cur_replay.params.duel_flags;
+	mainGame->dInfo.duel_field = mainGame->GetMasterRule(mainGame->dInfo.duel_params);
 	mainGame->SetPhaseButtons();
-	current_stream = cur_replay.packets_stream;
+	auto& current_stream = cur_replay.packets_stream;
 	if(!current_stream.size()) {
 		EndDuel();
 		return 0;

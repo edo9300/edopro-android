@@ -247,7 +247,6 @@ void initializePathsAndroid()
 // 	path_user    = path_storage + DIR_DELIM + PROJECT_NAME_C;
 // 	path_share   = path_storage + DIR_DELIM + PROJECT_NAME_C;
 }
-
 void displayKeyboard(bool pShow) {
 	// Attaches the current thread to the JVM.
 	jint lResult;
