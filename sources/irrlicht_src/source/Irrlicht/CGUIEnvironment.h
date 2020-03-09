@@ -42,8 +42,8 @@ public:
 	//! returns a pointer to the OS operator
 	virtual IOSOperator* getOSOperator() const _IRR_OVERRIDE_;
 
-	//! Sets a new GUI Skin
-	virtual void setOSOperator(IOSOperator* Operator);
+	//! Sets a new OS operator
+	virtual void setOSOperator(IOSOperator* Operator) _IRR_OVERRIDE_;
 
 	//! posts an input event to the environment
 	virtual bool postEventFromUser(const SEvent& event) _IRR_OVERRIDE_;
