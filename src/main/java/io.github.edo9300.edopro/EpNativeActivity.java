@@ -3,6 +3,8 @@ package io.github.edo9300.edopro;
 import android.app.AlertDialog;
 import android.app.NativeActivity;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -18,6 +20,7 @@ import android.net.wifi.WifiManager;
 
 import org.libsdl.app.SDLAudioManager;
 
+import static android.content.ClipDescription.MIMETYPE_TEXT_PLAIN;
 public class EpNativeActivity extends NativeActivity {
 
 	private static native void putComboBoxResult(int index);
@@ -124,6 +127,20 @@ public class EpNativeActivity extends NativeActivity {
 		WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
 		return wm.getConnectionInfo().getIpAddress();
 	}
+
+    public void setClipboard(String text) {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText("", text);
+        clipboard.setPrimaryClip(clip);
+    }
+
+    public String getClipboard() {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if(!(clipboard.hasPrimaryClip()) || !(clipboard.getPrimaryClipDescription().hasMimeType(MIMETYPE_TEXT_PLAIN)))
+            return "";
+        ClipData.Item clip = clipboard.getPrimaryClip().getItemAt(0);
+        return clip.getText().toString();
+    }
 
 	@Override
 	public void onStop (){
