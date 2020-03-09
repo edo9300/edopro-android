@@ -368,6 +368,17 @@ IOSOperator* CGUIEnvironment::getOSOperator() const
 }
 
 
+//! sets the OS operator used by the enviroment
+void CGUIEnvironment::setOSOperator(IOSOperator* Operator)
+{
+	if(this->Operator)
+		this->Operator->drop();
+	if(Operator)
+		Operator->grab();
+	this->Operator = Operator;
+}
+
+
 //! clear all GUI elements
 void CGUIEnvironment::clear()
 {
