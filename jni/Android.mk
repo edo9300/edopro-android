@@ -44,7 +44,9 @@ LOCAL_C_INCLUDES += $(GFRAME_PATH)/ResizeablePanel
 LOCAL_C_INCLUDES += $(CLASSES_PATH)/SDL2/include
 LOCAL_C_INCLUDES += $(CLASSES_PATH)/SDL2_mixer/include
 
-LOCAL_SRC_FILES := $(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
+LOCAL_SRC_FILES := $(GFRAME_PATH)/Android/COSAndroidOperator.cpp \
+				$(GFRAME_PATH)/Android/porting_android.cpp \
+				$(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
 				$(GFRAME_PATH)/CGUICustomContextMenu/CGUICustomContextMenu.cpp \
 				$(GFRAME_PATH)/CGUICustomComboBox/CGUICustomComboBox.cpp \
 				$(GFRAME_PATH)/CGUICustomContextMenu/CGUICustomMenu.cpp \
@@ -86,7 +88,6 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
 				$(GFRAME_PATH)/menu_handler.cpp \
 				$(GFRAME_PATH)/netserver.cpp \
 				$(GFRAME_PATH)/old_replay_mode.cpp \
-				$(GFRAME_PATH)/porting_android.cpp \
 				$(GFRAME_PATH)/readonlymemvfs.cpp \
 				$(GFRAME_PATH)/replay_mode.cpp \
 				$(GFRAME_PATH)/repo_manager.cpp \

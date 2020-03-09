@@ -120,6 +120,9 @@ public:
 	//! returns a pointer to the OS operator
 	/** \return Pointer to the OS operator. */
 	virtual IOSOperator* getOSOperator() const = 0;
+	
+	//! Sets a new OS operator
+	virtual void setOSOperator(IOSOperator* Operator) = 0;
 
 	//! Removes all elements from the environment.
 	virtual void clear() = 0;
