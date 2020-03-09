@@ -7,7 +7,7 @@
 #include <dirent.h>
 #endif
 #ifdef __ANDROID__
-#include "porting_android.h"
+#include "Android/porting_android.h"
 #endif
 #include "game_config.h"
 #include "repo_manager.h"
@@ -95,8 +95,6 @@ bool Game::Initialize() {
 	}
 	filesystem = device->getFileSystem();
 #ifdef __ANDROID__
-	porting::mainDevice = device;
-
 	// The Android assets file-system does not know which sub-directories it has (blame google).
 	// So we have to add all sub-directories in assets manually. Otherwise we could still open the files,
 	// but existFile checks will fail (which are for example needed by getFont).
