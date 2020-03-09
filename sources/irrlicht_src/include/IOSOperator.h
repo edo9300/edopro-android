@@ -26,11 +26,11 @@ public:
 	}
 
 	//! Copies text to the clipboard
-	virtual void copyToClipboard(const c8* text) const = 0;
+	virtual void copyToClipboard(const wchar_t* text) const = 0;
 
 	//! Get text from the clipboard
 	/** \return Returns 0 if no string is in there. */
-	virtual const c8* getTextFromClipboard() const = 0;
+	virtual const wchar_t* getTextFromClipboard() const = 0;
 
 	//! Get the processor speed in megahertz
 	/** \param MHz The integer variable to store the speed in.

@@ -27,11 +27,11 @@ public:
 	virtual const core::stringc& getOperatingSystemVersion() const _IRR_OVERRIDE_;
 
 	//! copies text to the clipboard
-	virtual void copyToClipboard(const c8* text) const _IRR_OVERRIDE_;
+	virtual void copyToClipboard(const wchar_t* text) const _IRR_OVERRIDE_;
 
 	//! gets text from the clipboard
 	//! \return Returns 0 if no string is in there.
-	virtual const c8* getTextFromClipboard() const _IRR_OVERRIDE_;
+	virtual const wchar_t* getTextFromClipboard() const _IRR_OVERRIDE_;
 
 	//! gets the processor speed in megahertz
 	//! \param Mhz:
