@@ -20,6 +20,18 @@ ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
 LOCAL_CFLAGS += -mno-unaligned-access
 endif
 
+ifneq ($(PICS_URL),)
+LOCAL_CFLAGS += -DDEFAULT_PIC_URL=$(PICS_URL)
+endif
+
+ifneq ($(FIELDS_URL),)
+LOCAL_CFLAGS += -DDEFAULT_FIELD_URL=$(FIELDS_URL)
+endif
+
+ifneq ($(COVERS_URL),)
+LOCAL_CFLAGS += -DDEFAULT_COVER_URL=$(COVERS_URL)
+endif
+
 CLASSES_PATH := $(LOCAL_PATH)/deps
 GFRAME_PATH := $(CLASSES_PATH)/gframe
 LOCAL_C_INCLUDES := $(CLASSES_PATH)
