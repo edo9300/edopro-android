@@ -18,8 +18,6 @@ import libwindbot.windbot.WindBot;
 
 import android.net.wifi.WifiManager;
 
-import org.libsdl.app.SDLAudioManager;
-
 import static android.content.ClipDescription.MIMETYPE_TEXT_PLAIN;
 public class EpNativeActivity extends NativeActivity {
 
@@ -32,8 +30,6 @@ public class EpNativeActivity extends NativeActivity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		SDLAudioManager.nativeSetupJNI();
-		SDLAudioManager.initialize();
 		IntentFilter filter = new IntentFilter();
 		filter.addAction("RUN_WINDBOT");
 		filter.addAction("MAKE_CHOICE");
