@@ -395,6 +395,7 @@ void RepoManager::LoadRepositoriesFromJson(const nlohmann::json& configs) {
 					JSON_SET_IF_VALID(repo_path, string, std::string);
 					JSON_SET_IF_VALID(repo_name, string, std::string);
 					JSON_SET_IF_VALID(data_path, string, std::string);
+					JSON_SET_IF_VALID(lflist_path, string, std::string);
 					JSON_SET_IF_VALID(script_path, string, std::string);
 					JSON_SET_IF_VALID(pics_path, string, std::string);
 #ifdef YGOPRO_BUILD_DLL
@@ -433,7 +434,7 @@ bool GitRepo::Sanitize() {
 		return false;
 	if(repo_name.empty() && repo_path.empty()) {
 		repo_name = Utils::GetFileName(url);
-		repo_path = fmt::format("./expansions/{}", repo_name);
+		repo_path = fmt::format("./repositories/{}", repo_name);
 		if(repo_name.empty() || repo_path.empty())
 			return false;
 	}
@@ -441,10 +442,14 @@ bool GitRepo::Sanitize() {
 		repo_name = Utils::GetFileName(repo_path);
 	}
 	if(repo_path.empty()) {
-		repo_path = fmt::format("./expansions/{}", repo_name);
+		repo_path = fmt::format("./repositories/{}", repo_name);
 	}
 	repo_path = fmt::format("./{}", repo_path);
 	data_path = Utils::NormalizePath(fmt::format("{}/{}/", repo_path, data_path));
+	if(lflist_path.size())
+		lflist_path = Utils::NormalizePath(fmt::format("{}/{}/", repo_path, lflist_path));
+	else
+		lflist_path = Utils::NormalizePath(fmt::format("{}/lflists/", repo_path));
 	if(script_path.size())
 		script_path = Utils::NormalizePath(fmt::format("{}/{}/", repo_path, script_path));
 	else

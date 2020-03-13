@@ -22,6 +22,7 @@
 #include "Android/porting_android.h"
 #endif
 
+#define DEFAULT_DUEL_RULE 5
 namespace ygo {
 
 unsigned DuelClient::connect_state = 0;
@@ -193,8 +194,8 @@ catch(...) { what = def; }
 			TOI(cscg.info.start_hand, mainGame->ebStartHand->getText(), 5);
 			TOI(cscg.info.start_lp, mainGame->ebStartLP->getText(), 8000);
 			TOI(cscg.info.draw_count, mainGame->ebDrawCount->getText(), 1);
-			TOI(cscg.info.time_limit, mainGame->ebTimeLimit->getText(), 180);
-			cscg.info.lflist = gGameConfig->lastlflist = mainGame->cbLFlist->getItemData(mainGame->cbLFlist->getSelected());
+			TOI(cscg.info.time_limit, mainGame->ebTimeLimit->getText(), 0);
+			cscg.info.lflist = gGameConfig->lastlflist = mainGame->cbHostLFList->getItemData(mainGame->cbHostLFList->getSelected());
 			cscg.info.duel_rule = 0;
 			cscg.info.duel_flag = mainGame->duel_param;
 			cscg.info.no_check_deck = mainGame->chkNoCheckDeck->isChecked();

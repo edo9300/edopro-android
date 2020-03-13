@@ -314,12 +314,7 @@ bool Game::Initialize() {
 	wCreateHost->setVisible(false);
 	tmpptr = env->addStaticText(gDataManager->GetSysString(1226).c_str(), Scale(20, 30, 220, 50), false, false, wCreateHost);
 	defaultStrings.emplace_back(tmpptr, 1226);
-	cbLFlist = ADDComboBox(Scale(140, 25, 300, 50), wCreateHost);
-	for (unsigned int i = 0; i < deckManager._lfList.size(); ++i) {
-		cbLFlist->addItem(deckManager._lfList[i].listName.c_str(), deckManager._lfList[i].hash);
-		if (gGameConfig->lastlflist == deckManager._lfList[i].hash)
-			cbLFlist->setSelected(i);
-	}
+	cbHostLFList = ADDComboBox(Scale(140, 25, 300, 50), wCreateHost);
 	tmpptr = env->addStaticText(gDataManager->GetSysString(1225).c_str(), Scale(20, 60, 220, 80), false, false, wCreateHost);
 	defaultStrings.emplace_back(tmpptr, 1225);
 	cbRule = ADDComboBox(Scale(140, 55, 300, 80), wCreateHost);
@@ -367,8 +362,8 @@ bool Game::Initialize() {
 	tmpptr = env->addStaticText(gDataManager->GetSysString(1236).c_str(), Scale(20, 180, 220, 200), false, false, wCreateHost);
 	defaultStrings.emplace_back(tmpptr, 1236);
 	cbDuelRule = ADDComboBox(Scale(140, 175, 300, 200), wCreateHost, COMBOBOX_DUEL_RULE);
-	ReloadCBDuelRule();
-	cbDuelRule->setSelected(gGameConfig->lastDuelRule);
+	duel_param = gGameConfig->lastDuelParam;
+	forbiddentypes = gGameConfig->lastDuelForbidden;
 	btnCustomRule = env->addButton(Scale(305, 175, 370, 200), wCreateHost, BUTTON_CUSTOM_RULE, gDataManager->GetSysString(1626).c_str());
 	defaultStrings.emplace_back(btnCustomRule, 1626);
 	wCustomRules = env->addWindow(Scale(700, 100, 910, 430), false, L"");
@@ -381,23 +376,23 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(tmpptr, 1629);
 	spacing++;
 	for(int i = 0; i < (sizeof(chkCustomRules) / sizeof(irr::gui::IGUICheckBox*)); ++i, ++spacing) {
-		chkCustomRules[i] = env->addCheckBox(false, Scale(10, 10 + spacing * 20, 200, 30 + spacing * 20), wCustomRules, 390 + i, gDataManager->GetSysString(1631 + i).c_str());
+		chkCustomRules[i] = env->addCheckBox(duel_param & 0x100<<i, Scale(10, 10 + spacing * 20, 200, 30 + spacing * 20), wCustomRules, 390 + i, gDataManager->GetSysString(1631 + i).c_str());
 		defaultStrings.emplace_back(chkCustomRules[i], 1631 + i);
 	}
 	tmpptr = env->addStaticText(gDataManager->GetSysString(1628).c_str(), Scale(10, 10 + spacing * 20, 200, 30 + spacing * 20), false, false, wCustomRules);
 	defaultStrings.emplace_back(tmpptr, 1628);
+	const uint32 limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
 #define TYPECHK(id,stringid) spacing++;\
-	chkTypeLimit[id] = env->addCheckBox(false, Scale(10, 10 + spacing * 20, 200, 30 + spacing * 20), wCustomRules, -1, fmt::sprintf(gDataManager->GetSysString(1627), gDataManager->GetSysString(stringid)).c_str());
+	chkTypeLimit[id] = env->addCheckBox(forbiddentypes & limits[id], Scale(10, 10 + spacing * 20, 200, 30 + spacing * 20), wCustomRules, -1, fmt::sprintf(gDataManager->GetSysString(1627), gDataManager->GetSysString(stringid)).c_str());
 	TYPECHK(0, 1056);
 	TYPECHK(1, 1063);
 	TYPECHK(2, 1073);
 	TYPECHK(3, 1074);
 	TYPECHK(4, 1076);
 #undef TYPECHK
+	UpdateDuelParam();
 	btnCustomRulesOK = env->addButton(Scale(55, 290, 155, 315), wCustomRules, BUTTON_CUSTOM_RULE_OK, gDataManager->GetSysString(1211).c_str());
 	defaultStrings.emplace_back(btnCustomRulesOK, 1211);
-	forbiddentypes = DUEL_MODE_MR5_FORB;
-	duel_param = DUEL_MODE_MR5;
 	chkNoCheckDeck = env->addCheckBox(gGameConfig->noCheckDeck, Scale(20, 210, 170, 230), wCreateHost, -1, gDataManager->GetSysString(1229).c_str());
 	defaultStrings.emplace_back(chkNoCheckDeck, 1229);
 	chkNoShuffleDeck = env->addCheckBox(gGameConfig->noShuffleDeck, Scale(180, 210, 360, 230), wCreateHost, -1, gDataManager->GetSysString(1230).c_str());
@@ -1747,12 +1742,16 @@ void Game::RefreshDeck(irr::gui::IGUIComboBox* cbDeck) {
 	}
 }
 void Game::RefreshLFLists() {
+	cbHostLFList->clear();
+	cbHostLFList->setSelected(0);
 	cbDBLFList->clear();
 	cbDBLFList->setSelected(0);
 	for (auto &list : deckManager._lfList) {
-		auto i = cbDBLFList->addItem(list.listName.c_str());
+		auto hostIndex = cbHostLFList->addItem(list.listName.c_str(), list.hash);
+		auto deckIndex = cbDBLFList->addItem(list.listName.c_str(), list.hash);
 		if (gGameConfig->lastlflist == list.hash) {
-			cbDBLFList->setSelected(i);
+			cbHostLFList->setSelected(hostIndex);
+			cbDBLFList->setSelected(deckIndex);
 		}
 	}
 	deckBuilder.filterList = &deckManager._lfList[mainGame->cbDBLFList->getSelected()];
@@ -1809,7 +1808,8 @@ void Game::RefreshSingleplay() {
 void Game::SaveConfig() {
 	gGameConfig->nickname = ebNickName->getText();
 	gGameConfig->lastallowedcards = cbRule->getSelected();
-	gGameConfig->lastDuelRule = std::min(DEFAULT_DUEL_RULE - 1, cbDuelRule->getSelected());
+	gGameConfig->lastDuelParam = duel_param;
+	gGameConfig->lastDuelForbidden = forbiddentypes;
 	auto TrySaveInt = [](unsigned int& dest, const IGUIElement* src) {
 		try {
 			dest = std::stoi(src->getText());
@@ -1931,7 +1931,8 @@ void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 		cores_to_load.insert(cores_to_load.begin(), Utils::ToPathString(repo->core_path));
 	}
 	auto data_path = Utils::ToPathString(repo->data_path);
-	if(deckManager.LoadLFListSingle(data_path + EPRO_TEXT("lflist.conf")) || deckManager.LoadLFListFolder(data_path + EPRO_TEXT("lflists/"))) {
+	auto lflist_path = Utils::ToPathString(repo->lflist_path);
+	if(deckManager.LoadLFListSingle(data_path + EPRO_TEXT("lflist.conf")) || deckManager.LoadLFListFolder(lflist_path)) {
 		deckManager.RefreshLFList();
 		RefreshLFLists();
 	}
@@ -2190,19 +2191,19 @@ uint8 Game::LocalPlayer(uint8 player) {
 	return dInfo.isFirst ? player : 1 - player;
 }
 void Game::UpdateDuelParam() {
+	ReloadCBDuelRule();
 	uint32 flag = 0, filter = 0x100;
 	for (int i = 0; i < (sizeof(chkCustomRules)/sizeof(irr::gui::IGUICheckBox*)); ++i, filter <<= 1)
 		if (chkCustomRules[i]->isChecked()) {
 			flag |= filter;
 		}
-	uint32 limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
+	const uint32 limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
 	uint32 flag2 = 0;
 	for (int i = 0; i < (sizeof(chkTypeLimit) / sizeof(irr::gui::IGUICheckBox*)); ++i)
 		if (chkTypeLimit[i]->isChecked()) {
 			flag2 |= limits[i];
 		}
-	ReloadCBDuelRule();
-#define CHECK(MR) case DUEL_MODE_MR##MR:{ cbDuelRule->setSelected(MR - 1); if (flag2 == DUEL_MODE_MR##MR##_FORB) break; }
+#define CHECK(MR) case DUEL_MODE_MR##MR:{ cbDuelRule->setSelected(MR - 1); if (flag2 == DUEL_MODE_MR##MR##_FORB) { cbDuelRule->removeItem(5); break; } }
 	switch (flag) {
 	CHECK(1)
 	CHECK(2)
@@ -2483,10 +2484,10 @@ void Game::ReloadElementsStrings() {
 	cbDBLFList->removeItem(nullLFlist);
 	cbDBLFList->addItem(deckManager._lfList[nullLFlist].listName.c_str(), deckManager._lfList[nullLFlist].hash);
 	cbDBLFList->setSelected(prev);
-	prev = cbLFlist->getSelected();
-	cbLFlist->removeItem(nullLFlist);
-	cbLFlist->addItem(deckManager._lfList[nullLFlist].listName.c_str(), deckManager._lfList[nullLFlist].hash);
-	cbLFlist->setSelected(prev);
+	prev = cbHostLFList->getSelected();
+	cbHostLFList->removeItem(nullLFlist);
+	cbHostLFList->addItem(deckManager._lfList[nullLFlist].listName.c_str(), deckManager._lfList[nullLFlist].hash);
+	cbHostLFList->setSelected(prev);
 
 	prev = cbSortType->getSelected();
 	ReloadCBSortType();
