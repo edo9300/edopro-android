@@ -124,7 +124,17 @@ public class MainActivity extends Activity {
 					}
 					if(found) {
 						Toast.makeText(getApplicationContext(), "Using " + dest_dir + " as working directory", Toast.LENGTH_LONG).show();
-						setWorkingDir(dest_dir);
+						final String cbdir = dest_dir;
+						AlertDialog.Builder builder = new AlertDialog.Builder(this);
+						builder.setMessage("You chose a foler in an external storage, due to some android limitations, the game path will be set to: " + dest_dir)
+								.setCancelable(false)
+								.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+									public void onClick(DialogInterface dialog, int id) {
+										setWorkingDir(cbdir);
+									}
+								});
+						AlertDialog alert = builder.create();
+						alert.show();
 					} else {
 						Log.e("Edopro", "couldn't find matching storage");
 						finish();
@@ -162,9 +172,18 @@ public class MainActivity extends Activity {
 	}
 
 	public void chooseWorkingDir(){
-		Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-		i.addCategory(Intent.CATEGORY_DEFAULT);
-		startActivityForResult(Intent.createChooser(i, "Choose directory"), 2);
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setMessage("Select the folder used to copy the client's files")
+				.setCancelable(false)
+				.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+						i.addCategory(Intent.CATEGORY_DEFAULT);
+						startActivityForResult(Intent.createChooser(i, "Choose directory"), 2);
+					}
+				});
+		AlertDialog alert = builder.create();
+		alert.show();
 	}
 
 	public void setWorkingDir(String dest_dir){
