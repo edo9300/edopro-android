@@ -8,6 +8,8 @@ import java.io.OutputStreamWriter;
 import libwindbot.windbot.WindBot;
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -98,21 +100,36 @@ public class MainActivity extends Activity {
 					break;
 				}
 				Uri uri = data.getData();
-				Log.e("Edopro", "Result URI " + uri);
+				Log.i("Edopro", "Result URI " + uri);
 				String dest_dir = FileUtil.getFullPathFromTreeUri(uri,this);
-				Log.e("Edopro", "Parsed result URI " + dest_dir);
-				File file = new File(getApplicationContext().getFilesDir(),"working_dir");
-				try {
-					FileOutputStream fOut = new FileOutputStream(file);
-					OutputStreamWriter myOutWriter = new OutputStreamWriter(fOut);
-					myOutWriter.append(dest_dir);
-					myOutWriter.close();
-					fOut.close();
-				} catch(Exception e) {
-					Log.e("Edopro", "cannot write to working directory file: " + e.getMessage());
-					break;
+				Log.i("Edopro", "Parsed result URI " + dest_dir);
+				if(dest_dir.startsWith("/storage/emulated/0"))
+					setWorkingDir(dest_dir);
+				else {
+					File[] paths = getApplicationContext().getExternalFilesDirs("Edopro");
+					String storage = dest_dir.split("/")[2];
+					boolean found = false;
+					for(int i = 0; i < paths.length; i++) {
+						Log.i("Edopro", "Path " + i + " is: " + paths[i]);
+						if(storage.equals(paths[i].getAbsolutePath().split("/")[2])){
+							Log.i("Edopro", "path matching with " + dest_dir + " is: " + paths[i].getAbsolutePath());
+							dest_dir = paths[i].getAbsolutePath();
+							if (!paths[i].exists()){
+								paths[i].mkdirs();
+							}
+							found = true;
+							break;
+						}
+
+					}
+					if(found) {
+						Toast.makeText(getApplicationContext(), "Using " + dest_dir + " as working directory", Toast.LENGTH_LONG).show();
+						setWorkingDir(dest_dir);
+					} else {
+						Log.e("Edopro", "couldn't find matching storage");
+						finish();
+					}
 				}
-				copyAssets(dest_dir);
 				break;
 			}
 	    }
@@ -133,7 +150,7 @@ public class MainActivity extends Activity {
 				working_directory = br.readLine();
 				br.close();
 				if(working_directory != null) {
-					copyAssets(working_directory);
+					copyAssetsPrompt(working_directory);
 					return;
 				}
 			}
@@ -141,17 +158,56 @@ public class MainActivity extends Activity {
 				Log.e("Edopro", "working directory file found but not read: " + e.getMessage());
 			}
 		}
+		chooseWorkingDir();
+	}
+
+	public void chooseWorkingDir(){
 		Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
 		i.addCategory(Intent.CATEGORY_DEFAULT);
 		startActivityForResult(Intent.createChooser(i, "Choose directory"), 2);
 	}
 
-	public void copyAssets(String working_dir) {
+	public void setWorkingDir(String dest_dir){
+		File file = new File(getApplicationContext().getFilesDir(),"working_dir");
+		try {
+			FileOutputStream fOut = new FileOutputStream(file);
+			OutputStreamWriter myOutWriter = new OutputStreamWriter(fOut);
+			myOutWriter.append(dest_dir);
+			myOutWriter.close();
+			fOut.close();
+		} catch(Exception e) {
+			Log.e("Edopro", "cannot write to working directory file: " + e.getMessage());
+			finish();
+			return;
+		}
+		copyAssetsPrompt(dest_dir);
+	}
+
+	public void copyAssetsPrompt(final String working_dir) {
 		File file = new File(getApplicationContext().getFilesDir(),"assets_copied");
 		if(file.exists()){
 			next();
 			return;
 		}
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setMessage("Copy internal assets?").setNegativeButton("No", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int id) {
+				try {
+					File file = new File(getApplicationContext().getFilesDir(),"assets_copied");
+					file.createNewFile();
+				} catch (Exception e){
+					Log.e("Edopro", "error when creating assets_copied file: " + e.getMessage());
+				}
+				next();
+			}
+		}).setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int id) {
+				copyAssets(working_dir);
+			}
+		}).setCancelable(false).show();
+    }
+
+    public void copyAssets(String working_dir){
 		Intent intent = new Intent(this, AssetCopy.class);
 		Bundle params = new Bundle();
 		params.putString("workingDir", working_dir);
