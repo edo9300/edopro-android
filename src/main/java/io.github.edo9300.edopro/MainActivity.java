@@ -38,7 +38,7 @@ public class MainActivity extends Activity {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			checkPermission();
 		} else {
-			getworkingDirectory();
+			getWorkingDirectory();
 		}
 	}
 
@@ -65,6 +65,7 @@ public class MainActivity extends Activity {
 	}
 
 	@Override
+	@SuppressWarnings("SwitchStatementWithTooFewBranches")
 	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
 										   @NonNull int[] grantResults) {
 		switch (requestCode) {
@@ -78,11 +79,12 @@ public class MainActivity extends Activity {
 					}
 				}
 				// permission were granted - run
-				getworkingDirectory();
+				getWorkingDirectory();
 				break;
 		}
 	}
 
+	@SuppressWarnings("ResultOfMethodCallIgnored")
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		switch(requestCode) {
 			case 1: {
@@ -102,6 +104,11 @@ public class MainActivity extends Activity {
 				Uri uri = data.getData();
 				Log.i("Edopro", "Result URI " + uri);
 				String dest_dir = FileUtil.getFullPathFromTreeUri(uri,this);
+				if(dest_dir == null){
+					Log.e("Edopro", "returned URI is null");
+					finish();
+					break;
+				}
 				Log.i("Edopro", "Parsed result URI " + dest_dir);
 				if(dest_dir.startsWith("/storage/emulated/0"))
 					setWorkingDir(dest_dir);
@@ -126,7 +133,7 @@ public class MainActivity extends Activity {
 						Toast.makeText(getApplicationContext(), "Using " + dest_dir + " as working directory", Toast.LENGTH_LONG).show();
 						final String cbdir = dest_dir;
 						AlertDialog.Builder builder = new AlertDialog.Builder(this);
-						builder.setMessage("You chose a foler in an external storage, due to some android limitations, the game path will be set to: " + dest_dir)
+						builder.setMessage("You chose a folder in an external storage, due to some android limitations, the game path will be set to: " + dest_dir)
 								.setCancelable(false)
 								.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 									public void onClick(DialogInterface dialog, int id) {
@@ -152,7 +159,7 @@ public class MainActivity extends Activity {
 		startActivity(intent);
 	}
 
-	public void getworkingDirectory() {
+	public void getWorkingDirectory() {
 		File file = new File(getApplicationContext().getFilesDir(),"working_dir");
 		if(file.exists()) {
 			try {
@@ -202,6 +209,7 @@ public class MainActivity extends Activity {
 		copyAssetsPrompt(dest_dir);
 	}
 
+	@SuppressWarnings("ResultOfMethodCallIgnored")
 	public void copyAssetsPrompt(final String working_dir) {
 		File file = new File(getApplicationContext().getFilesDir(),"assets_copied");
 		if(file.exists()){

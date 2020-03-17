@@ -34,7 +34,9 @@ public class AssetCopy extends Activity {
         Log.e("AssetCopy", "AssetCopy on create");
         super.onCreate(savedInstanceState);
         Bundle b = getIntent().getExtras();
-        String _workingDir = b.getString("workingDir");
+        String _workingDir = "_workingDir";
+        if(b != null)
+            _workingDir = b.getString("workingDir");
         setContentView(R.layout.assetcopy);
         m_ProgressBar = findViewById(R.id.progressBar1);
         m_Filename = findViewById(R.id.textView1);
@@ -69,6 +71,7 @@ public class AssetCopy extends Activity {
         }
     }
 
+    @SuppressWarnings("ObsoleteSdkInt")
     private void makeFullScreen() {
         if (Build.VERSION.SDK_INT >= 19)
             this.getWindow().getDecorView().setSystemUiVisibility(
@@ -188,7 +191,7 @@ public class AssetCopy extends Activity {
                     int len = src.read(buf, 0, 1024);
 
                     /* following handling is crazy but we need to deal with    */
-                    /* compressed assets.Flash chips limited livetime due to   */
+                    /* compressed assets.Flash chips limited lifetime due to   */
                     /* write operations, we can't allow large files to destroy */
                     /* users flash.                                            */
                     if (asset_size_unknown) {
@@ -344,6 +347,7 @@ public class AssetCopy extends Activity {
         /**
          * read list of asset files prepared on package build
          */
+        @SuppressWarnings("unused")
         void BuildFileList() {
             long entrycount = 0;
             try {

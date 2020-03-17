@@ -12,20 +12,34 @@ import android.widget.EditText;
 
 public class TextEntry extends Activity {
 	private static native void putMessageBoxResult(String text);
-	private final int MultiLineTextInput = 1;
-	private final int SingleLineTextInput = 2;
-	private final int SingleLinePasswordInput = 3;
+
     private AlertDialog mTextInputDialog;
     private EditText mTextInputWidget;
 
 	@Override
+	@SuppressWarnings("unused")
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
+		int multiLineTextInput = 1;
+		int SingleLineTextInput = 2;
+		int SingleLinePasswordInput = 3;
 		Bundle b = getIntent().getExtras();
-		String acceptButton = b.getString("acceptButton");
-		String hint = b.getString("hint");
-		String current = b.getString("current");
-		int editType = b.getInt("editType");
+		String acceptButton;
+		String hint;
+		String current;
+		int editType;
+		if(b==null){
+			acceptButton = "acceptButton";
+			hint = "hint";
+			current = "current";
+			editType = 1;
+		} else {
+			acceptButton = b.getString("acceptButton");
+			hint = b.getString("hint");
+			current = b.getString("current");
+			editType = b.getInt("editType");
+		}
 
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
 		mTextInputWidget = new EditText(this);
@@ -41,7 +55,7 @@ public class TextEntry extends Activity {
 
 		builder.setView(mTextInputWidget);
 
-		if (editType == MultiLineTextInput) {
+		if (editType == multiLineTextInput) {
 			builder.setPositiveButton(acceptButton, new DialogInterface.OnClickListener() {
 				public void onClick(DialogInterface dialog, int whichButton) {
 					pushResult(mTextInputWidget.getText().toString());

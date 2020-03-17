@@ -44,6 +44,7 @@ public class EpNativeActivity extends NativeActivity {
 		pauseApp(false);
 	}
 
+	@SuppressWarnings("ObsoleteSdkInt")
 	private void makeFullScreen() {
 		if (Build.VERSION.SDK_INT >= 19) {
 			this.getWindow().getDecorView().setSystemUiVisibility(
@@ -58,6 +59,7 @@ public class EpNativeActivity extends NativeActivity {
 			makeFullScreen();
 	}
 
+	@SuppressWarnings("unused")
 	public void showDialog(String acceptButton, String hint, String current,
 						   int editType) {
 
@@ -93,6 +95,7 @@ public class EpNativeActivity extends NativeActivity {
 		}
 	};
 
+	@SuppressWarnings("unused")
 	public void launchWindbot(String parameters){
 		Intent intent = new Intent();
 		intent.putExtra("args", parameters);
@@ -100,6 +103,7 @@ public class EpNativeActivity extends NativeActivity {
 		getApplicationContext().sendBroadcast(intent);
 	}
 
+	@SuppressWarnings("unused")
 	public void showComboBox(String[] parameters) {
 		Intent intent = new Intent();
 		intent.putExtra("args", parameters);
@@ -107,18 +111,22 @@ public class EpNativeActivity extends NativeActivity {
 		getApplicationContext().sendBroadcast(intent);
 	}
 
+	@SuppressWarnings("unused")
 	public float getDensity() {
 		return getResources().getDisplayMetrics().density;
 	}
 
+	@SuppressWarnings("unused")
 	public int getDisplayWidth() {
 		return getResources().getDisplayMetrics().widthPixels;
 	}
 
+	@SuppressWarnings("unused")
 	public int getDisplayHeight() {
 		return getResources().getDisplayMetrics().heightPixels;
 	}
 
+	@SuppressWarnings("unused")
 	public int getLocalIpAddress() {
 		WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
 		return wm.getConnectionInfo().getIpAddress();
@@ -132,10 +140,11 @@ public class EpNativeActivity extends NativeActivity {
 
     public String getClipboard() {
         ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        if(!(clipboard.hasPrimaryClip()) || !(clipboard.getPrimaryClipDescription().hasMimeType(MIMETYPE_TEXT_PLAIN)))
+        if(!(clipboard.hasPrimaryClip()) || clipboard.getPrimaryClip() == null || (clipboard.getPrimaryClipDescription() == null)
+			|| !(clipboard.getPrimaryClipDescription().hasMimeType(MIMETYPE_TEXT_PLAIN)))
             return "";
-        ClipData.Item clip = clipboard.getPrimaryClip().getItemAt(0);
-        return clip.getText().toString();
+		ClipData clip = clipboard.getPrimaryClip();
+		return clip.getItemAt(0).getText().toString();
     }
 
 	@Override
