@@ -130,10 +130,10 @@ public class MainActivity extends Activity {
 
 					}
 					if(found) {
-						Toast.makeText(getApplicationContext(), "Using " + dest_dir + " as working directory", Toast.LENGTH_LONG).show();
+						Toast.makeText(getApplicationContext(),  String.format(getResources().getString(R.string.toast_dir), dest_dir), Toast.LENGTH_LONG).show();
 						final String cbdir = dest_dir;
 						AlertDialog.Builder builder = new AlertDialog.Builder(this);
-						builder.setMessage("You chose a folder in an external storage, due to some android limitations, the game path will be set to: " + dest_dir)
+						builder.setMessage(String.format(getResources().getString(R.string.default_path), dest_dir))
 								.setCancelable(false)
 								.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 									public void onClick(DialogInterface dialog, int id) {
@@ -180,7 +180,7 @@ public class MainActivity extends Activity {
 
 	public void chooseWorkingDir(){
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
-		builder.setMessage("Select the folder used to copy the client's files")
+		builder.setMessage(R.string.folder_prompt)
 				.setCancelable(false)
 				.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int id) {
@@ -217,7 +217,7 @@ public class MainActivity extends Activity {
 			return;
 		}
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
-		builder.setMessage("Copy internal assets?").setNegativeButton("No", new DialogInterface.OnClickListener() {
+		builder.setMessage(R.string.assets_prompt).setNegativeButton("No", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int id) {
 				try {
 					File file = new File(getApplicationContext().getFilesDir(),"assets_copied");
