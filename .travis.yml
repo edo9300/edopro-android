@@ -1,0 +1,19 @@
+language: android
+os: linux
+dist: xenial
+git:
+  depth: 1
+android:
+  components:
+  - platform-tools
+  - tools
+  - build-tools-29.0.3
+  - android-28
+install: yes | sdkmanager ndk-bundle
+before_script:
+- mkdir -p libs
+- curl --retry 5 --connect-timeout 30 --location --remote-header-name -o libs/libWindbot.aar https://github.com/edo9300/libWindbot/releases/download/v2/libWindbot.aar
+script:
+- echo "sdk.dir=$ANDROID_HOME" > local.properties
+- $ANDROID_HOME/ndk-bundle/ndk-build -j2
+- ./gradlew assemble
