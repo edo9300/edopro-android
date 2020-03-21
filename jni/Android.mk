@@ -4,7 +4,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := EDOProClient
 
 LOCAL_CFLAGS := -DYGOPRO_USE_SDL_MIXER -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -std=c++11 -DYGOPRO_BUILD_DLL
-LOCAL_CPPFLAGS := -std=c++11 
+LOCAL_CPPFLAGS := -std=c++14
 
 ifndef NDEBUG
 LOCAL_CFLAGS += -g -D_DEBUG 
