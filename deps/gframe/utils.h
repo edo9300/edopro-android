@@ -52,9 +52,9 @@ namespace ygo {
 		template<typename T>
 		static T ToUpperNoAccents(T input);
 		/** Returns true if and only if all tokens are contained in the input. */
-		static bool ContainsSubstring(std::wstring input, const std::vector<std::wstring>& tokens, bool ignoreInputCasingAccents = false, bool ignoreTokenCasingAccents = false);
-		static bool ContainsSubstring(std::wstring input, std::wstring token, bool ignoreInputCasingAccents = false, bool ignoreTokenCasingAccents = false);
-		static std::wstring KeepOnlyDigits(std::wstring input);
+		static bool ContainsSubstring(const std::wstring& input, const std::vector<std::wstring>& tokens, bool convertInputCasing = false, bool convertTokenCasing = false);
+		static bool ContainsSubstring(const std::wstring& input, const std::wstring& token, bool convertInputCasing = false, bool convertTokenCasing = false);
+		static bool KeepOnlyDigits(std::wstring& input);
 	};
 
 template<typename T>
@@ -64,7 +64,7 @@ inline std::vector<T> Utils::TokenizeString(const T& input, const T& token) {
 	while((pos1 = input.find(token, pos2)) != T::npos) {
 		if(pos1 != pos2)
 			res.emplace_back(input.begin() + pos2, input.begin() + pos1);
-		pos2 = pos1 + 1;
+		pos2 = pos1 + token.size();
 	}
 	if(pos2 != input.size())
 		res.emplace_back(input.begin() + pos2, input.end());
@@ -73,9 +73,9 @@ inline std::vector<T> Utils::TokenizeString(const T& input, const T& token) {
 
 template<typename T>
 inline T Utils::ToUpperNoAccents(T input) {
-	std::transform(input.begin(), input.end(), input.begin(), [](wchar_t c) {
-#define IN_INTERVAL(start, end) (c >= start && c <= end)
 #define CHAR_T typename T::value_type
+	std::transform(input.begin(), input.end(), input.begin(), [](CHAR_T c) {
+#define IN_INTERVAL(start, end) (c >= start && c <= end)
 #define CAST(c) static_cast<CHAR_T>(c)
 		if (IN_INTERVAL(192, 197) || IN_INTERVAL(224, 229)) {
 			return CAST('A');
@@ -106,14 +106,17 @@ inline T Utils::ToUpperNoAccents(T input) {
 	return input;
 }
 
-inline std::wstring Utils::KeepOnlyDigits(std::wstring input) {
-	for (auto it = input.begin(); it < input.end(); it++) {
-		if (*it && (*it < L'0' || *it > L'9')) {
-			input.erase(it);
+inline bool Utils::KeepOnlyDigits(std::wstring& input) {
+	bool changed = false;
+	for (auto it = input.begin(); it != input.end();) {
+		if ((unsigned)(*it - L'0') > 9) {
+			it = input.erase(it);
+			changed = true;
 			continue;
 		}
+		it++;
 	}
-	return input;
+	return changed;
 }
 
 }

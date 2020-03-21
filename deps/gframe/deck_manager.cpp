@@ -43,8 +43,8 @@ bool DeckManager::LoadLFListSingle(const path_string& path) {
 		pos = str.find(" ");
 		if(pos == std::string::npos)
 			continue;
-		int code = 0;
-		try { code = std::stoi(str.substr(0, pos)); }
+		uint32 code = 0;
+		try { code = std::stoul(str.substr(0, pos)); }
 		catch(...){}
 		if(!code)
 			continue;
@@ -107,7 +107,7 @@ int DeckManager::TypeCount(std::vector<CardDataC*> cards, int type) {
 	}
 	return count;
 }
-inline int CheckCards(const std::vector<CardDataC *> &cards, LFList* curlist, std::unordered_map<int, int>* list,
+inline int CheckCards(const std::vector<CardDataC *> &cards, LFList* curlist, std::unordered_map<uint32_t, int>* list,
 					  DuelAllowedCards allowedCards,
 					  std::unordered_map<int, int> &ccount,
 					  std::function<int(CardDataC*)> additionalCheck = [](CardDataC*){ return 0; }) {
@@ -249,28 +249,28 @@ int DeckManager::LoadDeck(Deck& deck, int* dbuf, int mainc, int sidec, int mainc
 int DeckManager::LoadDeck(Deck& deck, std::vector<int> mainlist, std::vector<int> sidelist) {
 	deck.clear();
 	int errorcode = 0;
-	CardData cd;
+	CardDataC* cd = nullptr;
 	for(auto code : mainlist) {
-		if(!gDataManager->GetData(code, &cd)) {
+		if(!(cd = gDataManager->GetCardData(code))) {
 			errorcode = code;
 			continue;
 		}
-		if(cd.type & TYPE_TOKEN)
+		if(cd->type & TYPE_TOKEN)
 			continue;
-		else if((cd.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ) || (cd.type & TYPE_LINK && cd.type & TYPE_MONSTER))) {
-			deck.extra.push_back(gDataManager->GetCardData(code));
+		else if((cd->type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ) || (cd->type & TYPE_LINK && cd->type & TYPE_MONSTER))) {
+			deck.extra.push_back(cd);
 		} else {
-			deck.main.push_back(gDataManager->GetCardData(code));
+			deck.main.push_back(cd);
 		}
 	}
 	for(auto code : sidelist) {
-		if(!gDataManager->GetData(code, &cd)) {
+		if(!(cd = gDataManager->GetCardData(code))) {
 			errorcode = code;
 			continue;
 		}
-		if(cd.type & TYPE_TOKEN)
+		if(cd->type & TYPE_TOKEN)
 			continue;
-		deck.side.push_back(gDataManager->GetCardData(code));	//verified by GetData()
+		deck.side.push_back(cd);
 	}
 	return errorcode;
 }

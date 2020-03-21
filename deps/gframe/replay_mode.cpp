@@ -128,8 +128,10 @@ int ReplayMode::ReplayThread() {
 	return 0;
 }
 void ReplayMode::EndDuel() {
-	if(yrp)
+	if(pduel) {
 		OCG_DestroyDuel(pduel);
+		pduel = nullptr;
+	}
 	if(!is_closing) {
 		mainGame->actionSignal.Reset();
 		mainGame->gMutex.lock();
@@ -162,8 +164,9 @@ void ReplayMode::EndDuel() {
 	}
 }
 void ReplayMode::Restart(bool refresh) {
-	if(yrp) {
+	if(pduel) {
 		OCG_DestroyDuel(pduel);
+		pduel = nullptr;
 		//end_duel(pduel);
 		cur_replay.Rewind();
 	}
@@ -248,7 +251,6 @@ bool ReplayMode::ReplayAnalyze(ReplayPacket p) {
 		case MSG_CHAIN_SOLVING:
 		case MSG_CHAIN_SOLVED:
 		case MSG_CHAIN_END:
-		case MSG_CARD_SELECTED:
 		case MSG_RANDOM_SELECTED:
 		case MSG_EQUIP:
 		case MSG_UNEQUIP:

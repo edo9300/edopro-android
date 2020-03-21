@@ -10,7 +10,7 @@
 #include "single_mode.h"
 #include "client_card.h"
 #ifdef __ANDROID__
-#include "Android/porting_android.h"
+#include "porting_android.h"
 #endif
 #include <algorithm>
 #include <unordered_map>
@@ -48,7 +48,7 @@ static int parse_filter(const wchar_t* pstr, unsigned int* type) {
 	return 0;
 }
 
-static bool check_set_code(const CardDataC& data, std::vector<unsigned int>& setcodes) {
+static bool check_set_code(const CardDataC& data, const std::vector<unsigned int>& setcodes) {
 	auto card_setcodes = data.setcodes;
 	if (data.alias) {
 		auto _data = gDataManager->GetCardData(data.alias);
@@ -518,10 +518,10 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 		break;
 	}
 	case irr::EET_MOUSE_INPUT_EVENT: {
+		bool isroot = mainGame->env->getRootGUIElement()->getElementFromPoint(mouse_pos) == mainGame->env->getRootGUIElement();
 		switch(event.MouseInput.Event) {
 		case irr::EMIE_LMOUSE_PRESSED_DOWN: {
-			irr::gui::IGUIElement* root = mainGame->env->getRootGUIElement();
-			if(root->getElementFromPoint(mouse_pos) != root)
+			if(!isroot)
 				break;
 			if(mainGame->wCategories->isVisible() || mainGame->wQuery->isVisible())
 				break;
@@ -549,6 +549,8 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			break;
 		}
 		case irr::EMIE_LMOUSE_LEFT_UP: {
+			if(!isroot)
+				break;
 			if(!is_draging) {
 				mouse_pos.set(event.MouseInput.X, event.MouseInput.Y);
 				GetHoveredCard();
@@ -575,6 +577,8 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			break;
 		}
 		case irr::EMIE_RMOUSE_LEFT_UP: {
+			if(!isroot)
+				break;
 			if(mainGame->is_siding) {
 				if(is_draging)
 					break;
@@ -635,6 +639,8 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			break;
 		}
 		case irr::EMIE_MMOUSE_LEFT_UP: {
+			if(!isroot)
+				break;
 			if (mainGame->is_siding)
 				break;
 			if (mainGame->wCategories->isVisible() || mainGame->wQuery->isVisible())
@@ -816,7 +822,7 @@ void DeckBuilder::FilterCards(bool force_refresh) {
 	results.clear();
 	std::vector<std::wstring> searchterms;
 	if(wcslen(mainGame->ebCardName->getText())) {
-		searchterms = Utils::TokenizeString<std::wstring>(Utils::ToUpperNoAccents<std::wstring>(mainGame->ebCardName->getText()), L"+");
+		searchterms = Utils::TokenizeString<std::wstring>(Utils::ToUpperNoAccents<std::wstring>(mainGame->ebCardName->getText()), L"||");
 	} else
 		searchterms = { L"" };
 	if(FiltersChanged() || force_refresh)
@@ -835,20 +841,32 @@ void DeckBuilder::FilterCards(bool force_refresh) {
 		else
 			it++;
 	}
-	for(auto term : searchterms) {
+	for(const auto& term : searchterms) {
 		int trycode = BufferIO::GetVal(term.c_str());
-		if(trycode && gDataManager->GetData(trycode, nullptr)) {
-			searched_terms[term] = { gDataManager->GetCardData(trycode) }; // verified by GetData()
+		CardDataC* data = nullptr;
+		if(trycode && (data = gDataManager->GetCardData(trycode))) {
+			searched_terms[term] = { data };
 			continue;
 		}
 		std::vector<std::wstring> tokens;
+		int modif = 0;
 		if(!term.empty()) {
-			if(term.front() == L'@' || term.front() == L'$') {
-				if(term.size() > 1)
-					tokens = Utils::TokenizeString<std::wstring>(&term[1], L"*");
-			} else {
-				tokens = Utils::TokenizeString<std::wstring>(term, L"*");
+			size_t start = 0;
+			if(term.size() >= 2 && memcmp(L"!!", term.data(), sizeof(wchar_t) * 2) == 0) {
+				modif |= SEARCH_MODIFIER::SEARCH_MODIFIER_NEGATIVE_LOOKUP;
+				start += 2;
 			}
+			if(term.size() + start >= 1) {
+				if(term[start] == L'@') {
+					modif |= SEARCH_MODIFIER::SEARCH_MODIFIER_ARCHETYPE_ONLY;
+					start++;
+				}
+				else if(term[start] == L'$') {
+					modif |= SEARCH_MODIFIER::SEARCH_MODIFIER_NAME_ONLY;
+					start++;
+				}
+			}
+			tokens = Utils::TokenizeString<std::wstring>(term.data() + start, L"*");
 		}
 		std::vector<unsigned int> set_code = gDataManager->GetSetCode(tokens);
 		if(tokens.empty())
@@ -856,13 +874,13 @@ void DeckBuilder::FilterCards(bool force_refresh) {
 		wchar_t checkterm = term.size() ? term.front() : 0;
 		std::vector<CardDataC*> result;
 		for(auto& card : gDataManager->cards) {
-			if(CheckCard(&card.second, checkterm, tokens, set_code))
+			if(CheckCard(&card.second, static_cast<SEARCH_MODIFIER>(modif), tokens, set_code))
 				result.push_back(&card.second._data);
 		}
 		if(result.size())
 			searched_terms[term] = result;
 	}
-	for(auto& res : searched_terms) {
+	for(const auto& res : searched_terms) {
 		results.insert(results.end(), res.second.begin(), res.second.end());
 	}
 	SortList();
@@ -878,7 +896,7 @@ void DeckBuilder::FilterCards(bool force_refresh) {
 	}
 	mainGame->scrFilter->setPos(0);
 }
-bool DeckBuilder::CheckCard(CardDataM* data, const wchar_t& checkchar, std::vector<std::wstring>& tokens, std::vector<unsigned int>& set_code) {
+bool DeckBuilder::CheckCard(CardDataM* data, SEARCH_MODIFIER modifier, const std::vector<std::wstring>& tokens, const std::vector<unsigned int>& set_code) {
 	if(data->_data.type & TYPE_TOKEN  || data->_data.ot & SCOPE_HIDDEN || ((data->_data.ot & SCOPE_OFFICIAL) != data->_data.ot && !mainGame->chkAnime->isChecked()))
 		return false;
 	switch(filter_type) {
@@ -968,15 +986,20 @@ bool DeckBuilder::CheckCard(CardDataM* data, const wchar_t& checkchar, std::vect
 			return false;
 	}
 	if(tokens.size()) {
-		if(checkchar == L'$') {
-			return Utils::ContainsSubstring(data->GetStrings()->name, tokens, true);
-		} else if(checkchar == L'@') {
+		const auto checkNeg = [negative = !!(modifier & SEARCH_MODIFIER::SEARCH_MODIFIER_NEGATIVE_LOOKUP)] (bool res) -> bool {
+			if(negative)
+				return !res;
+			return res;
+		};
+		if(modifier & SEARCH_MODIFIER::SEARCH_MODIFIER_NAME_ONLY) {
+			return checkNeg(Utils::ContainsSubstring(data->GetStrings()->name, tokens, true));
+		} else if(modifier & SEARCH_MODIFIER::SEARCH_MODIFIER_ARCHETYPE_ONLY) {
 			if(set_code.empty() && tokens.size() > 0 && tokens.front() != L"")
-				return false;
-			return check_set_code(data->_data, set_code);
+				return checkNeg(false);
+			return checkNeg(check_set_code(data->_data, set_code));
 		} else {
-			return (set_code.size() && check_set_code(data->_data, set_code)) || Utils::ContainsSubstring(data->GetStrings()->name, tokens, true)
-					|| Utils::ContainsSubstring(data->GetStrings()->text, tokens, true);
+			return checkNeg((set_code.size() && check_set_code(data->_data, set_code)) || Utils::ContainsSubstring(data->GetStrings()->name, tokens, true)
+					|| Utils::ContainsSubstring(data->GetStrings()->text, tokens, true));
 		}
 	}
 	return true;
