@@ -24,7 +24,7 @@ public class EpNativeActivity extends NativeActivity {
 	private static native void putComboBoxResult(int index);
 	private static native void pauseApp(boolean pause);
 	static {
-		System.loadLibrary("EdoproClient");
+		System.loadLibrary("EDOProClient");
 	}
 
 	@Override
@@ -78,7 +78,7 @@ public class EpNativeActivity extends NativeActivity {
 			String action = intent.getAction();
 			if ("RUN_WINDBOT".equals(action)) {
 				String args = intent.getStringExtra("args");
-				Log.i("Edoprowindbot", "Launching windbot with " + args + " as parameters.");
+				Log.i("EDOProWindBotIgnite", "Launching WindBot Ignite with " + args + " as parameters.");
 				WindBot.runAndroid(args);
 			} else if("MAKE_CHOICE".equals(action)){
 				String[] parameters = intent.getStringArrayExtra("args");

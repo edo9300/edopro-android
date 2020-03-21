@@ -1,7 +1,7 @@
 LOCAL_PATH := $(call my-dir)/..
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := EdoproClient
+LOCAL_MODULE := EDOProClient
 
 LOCAL_CFLAGS := -D_IRR_ANDROID_PLATFORM_  -DYGOPRO_USE_SDL_MIXER -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -std=c++11 -DYGOPRO_BUILD_DLL
 LOCAL_CPPFLAGS := -std=c++11 

@@ -130,7 +130,7 @@ public class AssetCopy extends Activity {
                 InputStream certin = getAssets().open("cacert.cer");
                 File certout = new File(getApplicationContext().getFilesDir(),"cacert.cer");
                 if(certout.exists()){
-                    Log.i("Edopro", "Certificate file already copied");
+                    Log.i("EDOPro", "Certificate file already copied");
                 }else {
                     try {
                         FileOutputStream fOut = new FileOutputStream(certout);
@@ -141,7 +141,7 @@ public class AssetCopy extends Activity {
                         }
                         fOut.close();
                     } catch (Exception e) {
-                        Log.e("Edopro", "cannot copy certificate file: " + e.getMessage());
+                        Log.e("EDOPro", "cannot copy certificate file: " + e.getMessage());
                     }
                 }
             } catch (IOException e) {

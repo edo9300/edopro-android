@@ -92,7 +92,7 @@ public class MainActivity extends Activity {
 					File file = new File(getApplicationContext().getFilesDir(),"assets_copied");
 					file.createNewFile();
 				} catch (Exception e){
-					Log.e("Edopro", "error when creating assets_copied file: " + e.getMessage());
+					Log.e("EDOPro", "error when creating assets_copied file: " + e.getMessage());
 				}
 				next();
 				break;
@@ -102,24 +102,24 @@ public class MainActivity extends Activity {
 					break;
 				}
 				Uri uri = data.getData();
-				Log.i("Edopro", "Result URI " + uri);
+				Log.i("EDOPro", "Result URI " + uri);
 				String dest_dir = FileUtil.getFullPathFromTreeUri(uri,this);
 				if(dest_dir == null){
-					Log.e("Edopro", "returned URI is null");
+					Log.e("EDOPro", "returned URI is null");
 					finish();
 					break;
 				}
-				Log.i("Edopro", "Parsed result URI " + dest_dir);
+				Log.i("EDOPro", "Parsed result URI " + dest_dir);
 				if(dest_dir.startsWith("/storage/emulated/0"))
 					setWorkingDir(dest_dir);
 				else {
-					File[] paths = getApplicationContext().getExternalFilesDirs("Edopro");
+					File[] paths = getApplicationContext().getExternalFilesDirs("EDOPro");
 					String storage = dest_dir.split("/")[2];
 					boolean found = false;
 					for(int i = 0; i < paths.length; i++) {
-						Log.i("Edopro", "Path " + i + " is: " + paths[i]);
+						Log.i("EDOPro", "Path " + i + " is: " + paths[i]);
 						if(storage.equals(paths[i].getAbsolutePath().split("/")[2])){
-							Log.i("Edopro", "path matching with " + dest_dir + " is: " + paths[i].getAbsolutePath());
+							Log.i("EDOPro", "path matching with " + dest_dir + " is: " + paths[i].getAbsolutePath());
 							dest_dir = paths[i].getAbsolutePath();
 							if (!paths[i].exists()){
 								paths[i].mkdirs();
@@ -143,7 +143,7 @@ public class MainActivity extends Activity {
 						AlertDialog alert = builder.create();
 						alert.show();
 					} else {
-						Log.e("Edopro", "couldn't find matching storage");
+						Log.e("EDOPro", "couldn't find matching storage");
 						finish();
 					}
 				}
@@ -153,7 +153,7 @@ public class MainActivity extends Activity {
 	}
 
 	public void next() {
-		WindBot.initAndroid(working_directory + "/Windbot");
+		WindBot.initAndroid(working_directory + "/WindBot");
 		Intent intent = new Intent(this, SdlLauncher.class);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 		startActivity(intent);
@@ -172,7 +172,7 @@ public class MainActivity extends Activity {
 				}
 			}
 			catch (IOException e) {
-				Log.e("Edopro", "working directory file found but not read: " + e.getMessage());
+				Log.e("EDOPro", "working directory file found but not read: " + e.getMessage());
 			}
 		}
 		chooseWorkingDir();
@@ -202,7 +202,7 @@ public class MainActivity extends Activity {
 			myOutWriter.close();
 			fOut.close();
 		} catch(Exception e) {
-			Log.e("Edopro", "cannot write to working directory file: " + e.getMessage());
+			Log.e("EDOPro", "cannot write to working directory file: " + e.getMessage());
 			finish();
 			return;
 		}
@@ -223,7 +223,7 @@ public class MainActivity extends Activity {
 					File file = new File(getApplicationContext().getFilesDir(),"assets_copied");
 					file.createNewFile();
 				} catch (Exception e){
-					Log.e("Edopro", "error when creating assets_copied file: " + e.getMessage());
+					Log.e("EDOPro", "error when creating assets_copied file: " + e.getMessage());
 				}
 				next();
 			}
