@@ -3,7 +3,7 @@ LOCAL_PATH := $(call my-dir)/..
 include $(CLEAR_VARS)
 LOCAL_MODULE := EDOProClient
 
-LOCAL_CFLAGS := -D_IRR_ANDROID_PLATFORM_  -DYGOPRO_USE_SDL_MIXER -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -std=c++11 -DYGOPRO_BUILD_DLL
+LOCAL_CFLAGS := -DYGOPRO_USE_SDL_MIXER -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -std=c++11 -DYGOPRO_BUILD_DLL
 LOCAL_CPPFLAGS := -std=c++11 
 
 ifndef NDEBUG
@@ -21,15 +21,15 @@ LOCAL_CFLAGS += -mno-unaligned-access
 endif
 
 ifneq ($(PICS_URL),)
-LOCAL_CFLAGS += -DDEFAULT_PIC_URL=$(PICS_URL)
+LOCAL_CFLAGS += -DDEFAULT_PIC_URL=\"$(PICS_URL)\"
 endif
 
 ifneq ($(FIELDS_URL),)
-LOCAL_CFLAGS += -DDEFAULT_FIELD_URL=$(FIELDS_URL)
+LOCAL_CFLAGS += -DDEFAULT_FIELD_URL=\"$(FIELDS_URL)\"
 endif
 
 ifneq ($(COVERS_URL),)
-LOCAL_CFLAGS += -DDEFAULT_COVER_URL=$(COVERS_URL)
+LOCAL_CFLAGS += -DDEFAULT_COVER_URL=\"$(COVERS_URL)\"
 endif
 
 CLASSES_PATH := $(LOCAL_PATH)/deps
