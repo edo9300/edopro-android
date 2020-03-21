@@ -3,8 +3,8 @@ LOCAL_PATH := $(call my-dir)/..
 include $(CLEAR_VARS)
 LOCAL_MODULE := EDOProClient
 
-LOCAL_CFLAGS := -DYGOPRO_USE_SDL_MIXER -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -std=c++11 -DYGOPRO_BUILD_DLL
-LOCAL_CPPFLAGS := -std=c++14
+LOCAL_CFLAGS := -DYGOPRO_USE_SDL_MIXER -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -std=c++14 -DYGOPRO_BUILD_DLL -Wc++14-extensions
+LOCAL_CPPFLAGS := -std=c++14 -Wc++14-extensions
 
 ifndef NDEBUG
 LOCAL_CFLAGS += -g -D_DEBUG 
