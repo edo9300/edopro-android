@@ -462,7 +462,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				for(int i = 0; i < decks.size(); i++) {
 					deckManager.SaveDeck(sanitize(fmt::format(EPRO_TEXT("{} player{:02} {}"), replay_name, i, Utils::ToPathString(players[i]))), decks[i].main_deck, decks[i].extra_deck, std::vector<int>());
 				}
-				mainGame->stACMessage->setText(gDataManager->GetSysString(1335).c_str());
+				mainGame->stACMessage->setText(gDataManager->GetSysString(1367).c_str());
 				mainGame->PopupElement(mainGame->wACMessage, 20);
 				break;
 			}
@@ -610,7 +610,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					mainGame->btnLoadSinglePlay->setEnabled(true);
 					break;
 				}
-				mainGame->btnLoadSinglePlay->setEnabled(true);
+				mainGame->btnLoadSinglePlay->setEnabled(mainGame->coreloaded);
 				const wchar_t* name = mainGame->lstSinglePlayList->getListItem(mainGame->lstSinglePlayList->getSelected(), true);
 				mainGame->stSinglePlayInfo->setText(mainGame->ReadPuzzleMessage(name).c_str());
 				break;
@@ -649,6 +649,8 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				break;
 			}
 			case LISTBOX_SINGLEPLAY_LIST: {
+				if(!mainGame->btnLoadSinglePlay->isEnabled())
+					break;
 				if(mainGame->lstSinglePlayList->isDirectory(mainGame->lstSinglePlayList->getSelected()))
 					mainGame->lstSinglePlayList->enterDirectory(mainGame->lstSinglePlayList->getSelected());
 				else {

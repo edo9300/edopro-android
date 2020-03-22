@@ -238,11 +238,11 @@ public class MainActivity extends Activity {
 
     public void copyCertificate(){
 		try {
-			InputStream certin = getAssets().open("cacert.cer");
 			File certout = new File(getApplicationContext().getFilesDir(),"cacert.cer");
 			if(certout.exists()){
 				Log.i("EDOPro", "Certificate file already copied");
-			}else {
+			} else {
+				InputStream certin = getAssets().open("cacert.cer");
 				try {
 					FileOutputStream fOut = new FileOutputStream(certout);
 					byte[] buffer = new byte[1024];
