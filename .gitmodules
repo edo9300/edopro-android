@@ -1,0 +1,3 @@
+[submodule "deps/ocgcore"]
+	path = deps/ocgcore
+	url = https://github.com/edo9300/ygopro-core.git
