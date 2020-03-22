@@ -3,6 +3,11 @@ os: linux
 dist: xenial
 git:
   depth: 1
+env:
+  global:
+  - DEPLOY_DIR=release
+  - DEPLOY_BRANCH=android
+  - LIBWINDBOT_URL=https://github.com/edo9300/libWindbot/releases/download/v2/libWindbot.aar
 android:
   components:
   - platform-tools
@@ -12,9 +17,18 @@ android:
 install: yes | sdkmanager ndk-bundle
 before_script:
 - mkdir -p libs
-- curl --retry 5 --connect-timeout 30 --location --remote-header-name -o libs/libWindbot.aar https://github.com/edo9300/libWindbot/releases/download/v2/libWindbot.aar
+- curl --retry 5 --connect-timeout 30 --location --remote-header-name -o libs/libWindbot.aar $LIBWINDBOT_URL
 script:
 - echo "sdk.dir=$ANDROID_HOME" > local.properties
 - $ANDROID_HOME/ndk-bundle/ndk-build -j2
 - $ANDROID_HOME/ndk-bundle/ndk-build -C deps/ocgcore -j2
+- ./finalize-assets.sh
 - ./gradlew assemble
+before_deploy:
+- mkdir -p release
+- cp build/outputs/apk/debug/*.apk build/outputs/apk/release/*.apk release
+- rm -f release/*.json
+deploy:
+- provider: script
+  skip_cleanup: true
+  script: bash ./deps/ocgcore/travis/deploy.sh
