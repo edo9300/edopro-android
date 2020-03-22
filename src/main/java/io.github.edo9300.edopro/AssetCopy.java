@@ -125,30 +125,6 @@ public class AssetCopy extends Activity {
             m_tocopy = new Vector<>();
             m_asset_size_unknown = new Vector<>();
 
-
-            try {
-                InputStream certin = getAssets().open("cacert.cer");
-                File certout = new File(getApplicationContext().getFilesDir(),"cacert.cer");
-                if(certout.exists()){
-                    Log.i("EDOPro", "Certificate file already copied");
-                }else {
-                    try {
-                        FileOutputStream fOut = new FileOutputStream(certout);
-                        byte[] buffer = new byte[1024];
-                        int length;
-                        while ((length = certin.read(buffer)) > 0) {
-                            fOut.write(buffer, 0, length);
-                        }
-                        fOut.close();
-                    } catch (Exception e) {
-                        Log.e("EDOPro", "cannot copy certificate file: " + e.getMessage());
-                    }
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-
             // build lists from prepared data
             BuildFolderList();
             BuildFileList();

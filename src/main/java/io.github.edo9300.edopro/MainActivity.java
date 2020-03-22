@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import libwindbot.windbot.WindBot;
 import android.Manifest;
@@ -216,6 +217,7 @@ public class MainActivity extends Activity {
 			next();
 			return;
 		}
+		copyCertificate();
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
 		builder.setMessage(R.string.assets_prompt).setNegativeButton("No", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int id) {
@@ -233,6 +235,30 @@ public class MainActivity extends Activity {
 			}
 		}).setCancelable(false).show();
     }
+
+    public void copyCertificate(){
+		try {
+			InputStream certin = getAssets().open("cacert.cer");
+			File certout = new File(getApplicationContext().getFilesDir(),"cacert.cer");
+			if(certout.exists()){
+				Log.i("EDOPro", "Certificate file already copied");
+			}else {
+				try {
+					FileOutputStream fOut = new FileOutputStream(certout);
+					byte[] buffer = new byte[1024];
+					int length;
+					while ((length = certin.read(buffer)) > 0) {
+						fOut.write(buffer, 0, length);
+					}
+					fOut.close();
+				} catch (Exception e) {
+					Log.e("EDOPro", "cannot copy certificate file: " + e.getMessage());
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 
     public void copyAssets(String working_dir){
 		Intent intent = new Intent(this, AssetCopy.class);
