@@ -13,5 +13,5 @@ done
 cd $ASSETS
 # Finds all directories, excluding the current directory, and removes the ./ prefix
 find -L . ! -path . -type d | sed -E "s|^\./||" > ../index.txt
-# Finds all files and removes the ./ prefix
-find -L . -type f | sed -E "s|^\./||" > ../filelist.txt
+# Finds all files and directories, excluding the current directory, and removes the ./ prefix
+find -L . ! -path . | sed -E "s|^\./||" > ../filelist.txt
