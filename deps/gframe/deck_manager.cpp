@@ -5,6 +5,7 @@
 #include <IGUIEditBox.h>
 #include <algorithm>
 #include <fstream>
+#include "Base64.h"
 
 namespace ygo {
 
@@ -93,11 +94,13 @@ void DeckManager::RefreshLFList() {
 		null_lflist_index = _lfList.size() - 1;
 	}
 }
+LFList* DeckManager::GetLFList(int lfhash) {
+	auto it = std::find_if(_lfList.begin(), _lfList.end(), [lfhash](LFList list) {return list.hash == (unsigned int)lfhash; });
+	return it != _lfList.end() ? &*it : nullptr;
+}
 std::wstring DeckManager::GetLFListName(int lfhash) {
-	auto it = std::find_if(_lfList.begin(), _lfList.end(), [lfhash](LFList list){return list.hash == (unsigned int)lfhash; });
-	if(it != _lfList.end())
-		return (*it).listName.c_str();
-	return gDataManager->unknown_string;
+	auto lflist = GetLFList(lfhash);
+	return lflist ? lflist->listName.c_str() : gDataManager->unknown_string;
 }
 int DeckManager::TypeCount(std::vector<CardDataC*> cards, int type) {
 	int count = 0;
@@ -295,7 +298,7 @@ bool LoadCardList(const path_string& name, std::vector<int>* mainlist = nullptr,
 		if(str.find_first_of("0123456789") != std::string::npos) {
 			int code = 0;
 			try {
-				code = std::stoi(str);
+				code = std::stoul(str);
 			} catch (...){
 				continue;
 			}
@@ -396,6 +399,94 @@ bool DeckManager::SaveDeck(const path_string& name, std::vector<int> mainlist, s
 		deckfile << std::to_string(card) << "\n";
 	deckfile.close();
 	return true;
+}
+const wchar_t* DeckManager::ExportDeckBase64(Deck& deck) {
+	static std::wstring res;
+	auto decktbuf = [&res=res](const std::vector<CardDataC*>& src) {
+		static std::vector<int> cards;
+		cards.resize(src.size());
+		auto buf = cards.data();
+		for(size_t i = 0; i < src.size(); i++) {
+			buf[i] = src[i]->code;
+		}
+		res += base64_encode((uint8_t*)buf, cards.size() * 4) + L"!";
+	};
+	res = L"ydke://";
+	decktbuf(deck.main);
+	decktbuf(deck.extra);
+	decktbuf(deck.side);
+	return res.data();
+}
+const wchar_t * DeckManager::ExportDeckCardNames(Deck deck) {
+	static std::wstring res;
+	res.clear();
+	std::sort(deck.main.begin(), deck.main.end(), ClientCard::deck_sort_lv);
+	std::sort(deck.extra.begin(), deck.extra.end(), ClientCard::deck_sort_lv);
+	std::sort(deck.side.begin(), deck.side.end(), ClientCard::deck_sort_lv);
+	auto serialize = [&res=res](const std::vector<CardDataC*>& list) {
+		uint32 prev = 0;
+		uint32 count = 0;
+		for(const auto& card : list) {
+			auto code = card->code;
+			if(card->alias && abs((int)(card->alias - card->code)) < 10) {
+				code = card->alias;
+			}
+			if(!prev) {
+				prev = code;
+				count = 1;
+			} else if(prev && code != prev) {
+				res.append(gDataManager->GetName(prev)).append(L" x").append(fmt::to_wstring(count)).append(L"\n");
+				count = 1;
+				prev = code;
+			} else {
+				count++;
+			}
+		}
+		if(prev)
+			res.append(gDataManager->GetName(prev)).append(L" x").append(fmt::to_wstring(count)).append(L"\n");
+	};
+	bool prev = false;
+	if(deck.main.size()) {
+		res.append(L"Main Deck:\n");
+		serialize(deck.main);
+		prev = true;
+	}
+	if(deck.extra.size()) {
+		if(prev)
+			res.append(L"\n\n");
+		res.append(L"Extra Deck:\n");
+		serialize(deck.extra);
+		prev = true;
+	}
+	if(deck.side.size()) {
+		if(prev)
+			res.append(L"\n\n");
+		res.append(L"Side Deck:\n");
+		serialize(deck.side);
+	}
+	return res.c_str();
+}
+void DeckManager::ImportDeckBase64(Deck& deck, const wchar_t* buffer) {
+	static std::vector<uint8_t> deck_data;
+	buffer += (sizeof(L"ydke://") / sizeof(wchar_t)) - 1;
+	auto buf = buffer;
+	size_t delimiters[3];
+	int delim = 0;
+	for(int i = 0; delim < 3 && buf[i]; i++) {
+		if(buf[i] == L'!') {
+			delimiters[delim++] = i;
+		}
+	}
+	if(delim != 3)
+		return;
+	deck_data = base64_decode(buf, wcslen(buf));
+	auto tmpbuf = base64_decode(buf + delimiters[0] + 1, delimiters[1] - delimiters[0]);
+	deck_data.insert(deck_data.end(), tmpbuf.begin(), tmpbuf.end());
+	int mainc = deck_data.size() / 4;
+	tmpbuf = base64_decode(buf + delimiters[1] + 1, delimiters[2] - delimiters[1]);
+	deck_data.insert(deck_data.end(), tmpbuf.begin(), tmpbuf.end());
+	int sidec = (deck_data.size() / 4) - mainc;
+	LoadDeck(deck, (int*)deck_data.data(), mainc, sidec);
 }
 bool DeckManager::DeleteDeck(Deck& deck, const path_string& name) {
 	return Utils::FileDelete(fmt::format(EPRO_TEXT("./deck/{}.ydk"), name.c_str()));

@@ -1,11 +1,16 @@
+// Copyright (c) 2019-2020 Edoardo Lolletti <edoardo762@gmail.com>
+// Copyright (c) 2020 Dylam De La Torre <dyxel04@gmail.com>
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Refer to the COPYING file included.
+
 #include "repo_manager.h"
-#include "utils.h"
-#include "fmt/format.h"
+#include <fmt/format.h>
 #include "logging.h"
+#include "utils.h"
+#include "libgit2.hpp"
 #ifdef __ANDROID__
 #include "Android/porting_android.h"
 #endif
-#include "libgit2.hpp"
 
 namespace ygo {
 
@@ -78,10 +83,10 @@ std::vector<const GitRepo*> RepoManager::GetReadyRepos() {
 			auto results = it->second.get();
 			for(auto& repo : available_repos) {
 				if(repo->repo_path == it->first) {
-					repo->error = results.first[0];
-					results.first.erase(results.first.begin());
-					repo->commit_history_full = results.first;
-					repo->commit_history_partial = results.second;
+					repo->error = results.error;
+					repo->warning = results.warning;
+					repo->commit_history_full = results.full_history;
+					repo->commit_history_partial = results.partial_history;
 					repo->ready = true;
 					break;
 				}
@@ -185,7 +190,6 @@ RepoManager::CommitHistory RepoManager::CloneOrUpdateTask(GitRepo _repo) {
 	git_libgit2_opts(GIT_OPT_SET_SSL_CERT_LOCATIONS, (porting::internal_storage + "/cacert.cer").c_str(), "/system/etc/security/cacerts");
 #endif
 	CommitHistory history;
-	history.first.push_back("");
 	try {
 		auto DoesRepoExist = [](const char* path) -> bool {
 			git_repository* tmp = nullptr;
@@ -207,9 +211,9 @@ RepoManager::CommitHistory RepoManager::CloneOrUpdateTask(GitRepo _repo) {
 			for(git_oid oid; git_revwalk_next(&oid, walker) == 0;)
 			{
 				auto commit = Git::MakeUnique(git_commit_lookup, repo, &oid);
-				if(git_oid_iszero(&oid) || history.first.size() > 1500)
+				if(git_oid_iszero(&oid) || history.full_history.size() > 1500)
 					break;
-				AppendCommit(history.first, commit.get());
+				AppendCommit(history.full_history, commit.get());
 			}
 		};
 		auto QueryPartialHistory = [&](git_repository* repo, git_revwalk* walker) {
@@ -219,7 +223,7 @@ RepoManager::CommitHistory RepoManager::CloneOrUpdateTask(GitRepo _repo) {
 			for(git_oid oid; git_revwalk_next(&oid, walker) == 0;)
 			{
 				auto commit = Git::MakeUnique(git_commit_lookup, repo, &oid);
-				AppendCommit(history.second, commit.get());
+				AppendCommit(history.partial_history, commit.get());
 			}
 		};
 		const std::string& url = _repo.url;
@@ -231,19 +235,25 @@ RepoManager::CommitHistory RepoManager::CloneOrUpdateTask(GitRepo _repo) {
 			auto walker = Git::MakeUnique(git_revwalk_new, repo.get());
 			git_revwalk_sorting(walker.get(), GIT_SORT_TOPOLOGICAL | GIT_SORT_TIME);
 			if(_repo.should_update) {
-				// git fetch
-				git_fetch_options fetchOpts = GIT_FETCH_OPTIONS_INIT;
-				fetchOpts.callbacks.transfer_progress = &RepoManager::FetchCb;
-				fetchOpts.callbacks.payload = &payload;
-				auto remote = Git::MakeUnique(git_remote_lookup, repo.get(), "origin");
-				Git::Check(git_remote_fetch(remote.get(), nullptr, &fetchOpts, nullptr));
-				QueryPartialHistory(repo.get(), walker.get());
-				// git reset --hard FETCH_HEAD
-				git_oid oid;
-				Git::Check(git_reference_name_to_id(&oid, repo.get(), "FETCH_HEAD"));
-				auto commit = Git::MakeUnique(git_commit_lookup, repo.get(), &oid);
-				Git::Check(git_reset(repo.get(), reinterpret_cast<git_object*>(commit.get()),
-				                     GIT_RESET_HARD, nullptr));
+				try {
+					// git fetch
+					git_fetch_options fetchOpts = GIT_FETCH_OPTIONS_INIT;
+					fetchOpts.callbacks.transfer_progress = &RepoManager::FetchCb;
+					fetchOpts.callbacks.payload = &payload;
+					auto remote = Git::MakeUnique(git_remote_lookup, repo.get(), "origin");
+					Git::Check(git_remote_fetch(remote.get(), nullptr, &fetchOpts, nullptr));
+					QueryPartialHistory(repo.get(), walker.get());
+					// git reset --hard FETCH_HEAD
+					git_oid oid;
+					Git::Check(git_reference_name_to_id(&oid, repo.get(), "FETCH_HEAD"));
+					auto commit = Git::MakeUnique(git_commit_lookup, repo.get(), &oid);
+					Git::Check(git_reset(repo.get(), reinterpret_cast<git_object*>(commit.get()),
+					                     GIT_RESET_HARD, nullptr));
+				} catch(std::exception& e) {
+					history.partial_history.clear();
+					history.warning = e.what();
+					ErrorLog(fmt::format("Warning occurred in repo {}: {}", url, e.what()));
+				}
 			}
 			QueryFullHistory(repo.get(), walker.get());
 		} else {
@@ -259,8 +269,8 @@ RepoManager::CommitHistory RepoManager::CloneOrUpdateTask(GitRepo _repo) {
 		}
 		SetRepoPercentage(path, 100);
 	} catch(std::exception& e) {
-		history.first[0] = e.what();
-		ErrorLog(std::string("Exception occurred: ") + e.what());
+		history.error = e.what();
+		ErrorLog(fmt::format("Exception occurred in repo {}: {}", _repo.url, e.what()));
 	}
 	git_libgit2_shutdown();
 	return history;

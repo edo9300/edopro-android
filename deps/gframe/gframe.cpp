@@ -22,7 +22,6 @@
 #include "Android/porting_android.h"
 #endif
 
-int enable_log = 0;
 bool exit_on_return = false;
 bool is_from_discord = false;
 bool open_file = false;
@@ -58,9 +57,9 @@ void CheckArguments(int argc, path_char* argv[]) {
 		path_string parameter(argv[i]);
 #define PARAM_CHECK(x) if(parameter == EPRO_TEXT(x))
 #define RUN_IF(x,y) PARAM_CHECK(x) {i++; if(i < argc) {y;} continue;}
-#define SET_TXT(elem) ygo::mainGame->elem->setText(ygo::Utils::ToUnicodeIfNeeded(parameter).c_str())
+#define SET_TXT(elem) ygo::mainGame->elem->setText(ygo::Utils::ToUnicodeIfNeeded(argv[i]).c_str())
 		// Extra database
-		RUN_IF("-e", ygo::gDataManager->LoadDB(parameter))
+		RUN_IF("-e", ygo::gDataManager->LoadDB(argv[i]))
 		// Nickname
 		else RUN_IF("-n", SET_TXT(ebNickName))
 		// Host address
@@ -80,13 +79,13 @@ void CheckArguments(int argc, path_char* argv[]) {
 		} else PARAM_CHECK("-d") { // Deck
 			++i;
 			if(i + 1 < argc) { // select deck
-				ygo::gGameConfig->lastdeck = ygo::Utils::ToUnicodeIfNeeded(parameter);
+				ygo::gGameConfig->lastdeck = ygo::Utils::ToUnicodeIfNeeded(argv[i]);
 				continue;
 			} else { // open deck
 				exit_on_return = !keep_on_return;
 				if(i < argc) {
 					open_file = true;
-					open_file_name = std::move(parameter);
+					open_file_name = argv[i];
 				}
 				ClickButton(ygo::mainGame->btnDeckEdit);
 				break;
@@ -232,7 +231,7 @@ int main(int argc, char* argv[]) {
 		ygo::mainGame->gSettings.chkFullscreen->setChecked(ygo::gGameConfig->fullscreen);
 	});
 #endif
-	//bool reset = false;
+	bool reset = false;
 	bool firstlaunch = true;
 	do {
 		ygo::Game _game{};
@@ -249,8 +248,8 @@ int main(int argc, char* argv[]) {
 			firstlaunch = false;
 			CheckArguments(argc, argv);
 		}
-		/*reset = */ygo::mainGame->MainLoop();
-	} while(false);
+		reset = ygo::mainGame->MainLoop();
+	} while(reset);
 	Cleanup
 	return EXIT_SUCCESS;
 }

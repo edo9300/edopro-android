@@ -1,3 +1,8 @@
+// Copyright (c) 2019-2020 Edoardo Lolletti <edoardo762@gmail.com>
+// Copyright (c) 2020 Dylam De La Torre <dyxel04@gmail.com>
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Refer to the COPYING file included.
+
 #ifndef REPOMANAGER_H
 #define REPOMANAGER_H
 #include <atomic>
@@ -7,7 +12,6 @@
 #include <string>
 #include <vector>
 #include <mutex>
-#include <atomic>
 #include <nlohmann/json.hpp>
 #include <git2/version.h>
 
@@ -36,6 +40,7 @@ public:
 	bool has_core{false};
 	bool ready{false};
 	std::string error{};
+	std::string warning{};
 	std::vector<std::string> commit_history_partial{};
 	std::vector<std::string> commit_history_full{};
 	bool Sanitize();
@@ -44,7 +49,12 @@ public:
 class RepoManager {
 public:
 	// first = all changes history, second = only HEAD..FETCH_HEAD changes
-	using CommitHistory = std::pair<std::vector<std::string>, std::vector<std::string>>;
+	struct CommitHistory {
+		std::vector<std::string> full_history;
+		std::vector<std::string> partial_history;
+		std::string error;
+		std::string warning;
+	};
 	
 	// Cancel fetching of repos and synchronize with futures
 	~RepoManager();

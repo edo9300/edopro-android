@@ -1860,7 +1860,8 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 			}
 			case BUTTON_SHOW_SETTINGS: {
 				if (!mainGame->gSettings.window->isVisible())
-					mainGame->ShowElement(mainGame->gSettings.window);
+					mainGame->PopupElement(mainGame->gSettings.window);
+				mainGame->env->setFocus(mainGame->gSettings.window);
 				break;
 			}
 			case BUTTON_APPLY_RESTART: {
@@ -1869,6 +1870,14 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 					mainGame->restart = true;
 					mainGame->device->closeDevice();
 				} catch(...){}
+				break;
+			}
+			case BUTTON_FPS_CAP: {
+				try {
+					gGameConfig->maxFPS = std::stoi(mainGame->gSettings.ebFPSCap->getText());
+				} catch (...) {
+					mainGame->gSettings.ebFPSCap->setText(fmt::to_wstring(gGameConfig->maxFPS).c_str());
+				}
 				break;
 			}
 			}
@@ -2021,6 +2030,12 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 				mainGame->ApplyLocale(mainGame->gSettings.cbCurrentLocale->getSelected());
 				return true;
 			}
+			case COMBOBOX_CORE_LOG_OUTPUT: {
+				int selected = mainGame->gSettings.cbCoreLogOutput->getSelected();
+				if (selected < 0) return true;
+				gGameConfig->coreLogOutput = mainGame->gSettings.cbCoreLogOutput->getItemData(selected);
+				return true;
+			}
 			}
 			break;
 		}
@@ -2030,6 +2045,17 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 	}
 	case irr::EET_KEY_INPUT_EVENT: {
 		switch(event.KeyInput.Key) {
+		case irr::KEY_KEY_C: {
+			if(event.KeyInput.Control && mainGame->HasFocus(EGUIET_LIST_BOX)) {
+				auto focus = static_cast<irr::gui::IGUIListBox*>(mainGame->env->getFocus());
+				int sel = focus->getSelected();
+				if(sel != -1) {
+					mainGame->device->getOSOperator()->copyToClipboard(focus->getListItem(sel));
+					return true;
+				}
+			}
+			return false;
+		}
 		case irr::KEY_KEY_R: {
 			if(event.KeyInput.Control) {
 				mainGame->ApplySkin(EPRO_TEXT(""), true);
@@ -2044,7 +2070,7 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 				if (mainGame->gSettings.window->isVisible())
 					mainGame->HideElement(mainGame->gSettings.window);
 				else
-					mainGame->ShowElement(mainGame->gSettings.window);
+					mainGame->PopupElement(mainGame->gSettings.window);
 			}
 			return true;
 		}
@@ -2121,6 +2147,7 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 			default: break;
 			}
 		}
+		break;
 	}
 	default: break;
 	}

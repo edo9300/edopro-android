@@ -75,6 +75,17 @@ void LoadReplay() {
 		start_turn = 0;
 	ReplayMode::StartReplay(start_turn, mainGame->chkYrp->isChecked());
 }
+inline void TriggerEvent(irr::gui::IGUIElement* target, irr::gui::EGUI_EVENT_TYPE type) {
+	irr::SEvent event;
+	event.EventType = irr::EET_GUI_EVENT;
+	event.GUIEvent.EventType = type;
+	event.GUIEvent.Caller = target;
+	ygo::mainGame->device->postEventFromUser(event);
+}
+
+inline void ClickButton(irr::gui::IGUIElement* btn) {
+	TriggerEvent(btn, irr::gui::EGET_BUTTON_CLICKED);
+}
 bool MenuHandler::OnEvent(const irr::SEvent& event) {
 #ifdef __ANDROID__
 	if(porting::transformEvent(event)) {
@@ -592,6 +603,8 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				for(int i = 0; i < replay.GetPlayersCount(1); i++) {
 					repinfo.append(names[i + replay.GetPlayersCount(0)] + L"\n");
 				}
+				if(replay.GetTurnsCount())
+					repinfo.append(fmt::format(L"\n\n\nTurns: {}", replay.GetTurnsCount()));
 				mainGame->ebRepStartTurn->setText(L"1");
 				mainGame->stReplayInfo->setText((wchar_t*)repinfo.c_str());
 				mainGame->chkYrp->setChecked(false);
@@ -773,6 +786,15 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 		}
 		case irr::gui::EGET_COMBO_BOX_CHANGED: {
 			switch (id) {
+			case COMBOBOX_HOST_LFLIST: {
+				int selected = mainGame->cbHostLFList->getSelected();
+				if (selected < 0) break;
+				LFList* lflist = deckManager.GetLFList(mainGame->cbHostLFList->getItemData(selected));
+				if (lflist && lflist->whitelist) {
+					mainGame->cbRule->setSelected(static_cast<int>(DuelAllowedCards::ALLOWED_CARDS_ANY));
+				}  // heuristic for general use case of whitelists
+				break;
+			}
 			case COMBOBOX_DUEL_RULE: {
 				auto combobox = static_cast<irr::gui::IGUIComboBox*>(event.GUIEvent.Caller);
 #define CHECK(MR) case (MR - 1): { combobox->removeItem(5); mainGame->duel_param = DUEL_MODE_MR##MR; mainGame->forbiddentypes = DUEL_MODE_MR##MR##_FORB; break; }
@@ -787,6 +809,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				break;
 			}
 			case COMBOBOX_BOT_DECK: {
+				gGameConfig->lastBot = mainGame->gBot.CurrentIndex();
 				mainGame->gBot.UpdateDescription();
 				break;
 			}
@@ -840,6 +863,54 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 		}
 		break;
 	}
+#ifndef __ANDROID__
+	case irr::EET_DROP_EVENT: {
+		static std::wstring to_open_file;
+		switch(event.DropEvent.DropType) {
+			case irr::DROP_START: {
+				to_open_file.clear();
+				break;
+			}
+			case irr::DROP_FILE: {
+				to_open_file = event.DropEvent.Text;
+				break;
+			}
+			case irr::DROP_END:	{
+				if(to_open_file.size()) {
+					auto extension = Utils::GetFileExtension(to_open_file);
+					bool isMenu = !mainGame->wSinglePlay->isVisible() && !mainGame->wReplay->isVisible();
+					if(extension == L"ydk" && isMenu && deckManager.LoadDeck(Utils::ToPathString(to_open_file))) {
+						mainGame->RefreshDeck(mainGame->cbDBDecks);
+						auto name = Utils::GetFileName(to_open_file);
+						mainGame->ebDeckname->setText(name.c_str());
+						mainGame->cbDBDecks->setSelected(-1);
+						mainGame->HideElement(mainGame->wMainMenu);
+						mainGame->deckBuilder.Initialize();
+						return true;
+					} else if(mainGame->coreloaded && extension == L"lua" && !mainGame->wReplay->isVisible()) {
+						open_file = true;
+						open_file_name = Utils::ToPathString(to_open_file);
+						if(!mainGame->wSinglePlay->isVisible())
+							ClickButton(mainGame->btnSingleMode);
+						ClickButton(mainGame->btnLoadSinglePlay);
+						return true;
+					} else if(mainGame->coreloaded && extension == L"yrpx" && !mainGame->wSinglePlay->isVisible()) {
+						open_file = true;
+						open_file_name = Utils::ToPathString(to_open_file);
+						if(!mainGame->wReplay->isVisible())
+							ClickButton(mainGame->btnReplayMode);
+						ClickButton(mainGame->btnLoadReplay);
+						return true;
+					}
+					to_open_file.clear();
+				}
+				break;
+			}
+			default: break;
+		}
+		break;
+	}
+#endif
 	default: break;
 	}
 	return false;

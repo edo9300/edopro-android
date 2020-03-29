@@ -49,6 +49,7 @@ public:
 	bool LoadLFListFolder(path_string path);
 	void LoadLFList();
 	void RefreshLFList();
+	LFList* GetLFList(int lfhash);
 	std::wstring GetLFListName(int lfhash);
 	int CheckDeck(Deck& deck, int lfhash, DuelAllowedCards allowedCards, bool doubled, int forbiddentypes = 0);
 	int TypeCount(std::vector<CardDataC*> cards, int type);
@@ -59,6 +60,9 @@ public:
 	bool LoadDeckDouble(const path_string& file, const path_string& file2, Deck* deck = nullptr);
 	bool SaveDeck(Deck& deck, const path_string& name);
 	bool SaveDeck(const path_string& name, std::vector<int> mainlist, std::vector<int>extralist, std::vector<int> sidelist);
+	const wchar_t* ExportDeckBase64(Deck& deck);
+	const wchar_t* ExportDeckCardNames(Deck deck);
+	void ImportDeckBase64(Deck& deck, const wchar_t* buffer);
 	bool DeleteDeck(Deck& deck, const path_string& name);
 	bool RenameDeck(const path_string& oldname, const path_string& newname);
 };

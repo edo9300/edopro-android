@@ -190,6 +190,7 @@ public:
 	void ReloadCBDuelRule();
 	void ReloadCBRule();
 	void ReloadCBCurrentSkin();
+	void ReloadCBCoreLogOutput();
 	void ReloadElementsStrings();
 
 	void OnResize();
@@ -351,7 +352,11 @@ public:
 	irr::gui::IGUIButton* btnTabShowSettings;
 
 	SettingsWindow gSettings;
+	irr::gui::IGUIWindow* wBtnSettings;
+	irr::gui::CGUIImageButton* btnSettings;
 	//main menu
+	int mainMenuLeftX;
+	int mainMenuRightX;
 	irr::gui::IGUIWindow* wMainMenu;
 	irr::gui::IGUIWindow* wCommitsLog;
 	irr::gui::IGUIContextMenu* mTopMenu;

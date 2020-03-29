@@ -9,7 +9,9 @@
 #include "duelclient.h"
 #include "single_mode.h"
 #include "client_card.h"
-#ifdef __ANDROID__
+#ifndef __ANDROID__
+#include <sstream>
+#else
 #include "Android/porting_android.h"
 #endif
 #include <algorithm>
@@ -558,11 +560,11 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			}
 			bool pushed = false;
 			if(hovered_pos == 1)
-				pushed = push_main(draging_pointer, hovered_seq);
+				pushed = push_main(draging_pointer, hovered_seq, event.MouseInput.Shift);
 			else if(hovered_pos == 2)
-				pushed = push_extra(draging_pointer, hovered_seq + is_lastcard);
+				pushed = push_extra(draging_pointer, hovered_seq + is_lastcard, event.MouseInput.Shift);
 			else if(hovered_pos == 3)
-				pushed = push_side(draging_pointer, hovered_seq + is_lastcard);
+				pushed = push_side(draging_pointer, hovered_seq + is_lastcard, event.MouseInput.Shift);
 			else if(hovered_pos == 4 && !mainGame->is_siding)
 				pushed = true;
 			if(!pushed) {
@@ -614,14 +616,10 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 					auto pointer = gDataManager->GetCardData(hovered_code);
 					if(!pointer)
 						break;
-					if(event.MouseInput.Shift)
+					if(!check_limit(pointer))
+						break;
+					if(!push_extra(pointer) && !push_main(pointer))
 						push_side(pointer);
-					else {
-						if (!event.MouseInput.Shift && !check_limit(pointer))
-							break;
-						if (!push_extra(pointer) && !push_main(pointer))
-							push_side(pointer);
-					}
 				}
 			} else {
 				if(click_pos == 1) {
@@ -691,6 +689,109 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 		}
 		break;
 	}
+	case irr::EET_KEY_INPUT_EVENT: {
+		if(event.KeyInput.PressedDown && !mainGame->HasFocus(irr::gui::EGUIET_EDIT_BOX)) {
+			switch(event.KeyInput.Key) {
+			case irr::KEY_KEY_C: {
+				if(event.KeyInput.Control) {
+					auto deck_string = event.KeyInput.Shift ? deckManager.ExportDeckCardNames(deckManager.current_deck) : deckManager.ExportDeckBase64(deckManager.current_deck);
+					if(deck_string) {
+						mainGame->device->getOSOperator()->copyToClipboard(deck_string);
+						mainGame->stACMessage->setText(L"Deck copied");
+					} else {
+						mainGame->stACMessage->setText(L"Deck not copied");
+					}
+					mainGame->PopupElement(mainGame->wACMessage, 20);
+				}
+				break;
+			}
+			case irr::KEY_KEY_V: {
+				if(event.KeyInput.Control && !mainGame->HasFocus(irr::gui::EGUIET_EDIT_BOX)) {
+					const wchar_t* deck_string = mainGame->device->getOSOperator()->getTextFromClipboard();
+					if(deck_string && wcsncmp(L"ydke://", deck_string, sizeof(L"ydke://") / sizeof(wchar_t) - 1) == 0) {
+						deckManager.ImportDeckBase64(deckManager.current_deck, deck_string);
+					}
+				}
+				break;
+			}
+			default:
+				break;
+			}
+		}
+		break;
+	}
+#ifndef __ANDROID__
+	case irr::EET_DROP_EVENT: {
+		static std::wstring to_open_deck;
+		switch(event.DropEvent.DropType) {
+			case irr::DROP_FILE: {
+				irr::gui::IGUIElement* root = mainGame->env->getRootGUIElement();
+				if(root->getElementFromPoint({ event.DropEvent.X, event.DropEvent.Y }) != root)
+					break;
+				to_open_deck = event.DropEvent.Text;
+				break;
+			}
+			case irr::DROP_TEXT: {
+				if(!event.DropEvent.Text)
+					break;
+				if(mainGame->is_siding)
+					break;
+				irr::gui::IGUIElement* root = mainGame->env->getRootGUIElement();
+				if(root->getElementFromPoint({ event.DropEvent.X, event.DropEvent.Y }) != root)
+					break;
+				if(wcsncmp(L"ydke://", event.DropEvent.Text, sizeof(L"ydke://") / sizeof(wchar_t) - 1) == 0) {
+					deckManager.ImportDeckBase64(deckManager.current_deck, event.DropEvent.Text);
+					return true;
+				}
+				std::wstringstream ss(Utils::ToUpperNoAccents<std::wstring>(event.DropEvent.Text));
+				std::wstring to;
+				while(std::getline(ss, to)) {
+					(to = to.substr(to.find_first_not_of(L" \n\r\t")));
+					to.erase(to.find_last_not_of(L" \n\r\t") + 1);
+					int code = BufferIO::GetVal(to.c_str());
+					CardDataC* pointer = nullptr;
+					if(code && (pointer = gDataManager->GetCardData(code))) {
+					} else {
+						for(auto& card : gDataManager->cards) {
+							auto name = Utils::ToUpperNoAccents<std::wstring>(card.second.GetStrings()->name);
+							if(name == to) {
+								pointer = &card.second._data;
+								break;
+							}
+						}
+					}
+					if(!pointer)
+						continue;
+					mouse_pos.set(event.DropEvent.X, event.DropEvent.Y);
+					is_draging = true;
+					hovered_code = code;
+					draging_pointer = pointer;
+					GetHoveredCard();
+					if(hovered_pos == 3)
+						push_side(draging_pointer, hovered_seq + is_lastcard);
+					else {
+						push_main(draging_pointer, hovered_seq) || push_extra(draging_pointer, hovered_seq + is_lastcard);
+					}
+					is_draging = false;
+				}
+				return true;
+			}
+			case irr::DROP_END:	{
+				if(to_open_deck.size()) {
+					if(Utils::GetFileExtension(to_open_deck) == L"ydk" && deckManager.LoadDeck(Utils::ToPathString(to_open_deck))) {
+						auto name = Utils::GetFileName(to_open_deck);
+						mainGame->ebDeckname->setText(name.c_str());
+						mainGame->cbDBDecks->setSelected(-1);
+					}
+					to_open_deck.clear();
+				}
+				break;
+			}
+			default: break;
+		}
+		break;
+	}
+#endif
 	default: break;
 	}
 	return false;
@@ -1061,11 +1162,11 @@ void DeckBuilder::SortList() {
 		break;
 	}
 }
-bool DeckBuilder::push_main(CardDataC* pointer, int seq) {
+bool DeckBuilder::push_main(CardDataC* pointer, int seq, bool forced) {
 	if(pointer->type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK) && pointer->type != (TYPE_SPELL | TYPE_LINK))
 		return false;
 	auto& container = deckManager.current_deck.main;
-	if(!mainGame->is_siding && (int)container.size() >= 60)
+	if(!mainGame->is_siding && !forced && (int)container.size() >= 60)
 		return false;
 	if(seq >= 0 && seq < (int)container.size())
 		container.insert(container.begin() + seq, pointer);
@@ -1074,11 +1175,11 @@ bool DeckBuilder::push_main(CardDataC* pointer, int seq) {
 	GetHoveredCard();
 	return true;
 }
-bool DeckBuilder::push_extra(CardDataC* pointer, int seq) {
+bool DeckBuilder::push_extra(CardDataC* pointer, int seq, bool forced) {
 	if(!(pointer->type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK)) || pointer->type == (TYPE_SPELL | TYPE_LINK))
 		return false;
 	auto& container = deckManager.current_deck.extra;
-	if(!mainGame->is_siding && (int)container.size() >= 15)
+	if(!mainGame->is_siding && !forced && (int)container.size() >= 15)
 		return false;
 	if(seq >= 0 && seq < (int)container.size())
 		container.insert(container.begin() + seq, pointer);
@@ -1087,9 +1188,9 @@ bool DeckBuilder::push_extra(CardDataC* pointer, int seq) {
 	GetHoveredCard();
 	return true;
 }
-bool DeckBuilder::push_side(CardDataC* pointer, int seq) {
+bool DeckBuilder::push_side(CardDataC* pointer, int seq, bool forced) {
 	auto& container = deckManager.current_deck.side;
-	if(!mainGame->is_siding && (int)container.size() >= 15)
+	if(!mainGame->is_siding && !forced && (int)container.size() >= 15)
 		return false;
 	if(seq >= 0 && seq < (int)container.size())
 		container.insert(container.begin() + seq, pointer);

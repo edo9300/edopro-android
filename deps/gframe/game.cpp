@@ -55,7 +55,7 @@
 
 unsigned short PRO_VERSION = 0x1350;
 #define EDOPRO_VERSION_MAJOR 37
-#define EDOPRO_VERSION_MINOR 1
+#define EDOPRO_VERSION_MINOR 2
 #define EDOPRO_VERSION_PATCH 0
 #define EDOPRO_VERSION_CODENAME L"Spider Shark"
 
@@ -87,13 +87,42 @@ bool Game::Initialize() {
 		params.AntiAlias = 0;
 		params.WindowSize = irr::core::dimension2d<u32>(0, 0);
 #endif
-		params.Vsync = gGameConfig->use_vsync;
+		params.Vsync = gGameConfig->vsync;
 		device = irr::createDeviceEx(params);
 		if(!device) {
 			ErrorLog("Failed to create Irrlicht Engine device!");
 			return false;
 		}
 	}
+#ifndef __ANDROID__
+	device->enableDragDrop(true, [](irr::core::vector2di pos, bool isFile) ->bool {
+		if(isFile) {
+			if(ygo::mainGame->dInfo.isInDuel || ygo::mainGame->dInfo.isInLobby || ygo::mainGame->is_siding
+			   || ygo::mainGame->wRoomListPlaceholder->isVisible() || ygo::mainGame->wLanWindow->isVisible()
+			   || ygo::mainGame->wCreateHost->isVisible() || ygo::mainGame->wHostPrepare->isVisible())
+				return false;
+			else
+				return true;
+		} else {
+			auto elem = ygo::mainGame->env->getRootGUIElement()->getElementFromPoint(pos);
+			if(elem && elem != ygo::mainGame->env->getRootGUIElement()) {
+				if(elem->hasType(irr::gui::EGUIET_EDIT_BOX) && elem->isEnabled())
+					return true;
+				return false;
+			}
+			irr::core::position2di convpos = mainGame->Resize(pos.X, pos.Y, true);
+			auto x = convpos.X;
+			auto y = convpos.Y;
+			if(ygo::mainGame->is_building && !ygo::mainGame->is_siding) {
+				if(x >= 314 && x <= 794) {
+					if((y >= 164 && y <= 435) || (y >= 466 && y <= 530) || (y >= 564 && y <= 628))
+						return true;
+				}
+			}
+		}
+		return false;
+	});
+#endif
 	filesystem = device->getFileSystem();
 #ifdef __ANDROID__
 	// The Android assets file-system does not know which sub-directories it has (blame google).
@@ -243,7 +272,9 @@ bool Game::Initialize() {
 	auto formatVersion = []() {
 		return fmt::format(L"EDOPro by Project Ignis | {}.{}.{} \"{}\"", EDOPRO_VERSION_MAJOR, EDOPRO_VERSION_MINOR, EDOPRO_VERSION_PATCH, EDOPRO_VERSION_CODENAME);
 	};
-	stVersion = env->addStaticText(formatVersion().c_str(), Scale(10, 10, 290, 35), false, true, wVersion);
+	stVersion = env->addStaticText(formatVersion().c_str(), Scale(10, 10, 290, 35), false, false, wVersion);
+	int titleWidth = stVersion->getTextWidth();
+	stVersion->setRelativePosition(recti(Scale(10), Scale(10), titleWidth + Scale(10), Scale(35)));
 	stCoreVersion = env->addStaticText(L"", Scale(10, 40, 290, 65), false, true, wVersion);
 	RefreshUICoreVersion();
 	stExpectedCoreVersion = env->addStaticText(
@@ -253,12 +284,16 @@ bool Game::Initialize() {
 		GetLocalizedCompatVersion().c_str(),
 		Scale(10, 100, 290, 125), false, true, wVersion);
 	((CGUICustomContextMenu*)mVersion)->addItem(wVersion, -1);
+	wVersion->setRelativePosition(recti(0, 0, std::max(Scale(300), stVersion->getTextWidth() + Scale(20)), Scale(135)));
 	mBeta = mTopMenu->getSubMenu(mTopMenu->addItem(L"CLOSED BETA ONLY", 4));
 	//main menu
-	wMainMenu = env->addWindow(Scale(370, 200, 650, 450), false, formatVersion().c_str());
+	int mainMenuWidth = std::max(280, static_cast<int>(titleWidth / dpi_scale + 15));
+	mainMenuLeftX = 510 - mainMenuWidth / 2;
+	mainMenuRightX = 510 + mainMenuWidth / 2;
+	wMainMenu = env->addWindow(Scale(mainMenuLeftX, 200, mainMenuRightX, 450), false, formatVersion().c_str());
 	wMainMenu->getCloseButton()->setVisible(false);
 	//wMainMenu->setVisible(!is_from_discord);
-#define OFFSET(x1, y1, x2, y2) Scale(10, 30 + offset, 270, 60 + offset)
+#define OFFSET(x1, y1, x2, y2) Scale(10, 30 + offset, mainMenuWidth - 10, 60 + offset)
 	int offset = 0;
 	btnOnlineMode = env->addButton(OFFSET(10, 30, 270, 60), wMainMenu, BUTTON_ONLINE_MULTIPLAYER, gDataManager->GetSysString(2042).c_str());
 	defaultStrings.emplace_back(btnOnlineMode, 2042);
@@ -317,7 +352,7 @@ bool Game::Initialize() {
 	wCreateHost->setVisible(false);
 	tmpptr = env->addStaticText(gDataManager->GetSysString(1226).c_str(), Scale(20, 30, 220, 50), false, false, wCreateHost);
 	defaultStrings.emplace_back(tmpptr, 1226);
-	cbHostLFList = ADDComboBox(Scale(140, 25, 300, 50), wCreateHost);
+	cbHostLFList = ADDComboBox(Scale(140, 25, 300, 50), wCreateHost, COMBOBOX_HOST_LFLIST);
 	tmpptr = env->addStaticText(gDataManager->GetSysString(1225).c_str(), Scale(20, 60, 220, 80), false, false, wCreateHost);
 	defaultStrings.emplace_back(tmpptr, 1225);
 	cbRule = ADDComboBox(Scale(140, 55, 300, 80), wCreateHost);
@@ -468,7 +503,7 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(gBot.chkThrowRock, 2052);
 	gBot.chkMute = env->addCheckBox(gGameConfig->botMute, Scale(10, 135, 200, 160), gBot.window, -1, gDataManager->GetSysString(2053).c_str());
 	defaultStrings.emplace_back(gBot.chkMute, 2053);
-	gBot.deckBox = ADDComboBox(Scale(10, 165, 200, 190), gBot.window, COMBOBOX_BOT_DECK);
+	gBot.cbBotDeck = ADDComboBox(Scale(10, 165, 200, 190), gBot.window, COMBOBOX_BOT_DECK);
 	gBot.btnAdd = env->addButton(Scale(10, 200, 200, 225), gBot.window, BUTTON_BOT_ADD, gDataManager->GetSysString(2054).c_str());
 	defaultStrings.emplace_back(gBot.btnAdd, 2054);
 	btnHostPrepOB = env->addButton(Scale(10, 180, 110, 205), wHostPrepare, BUTTON_HP_OBSERVER, gDataManager->GetSysString(1252).c_str());
@@ -637,12 +672,14 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(btnTabShowSettings, 2059);
 	/* padding = */ env->addStaticText(L"", Scale(20, 440, 280, 450), false, true, tabPanel, -1, false);
 
-	gSettings.window = env->addWindow(Scale(200, 100, 820, 520), false, gDataManager->GetSysString(1273).c_str());
+	gSettings.window = env->addWindow(Scale(180, 90, 840, 530), false, gDataManager->GetSysString(1273).c_str());
 	defaultStrings.emplace_back(gSettings.window, 1273);
 	gSettings.window->setVisible(false);
-	gSettings.chkShowFPS = env->addCheckBox(gGameConfig->showFPS, Scale(20, 35, 300, 60), gSettings.window, CHECKBOX_SHOW_FPS, gDataManager->GetSysString(1445).c_str());
+	gSettings.panel = Panel::addPanel(env, gSettings.window, -250, gSettings.window->getClientRect(), true, false);
+	auto sPanel = gSettings.panel->getSubpanel();
+	gSettings.chkShowFPS = env->addCheckBox(gGameConfig->showFPS, Scale(15, 35, 320, 60), sPanel, CHECKBOX_SHOW_FPS, gDataManager->GetSysString(1445).c_str());
 	defaultStrings.emplace_back(gSettings.chkShowFPS, 1445);
-	gSettings.chkFullscreen = env->addCheckBox(gGameConfig->fullscreen, Scale(20, 65, 300, 90), gSettings.window, CHECKBOX_FULLSCREEN, gDataManager->GetSysString(2060).c_str());
+	gSettings.chkFullscreen = env->addCheckBox(gGameConfig->fullscreen, Scale(15, 65, 320, 90), sPanel, CHECKBOX_FULLSCREEN, gDataManager->GetSysString(2060).c_str());
 	defaultStrings.emplace_back(gSettings.chkFullscreen, 2060);
 #ifdef __ANDROID__
 	gSettings.chkFullscreen->setChecked(true);
@@ -650,32 +687,32 @@ bool Game::Initialize() {
 #elif defined(__APPLE__)
 	gSettings.chkFullscreen->setEnabled(false);
 #endif
-	gSettings.chkScaleBackground = env->addCheckBox(gGameConfig->scale_background, Scale(20, 95, 300, 120), gSettings.window, CHECKBOX_SCALE_BACKGROUND, gDataManager->GetSysString(2061).c_str());
+	gSettings.chkScaleBackground = env->addCheckBox(gGameConfig->scale_background, Scale(15, 95, 320, 120), sPanel, CHECKBOX_SCALE_BACKGROUND, gDataManager->GetSysString(2061).c_str());
 	defaultStrings.emplace_back(gSettings.chkScaleBackground, 2061);
-	gSettings.chkAccurateBackgroundResize = env->addCheckBox(gGameConfig->accurate_bg_resize, Scale(20, 125, 300, 150), gSettings.window, CHECKBOX_ACCURATE_BACKGROUND_RESIZE, gDataManager->GetSysString(2062).c_str());
+	gSettings.chkAccurateBackgroundResize = env->addCheckBox(gGameConfig->accurate_bg_resize, Scale(15, 125, 320, 150), sPanel, CHECKBOX_ACCURATE_BACKGROUND_RESIZE, gDataManager->GetSysString(2062).c_str());
 	defaultStrings.emplace_back(gSettings.chkAccurateBackgroundResize, 2062);
 #ifdef __ANDROID__
 	gSettings.chkAccurateBackgroundResize->setChecked(true);
 	gSettings.chkAccurateBackgroundResize->setEnabled(false);
 #endif
-	gSettings.chkHideSetname = env->addCheckBox(gGameConfig->chkHideSetname, Scale(20, 155, 300, 180), gSettings.window, CHECKBOX_HIDE_ARCHETYPES, gDataManager->GetSysString(1354).c_str());
+	gSettings.chkHideSetname = env->addCheckBox(gGameConfig->chkHideSetname, Scale(15, 155, 320, 180), sPanel, CHECKBOX_HIDE_ARCHETYPES, gDataManager->GetSysString(1354).c_str());
 	defaultStrings.emplace_back(gSettings.chkHideSetname, 1354);
-	gSettings.chkHidePasscodeScope = env->addCheckBox(gGameConfig->hidePasscodeScope, Scale(20, 185, 300, 210), gSettings.window, CHECKBOX_HIDE_PASSCODE_SCOPE, gDataManager->GetSysString(2063).c_str());
+	gSettings.chkHidePasscodeScope = env->addCheckBox(gGameConfig->hidePasscodeScope, Scale(15, 185, 320, 210), sPanel, CHECKBOX_HIDE_PASSCODE_SCOPE, gDataManager->GetSysString(2063).c_str());
 	defaultStrings.emplace_back(gSettings.chkHidePasscodeScope, 2063);
-	gSettings.chkDrawFieldSpells = env->addCheckBox(gGameConfig->draw_field_spell, Scale(20, 215, 300, 240), gSettings.window, CHECKBOX_DRAW_FIELD_SPELLS, gDataManager->GetSysString(2068).c_str());
+	gSettings.chkDrawFieldSpells = env->addCheckBox(gGameConfig->draw_field_spell, Scale(15, 215, 320, 240), sPanel, CHECKBOX_DRAW_FIELD_SPELLS, gDataManager->GetSysString(2068).c_str());
 	defaultStrings.emplace_back(gSettings.chkDrawFieldSpells, 2068);
-	gSettings.chkFilterBot = env->addCheckBox(gGameConfig->filterBot, Scale(20, 245, 300, 270), gSettings.window, CHECKBOX_FILTER_BOT, gDataManager->GetSysString(2069).c_str());
+	gSettings.chkFilterBot = env->addCheckBox(gGameConfig->filterBot, Scale(15, 245, 320, 270), sPanel, CHECKBOX_FILTER_BOT, gDataManager->GetSysString(2069).c_str());
 	defaultStrings.emplace_back(gSettings.chkFilterBot, 2069);
-	gSettings.stCurrentSkin = env->addStaticText(gDataManager->GetSysString(2064).c_str(), Scale(20, 275, 90, 300), false, true, gSettings.window);
+	gSettings.stCurrentSkin = env->addStaticText(gDataManager->GetSysString(2064).c_str(), Scale(15, 275, 90, 300), false, true, sPanel);
 	defaultStrings.emplace_back(gSettings.stCurrentSkin, 2064);
-	gSettings.cbCurrentSkin = ADDComboBox(Scale(95, 275, 300, 300), gSettings.window, COMBOBOX_CURRENT_SKIN);
+	gSettings.cbCurrentSkin = ADDComboBox(Scale(95, 275, 320, 300), sPanel, COMBOBOX_CURRENT_SKIN);
 	ReloadCBCurrentSkin();
-	gSettings.btnReloadSkin = env->addButton(Scale(20, 305, 300, 330), gSettings.window, BUTTON_RELOAD_SKIN, gDataManager->GetSysString(2066).c_str());
+	gSettings.btnReloadSkin = env->addButton(Scale(15, 305, 320, 330), sPanel, BUTTON_RELOAD_SKIN, gDataManager->GetSysString(2066).c_str());
 	defaultStrings.emplace_back(gSettings.btnReloadSkin, 2066);
-	gSettings.stCurrentLocale = env->addStaticText(gDataManager->GetSysString(2067).c_str(), Scale(20, 335, 80, 360), false, true, gSettings.window);
+	gSettings.stCurrentLocale = env->addStaticText(gDataManager->GetSysString(2067).c_str(), Scale(15, 335, 90, 360), false, true, sPanel);
 	defaultStrings.emplace_back(gSettings.stCurrentLocale, 2067);
 	PopulateLocales();
-	gSettings.cbCurrentLocale = ADDComboBox(Scale(95, 335, 300, 360), gSettings.window, COMBOBOX_CURRENT_LOCALE);
+	gSettings.cbCurrentLocale = ADDComboBox(Scale(95, 335, 320, 360), sPanel, COMBOBOX_CURRENT_LOCALE);
 	int selectedLocale = gSettings.cbCurrentLocale->addItem(L"English");
 	for(auto& locale : locales) {
 		auto itemIndex = gSettings.cbCurrentLocale->addItem(Utils::ToUnicodeIfNeeded(locale).c_str());
@@ -684,12 +721,42 @@ bool Game::Initialize() {
 		}
 	}
 	gSettings.cbCurrentLocale->setSelected(selectedLocale);
-	gSettings.stDpiScale = env->addStaticText(gDataManager->GetSysString(2070).c_str(), Scale(20, 365, 100, 390), false, false, gSettings.window);
+	gSettings.stDpiScale = env->addStaticText(gDataManager->GetSysString(2070).c_str(), Scale(15, 365, 90, 390), false, false, sPanel);
 	defaultStrings.emplace_back(gSettings.stDpiScale, 2070);
-	gSettings.ebDpiScale = env->addEditBox(fmt::to_wstring((int)(gGameConfig->dpi_scale*100.0)).c_str(), Scale(115, 365, 170, 390), true, gSettings.window);
-	env->addStaticText(L"%", Scale(175, 365, 190, 390), false, false, gSettings.window);
+	gSettings.ebDpiScale = env->addEditBox(fmt::to_wstring<int>(gGameConfig->dpi_scale * 100).c_str(), Scale(95, 365, 150, 390), true, sPanel, EDITBOX_NUMERIC);
+	env->addStaticText(L"%", Scale(155, 365, 170, 390), false, false, sPanel);
 	gSettings.ebDpiScale->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
-	gSettings.btnRestart = env->addButton(Scale(195, 365, 300, 390), gSettings.window, BUTTON_APPLY_RESTART, gDataManager->GetSysString(2071).c_str());
+	gSettings.btnRestart = env->addButton(Scale(175, 365, 320, 390), sPanel, BUTTON_APPLY_RESTART, gDataManager->GetSysString(2071).c_str());
+	defaultStrings.emplace_back(gSettings.btnRestart, 2071);
+	gSettings.chkVSync = env->addCheckBox(gGameConfig->vsync, Scale(15, 395, 320, 420), sPanel, -1, gDataManager->GetSysString(2073).c_str());
+	defaultStrings.emplace_back(gSettings.chkVSync, 2073);
+
+	gSettings.stFPSCap = env->addStaticText(gDataManager->GetSysString(2074).c_str(), Scale(340, 35, 545, 60), false, true, sPanel);
+	defaultStrings.emplace_back(gSettings.stFPSCap, 2074);
+	gSettings.ebFPSCap = env->addEditBox(fmt::to_wstring(gGameConfig->maxFPS).c_str(), Scale(550, 35, 600, 60), true, sPanel, EDITBOX_NUMERIC);
+	gSettings.btnFPSCap = env->addButton(Scale(605, 35, 645, 60), sPanel, BUTTON_FPS_CAP, gDataManager->GetSysString(1211).c_str());
+	defaultStrings.emplace_back(gSettings.btnFPSCap, 1211);
+	gSettings.chkShowConsole = env->addCheckBox(gGameConfig->showConsole, Scale(340, 65, 645, 90), sPanel, -1, gDataManager->GetSysString(2072).c_str());
+	defaultStrings.emplace_back(gSettings.chkShowConsole, 2072);
+#ifndef _WIN32
+	gSettings.chkShowConsole->setChecked(false);
+	gSettings.chkShowConsole->setEnabled(false);
+#endif
+	gSettings.stCoreLogOutput = env->addStaticText(gDataManager->GetSysString(1998).c_str(), Scale(340, 95, 430, 120), false, true, sPanel);
+	defaultStrings.emplace_back(gSettings.stCoreLogOutput, 1998);
+	gSettings.cbCoreLogOutput = ADDComboBox(Scale(435, 95, 645, 120), sPanel, COMBOBOX_CORE_LOG_OUTPUT);
+	ReloadCBCoreLogOutput();
+
+	wBtnSettings = env->addWindow(Scale(0, 610, 30, 640));
+	wBtnSettings->getCloseButton()->setVisible(false);
+	wBtnSettings->setDraggable(false);
+	wBtnSettings->setDrawTitlebar(false);
+	wBtnSettings->setDrawBackground(false);
+	auto dimBtnSettings = Scale(0, 0, 30, 30);
+	btnSettings = irr::gui::CGUIImageButton::addImageButton(env, dimBtnSettings, wBtnSettings, BUTTON_SHOW_SETTINGS);
+	btnSettings->setDrawBorder(false);
+	btnSettings->setImageSize(dimBtnSettings.getSize());
+	btnSettings->setImage(imageManager.tSettings);
 	//log
 	tabRepositories = wInfos->addTab(gDataManager->GetSysString(2045).c_str());
 	defaultStrings.emplace_back(tabRepositories, 2045);
@@ -702,9 +769,9 @@ bool Game::Initialize() {
 	wHand->setDrawTitlebar(false);
 	wHand->setVisible(false);
 	for(int i = 0; i < 3; ++i) {
-		btnHand[i] = irr::gui::CGUIImageButton::addImageButton(env, Scale(10 + 105 * i, 10, 105 + 105 * i, 144), wHand, BUTTON_HAND1 + i);
-		auto a = Scale<s32>(10 + 105 * i, 10, 105 + 105 * i, 144).getSize();
-		btnHand[i]->setImageSize(a);
+		auto dim = Scale(10 + 105 * i, 10, 105 + 105 * i, 144);
+		btnHand[i] = irr::gui::CGUIImageButton::addImageButton(env, dim, wHand, BUTTON_HAND1 + i);
+		btnHand[i]->setImageSize(dim.getSize());
 		btnHand[i]->setImage(imageManager.tHand[i]);
 	}
 	//
@@ -1328,7 +1395,7 @@ bool Game::Initialize() {
 
 	//load server(s)
 	LoadServers();
-
+	env->getRootGUIElement()->bringToFront(wBtnSettings);
 	env->getRootGUIElement()->bringToFront(mTopMenu);
 	env->setFocus(wMainMenu);
 #ifdef YGOPRO_BUILD_DLL
@@ -1340,6 +1407,12 @@ bool Game::Initialize() {
 	fpsCounter = env->addStaticText(L"", Scale(950, 620, 1024, 640), false, false);
 	fpsCounter->setOverrideColor(skin::FPS_TEXT_COLOR_VAL);
 	fpsCounter->setVisible(gGameConfig->showFPS);
+	fpsCounter->setTextRestrainedInside(false);
+#ifndef __ANDROID__
+	fpsCounter->setTextAlignment(EGUIA_LOWERRIGHT, EGUIA_LOWERRIGHT);
+#else
+	fpsCounter->setTextAlignment(EGUIA_UPPERLEFT, EGUIA_LOWERRIGHT);
+#endif
 	hideChat = false;
 	hideChatTimer = 0;
 	delta_time = 0;
@@ -1353,15 +1426,9 @@ bool Game::Initialize() {
 	return true;
 }
 void BuildProjectionMatrix(irr::core::matrix4& mProjection, f32 left, f32 right, f32 bottom, f32 top, f32 znear, f32 zfar) {
-	for(int i = 0; i < 16; ++i)
-		mProjection[i] = 0;
-	mProjection[0] = 2.0f * znear / (right - left);
-	mProjection[5] = 2.0f * znear / (top - bottom);
+	mProjection.buildProjectionMatrixPerspectiveLH(right - left, top - bottom, znear, zfar);
 	mProjection[8] = (left + right) / (left - right);
 	mProjection[9] = (top + bottom) / (bottom - top);
-	mProjection[10] = zfar / (zfar - znear);
-	mProjection[11] = 1.0f;
-	mProjection[14] = znear * zfar / (znear - zfar);
 }
 bool Game::MainLoop() {
 	camera = smgr->addCameraSceneNode(0);
@@ -1553,13 +1620,21 @@ bool Game::MainLoop() {
 			gSoundManager->PlayBGM(SoundManager::BGM::MENU);
 			DrawBackImage(imageManager.tBackGround_menu, resized);
 		}
+#ifndef __ANDROID__
+		// text width is actual size, other pixels are relative to the assumed 1024x640
+		// so we recompensate for the scale factor and window resizing
+		int fpsCounterWidth = fpsCounter->getTextWidth() / (dpi_scale * window_scale.X);
+#else
+		int fpsCounterWidth = fpsCounter->getTextWidth() / (dpi_scale * window_scale.X) + 20; // corner may be curved
+#endif
 		if (is_building || is_siding) {
 			fpsCounter->setRelativePosition(Resize(205, CARD_IMG_HEIGHT + 1, 300, CARD_IMG_HEIGHT + 21));
 		} else if (wChat->isVisible()) { // Move it above the chat box
-			fpsCounter->setRelativePosition(Resize(1024 - fpsCounter->getTextWidth() - 2, 600, 1024, 620));
+			fpsCounter->setRelativePosition(Resize(1024 - fpsCounterWidth, 600, 1024, 620));
 		} else { // bottom right of window with a little padding
-			fpsCounter->setRelativePosition(Resize(1024 - fpsCounter->getTextWidth() - 2, 620, 1024, 640));
+			fpsCounter->setRelativePosition(Resize(1024 - fpsCounterWidth, 620, 1024, 640));
 		}
+		wBtnSettings->setVisible(!(is_building || is_siding || dInfo.isInDuel || open_file));
 		MATERIAL_GUARD(DrawGUI();	DrawSpec(););
 		if(cardimagetextureloading) {
 			ShowCardInfo(showingcard);
@@ -1614,11 +1689,11 @@ bool Game::MainLoop() {
 		// Recent versions of macOS break OpenGL vsync while offscreen, resulting in
 		// astronomical FPS and CPU usage. As a workaround, while the game window is
 		// fully occluded, the game is restricted to 30 FPS.
-		int fpsLimit = device->isWindowActive() ? gGameConfig->max_fps : 30;
-		if (!device->isWindowActive() || (gGameConfig->max_fps && !gGameConfig->use_vsync)) {
+		int fpsLimit = device->isWindowActive() ? gGameConfig->maxFPS : 30;
+		if (!device->isWindowActive() || (gGameConfig->maxFPS && !gGameConfig->vsync)) {
 #else
-		int fpsLimit = gGameConfig->max_fps;
-		if (gGameConfig->max_fps && !gGameConfig->use_vsync) {
+		int fpsLimit = gGameConfig->maxFPS;
+		if (gGameConfig->maxFPS && !gGameConfig->vsync) {
 #endif
 			int delta = std::round(fps * (1000.0f / fpsLimit) - cur_time);
 			if(delta > 0) {
@@ -1705,6 +1780,7 @@ bool Game::ApplySkin(const path_string& skinname, bool reload, bool firstrun) {
 		}
 		btnPSAD->setImage(imageManager.tCover[0]);
 		btnPSDD->setImage(imageManager.tCover[0]);
+		btnSettings->setImage(imageManager.tSettings);
 	};
 	if(!skinSystem || ((skinname == prev_skin || (reload && prev_skin == EPRO_TEXT(""))) && !firstrun))
 		return false;
@@ -1868,12 +1944,13 @@ void Game::SaveConfig() {
 	TrySaveInt(gGameConfig->startLP, ebStartLP);
 	TrySaveInt(gGameConfig->startHand, ebStartHand);
 	TrySaveInt(gGameConfig->drawCount, ebDrawCount);
+	gGameConfig->showConsole = gSettings.chkShowConsole->isChecked();
+	gGameConfig->vsync = gSettings.chkVSync->isChecked();
 	gGameConfig->relayDuel = btnRelayMode->isPressed();
 	gGameConfig->noCheckDeck = chkNoCheckDeck->isChecked();
 	gGameConfig->noShuffleDeck = chkNoShuffleDeck->isChecked();
 	gGameConfig->botThrowRock = gBot.chkThrowRock->isChecked();
 	gGameConfig->botMute = gBot.chkMute->isChecked();
-	gGameConfig->lastBot = gBot.CurrentIndex();
 	gGameConfig->lastServer = serverChoice->getItem(serverChoice->getSelected());
 	gGameConfig->chkMAutoPos = tabSettings.chkMAutoPos->isChecked();
 	gGameConfig->chkSTAutoPos = tabSettings.chkSTAutoPos->isChecked();
@@ -1969,7 +2046,15 @@ void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 			grepo->commit_history_partial = BufferIO::DecodeUTF8s(text);
 		}
 	} else {
-		grepo->commit_history_partial = gDataManager->GetSysString(1446);
+		if(repo->warning.size()) {
+			grepo->history_button1->setText(gDataManager->GetSysString(1448).c_str());
+			grepo->commit_history_partial = fmt::format(L"{}\n{}\n\n{}",
+				gDataManager->GetSysString(1449),
+				gDataManager->GetSysString(1450),
+				BufferIO::DecodeUTF8s(repo->warning)).c_str();
+		} else {
+			grepo->commit_history_partial = gDataManager->GetSysString(1446);
+		}
 	}
 	grepo->history_button1->setEnabled(true);
 	grepo->history_button2->setEnabled(true);
@@ -1978,7 +2063,7 @@ void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 	}
 	auto data_path = Utils::ToPathString(repo->data_path);
 	auto lflist_path = Utils::ToPathString(repo->lflist_path);
-	if(deckManager.LoadLFListSingle(data_path + EPRO_TEXT("lflist.conf")) || deckManager.LoadLFListFolder(lflist_path)) {
+	if (deckManager.LoadLFListSingle(data_path + EPRO_TEXT("lflist.conf")) || deckManager.LoadLFListFolder(lflist_path)) {
 		deckManager.RefreshLFList();
 		RefreshLFLists();
 	}
@@ -2155,9 +2240,9 @@ void Game::ClearChatMsg() {
 	}
 }
 void Game::AddDebugMsg(const std::string& msg) {
-	if (enable_log & 0x1)
+	if (gGameConfig->coreLogOutput & CORE_LOG_TO_CHAT)
 		AddChatMsg(BufferIO::DecodeUTF8s(msg), 9, 2);
-	if (enable_log & 0x2)
+	if (gGameConfig->coreLogOutput & CORE_LOG_TO_FILE)
 		ErrorLog(fmt::format("{}: {}", BufferIO::EncodeUTF8s(gDataManager->GetSysString(1440)), msg));
 }
 void Game::ClearTextures() {
@@ -2517,6 +2602,15 @@ void Game::ReloadCBCurrentSkin() {
 	}
 	gSettings.cbCurrentSkin->setSelected(selectedSkin);
 }
+void Game::ReloadCBCoreLogOutput() {
+	gSettings.cbCoreLogOutput->clear();
+	for (int i = CORE_LOG_NONE; i <= 3; i++) {
+		auto itemIndex = gSettings.cbCoreLogOutput->addItem(gDataManager->GetSysString(2000 + i).c_str(), i);
+		if (gGameConfig->coreLogOutput == i) {
+			gSettings.cbCoreLogOutput->setSelected(itemIndex);
+		}
+	}
+}
 void Game::ReloadElementsStrings() {
 	ShowCardInfo(showingcard, true);
 
@@ -2589,6 +2683,10 @@ void Game::ReloadElementsStrings() {
 	ReloadCBRule();
 	cbRule->setSelected(prev);
 
+	prev = gSettings.cbCoreLogOutput->getSelected();
+	ReloadCBCoreLogOutput();
+	gSettings.cbCoreLogOutput->setSelected(prev);
+
 	((CGUICustomTable*)roomListTable)->setColumnText(1, gDataManager->GetSysString(1225).c_str());
 	((CGUICustomTable*)roomListTable)->setColumnText(2, gDataManager->GetSysString(1227).c_str());
 	((CGUICustomTable*)roomListTable)->setColumnText(3, gDataManager->GetSysString(1236).c_str());
@@ -2617,7 +2715,8 @@ void Game::ReloadElementsStrings() {
 }
 void Game::OnResize() {
 	wRoomListPlaceholder->setRelativePosition(recti(0, 0, mainGame->window_size.Width, mainGame->window_size.Height));
-	wMainMenu->setRelativePosition(ResizeWin(370, 200, 650, 450));
+	wMainMenu->setRelativePosition(ResizeWin(mainMenuLeftX, 200, mainMenuRightX, 450));
+	wBtnSettings->setRelativePosition(ResizeWin(0, 610, 30, 640));
 	SetCentered(wCommitsLog);
 	wDeckEdit->setRelativePosition(Resize(309, 8, 605, 130));
 	cbDBLFList->setRelativePosition(Resize(80, 5, 220, 30));
@@ -2737,6 +2836,7 @@ void Game::OnResize() {
 	btnTabShowSettings->setRelativePosition(rect<s32>(Scale(20), Scale(415), std::min(tabSystem->getSubpanel()->getRelativePosition().getWidth() - 21, Scale(300)), Scale(435)));
 
 	SetCentered(gSettings.window);
+	gSettings.panel->setRelativePosition(gSettings.window->getClientRect());
 
 	wChat->setRelativePosition(rect<s32>(wInfos->getRelativePosition().LowerRightCorner.X + Scale(4), Scale<s32>(615.0f  * window_scale.Y), (window_size.Width - Scale(4 * window_scale.X)), (window_size.Height - Scale(2))));
 

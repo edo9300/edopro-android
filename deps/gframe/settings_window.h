@@ -10,6 +10,7 @@ class IGUIScrollBar;
 class IGUIComboBox;
 class IGUIButton;
 class IGUIEditBox;
+class Panel;
 }
 }
 
@@ -36,6 +37,7 @@ struct SettingsPane {
 
 struct SettingsWindow {
 	irr::gui::IGUIWindow* window;
+	irr::gui::Panel* panel;
 	irr::gui::IGUICheckBox* chkShowFPS;
 	irr::gui::IGUICheckBox* chkFullscreen;
 	irr::gui::IGUICheckBox* chkScaleBackground;
@@ -52,7 +54,15 @@ struct SettingsWindow {
 	irr::gui::IGUIStaticText* stDpiScale;
 	irr::gui::IGUIEditBox* ebDpiScale;
 	irr::gui::IGUIButton* btnRestart;
-	
+	irr::gui::IGUICheckBox* chkVSync;
+	irr::gui::IGUIStaticText* stFPSCap;
+	irr::gui::IGUIEditBox* ebFPSCap;
+	irr::gui::IGUIButton* btnFPSCap;
+	irr::gui::IGUICheckBox* chkShowConsole;
+	irr::gui::IGUIStaticText* stCoreLogOutput;
+	irr::gui::IGUIComboBox* cbCoreLogOutput;
+
+
 };
 
 }

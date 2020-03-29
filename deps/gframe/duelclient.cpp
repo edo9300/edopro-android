@@ -526,7 +526,7 @@ void DuelClient::HandleSTOCPacketLan(char* data, unsigned int len) {
 		mainGame->deckBuilder.is_draging = false;
 		deckManager.pre_deck = deckManager.current_deck;
 		mainGame->device->setEventReceiver(&mainGame->deckBuilder);
-		mainGame->dInfo.isFirst = mainGame->dInfo.player_type < mainGame->dInfo.team1;
+		mainGame->dInfo.isFirst = (mainGame->dInfo.player_type < mainGame->dInfo.team1) || (mainGame->dInfo.player_type >=7);
 		mainGame->dInfo.isTeam1 = mainGame->dInfo.isFirst;
 		mainGame->SetMessageWindow();
 		mainGame->gMutex.unlock();
@@ -697,7 +697,7 @@ void DuelClient::HandleSTOCPacketLan(char* data, unsigned int len) {
 			mainGame->ShowElement(mainGame->wHostPrepare2);
 		mainGame->wChat->setVisible(true);
 		mainGame->gMutex.unlock();
-		mainGame->dInfo.isFirst = mainGame->dInfo.player_type < mainGame->dInfo.team1;
+		mainGame->dInfo.isFirst = (mainGame->dInfo.player_type < mainGame->dInfo.team1) || (mainGame->dInfo.player_type >= 7);
 		mainGame->dInfo.isTeam1 = mainGame->dInfo.isFirst;
 		connect_state |= 0x4;
 		break;
@@ -729,7 +729,7 @@ void DuelClient::HandleSTOCPacketLan(char* data, unsigned int len) {
 		mainGame->btnHostPrepStart->setVisible(is_host);
 		mainGame->btnHostPrepStart->setEnabled(is_host && CheckReady());
 		mainGame->dInfo.player_type = selftype;
-		mainGame->dInfo.isFirst = mainGame->dInfo.player_type < mainGame->dInfo.team1;
+		mainGame->dInfo.isFirst = (mainGame->dInfo.player_type < mainGame->dInfo.team1) || (mainGame->dInfo.player_type >= 7);
 		mainGame->dInfo.isTeam1 = mainGame->dInfo.isFirst;
 		break;
 	}
@@ -1384,11 +1384,6 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 		mainGame->dField.Initial(mainGame->LocalPlayer(1), deckc, extrac);
 		mainGame->dInfo.turn = 0;
 		mainGame->dInfo.is_shuffling = false;
-		if(mainGame->dInfo.isReplaySwapped) {
-			std::swap(mainGame->dInfo.selfnames, mainGame->dInfo.opponames);
-			mainGame->dInfo.isReplaySwapped = false;
-			mainGame->dField.ReplaySwap();
-		}
 		if (!mainGame->dInfo.isCatchingUp)
 			mainGame->gMutex.unlock();
 		return true;
@@ -3450,7 +3445,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			return true;
 		pc->is_highlighting = true;
 		mainGame->gMutex.lock();
-		mainGame->stACMessage->setText(fmt::sprintf(gDataManager->GetSysString(1617), gDataManager->GetName(pc->code), count, gDataManager->GetCounterName(type)).c_str());
+		mainGame->stACMessage->setText(fmt::format(gDataManager->GetSysString(1617), gDataManager->GetName(pc->code), gDataManager->GetCounterName(type), count).c_str());
 		mainGame->PopupElement(mainGame->wACMessage, 20);
 		mainGame->gMutex.unlock();
 		mainGame->WaitFrameSignal(40);
@@ -3472,7 +3467,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			return true;
 		pc->is_highlighting = true;
 		mainGame->gMutex.lock();
-		mainGame->stACMessage->setText(fmt::sprintf(gDataManager->GetSysString(1618), gDataManager->GetName(pc->code), count, gDataManager->GetCounterName(type)).c_str());
+		mainGame->stACMessage->setText(fmt::format(gDataManager->GetSysString(1618), gDataManager->GetName(pc->code), gDataManager->GetCounterName(type), count).c_str());
 		mainGame->PopupElement(mainGame->wACMessage, 20);
 		mainGame->gMutex.unlock();
 		mainGame->WaitFrameSignal(40);
@@ -3492,7 +3487,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 		float sy;
 		if (info2.location) {
 			mainGame->dField.attack_target = mainGame->dField.GetCard(info2.controler, info2.location, info2.sequence);
-			event_string = fmt::sprintf(gDataManager->GetSysString(1619), gDataManager->GetName(mainGame->dField.attacker->code),
+			event_string = fmt::format(gDataManager->GetSysString(1619), gDataManager->GetName(mainGame->dField.attacker->code),
 				gDataManager->GetName(mainGame->dField.attack_target->code));
 			float xa = mainGame->dField.attacker->curPos.X;
 			float ya = mainGame->dField.attacker->curPos.Y;
@@ -3505,7 +3500,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			else
 				mainGame->atk_r = irr::core::vector3df(0, 0, 3.1415926 - atan((xd - xa) / (yd - ya)));
 		} else {
-			event_string = fmt::sprintf(gDataManager->GetSysString(1620), gDataManager->GetName(mainGame->dField.attacker->code));
+			event_string = fmt::format(gDataManager->GetSysString(1620), gDataManager->GetName(mainGame->dField.attacker->code));
 			float xa = mainGame->dField.attacker->curPos.X;
 			float ya = mainGame->dField.attacker->curPos.Y;
 			float xd = 3.95f;

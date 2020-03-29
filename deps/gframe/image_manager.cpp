@@ -43,6 +43,7 @@ bool ImageManager::Initial() {
 	GET_TEXTURE(tTarget, "target")
 	GET_TEXTURE(tChainTarget, "chaintarget")
 	GET_TEXTURE(tLim, "lim")
+	GET_TEXTURE(tOT, "ot")
 	GET_TEXTURE_SIZED(tHand[0], "f1", 89, 128)
 	GET_TEXTURE_SIZED(tHand[1], "f2", 89, 128)
 	GET_TEXTURE_SIZED(tHand[2], "f3", 89, 128)
@@ -69,6 +70,7 @@ bool ImageManager::Initial() {
 	GET_TEXTURE(tFieldTransparent[1][2], "field-transparentSP")
 	GET_TEXTURE(tField[1][3], "fieldSP4")
 	GET_TEXTURE(tFieldTransparent[1][3], "field-transparentSP4")
+	GET_TEXTURE(tSettings, "settings")
 	sizes[0].first = CARD_IMG_WIDTH * gGameConfig->dpi_scale;
 	sizes[0].second = CARD_IMG_HEIGHT * gGameConfig->dpi_scale;
 	sizes[1].first = CARD_IMG_WIDTH * mainGame->window_scale.X * gGameConfig->dpi_scale;
@@ -101,6 +103,7 @@ void ImageManager::ChangeTextures(const path_string & _path) {
 	GET_TEXTURE(tTarget, "target")
 	GET_TEXTURE(tChainTarget, "chaintarget")
 	GET_TEXTURE(tLim, "lim")
+	GET_TEXTURE(tOT, "ot")
 	GET_TEXTURE_SIZED(tHand[0], "f1", 89, 128)
 	GET_TEXTURE_SIZED(tHand[1], "f2", 89, 128)
 	GET_TEXTURE_SIZED(tHand[2], "f3", 89, 128)
@@ -127,6 +130,7 @@ void ImageManager::ChangeTextures(const path_string & _path) {
 	GET_TEXTURE(tFieldTransparent[1][2], "field-transparentSP")
 	GET_TEXTURE(tField[1][3], "fieldSP4")
 	GET_TEXTURE(tFieldTransparent[1][3], "field-transparentSP4")
+	GET_TEXTURE(tSettings, "settings")
 	RefreshCovers();
 }
 void ImageManager::ResetTextures() {
@@ -690,15 +694,15 @@ void imageScaleNNAAUnthreaded(irr::video::IImage *src, const irr::core::rect<irr
 			// Do some basic clipping, and for mirrored/flipped rects,
 			// make sure min/max are in the right order.
 			minsx = sox + (dx * sw / dim.Width);
-			minsx = std::min(std::max(minsx, 0.0), sw);
+			minsx = std::min(std::max(minsx, 0.0), sw + sox);
 			maxsx = minsx + sw / dim.Width;
-			maxsx = std::min(std::max(maxsx, 0.0), sw);
+			maxsx = std::min(std::max(maxsx, 0.0), sw + sox);
 			if(minsx > maxsx)
 				std::swap(minsx, maxsx);
 			minsy = soy + (dy * sh / dim.Height);
-			minsy = std::min(std::max(minsy, 0.0), sh);
+			minsy = std::min(std::max(minsy, 0.0), sh + soy);
 			maxsy = minsy + sh / dim.Height;
-			maxsy = std::min(std::max(maxsy, 0.0), sh);
+			maxsy = std::min(std::max(maxsy, 0.0), sh + soy);
 			if(minsy > maxsy)
 				std::swap(minsy, maxsy);
 

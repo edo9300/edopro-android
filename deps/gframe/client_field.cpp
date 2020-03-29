@@ -656,10 +656,11 @@ void ClientField::ReplaySwap() {
 	resetloc(overlay_cards)
 #undef resetloc
 	mainGame->dInfo.isFirst = !mainGame->dInfo.isFirst;
+	mainGame->dInfo.isTeam1 = !mainGame->dInfo.isTeam1;
 	mainGame->dInfo.isReplaySwapped = !mainGame->dInfo.isReplaySwapped;
 	std::swap(mainGame->dInfo.lp[0], mainGame->dInfo.lp[1]);
 	std::swap(mainGame->dInfo.strLP[0], mainGame->dInfo.strLP[1]);
-	std::swap(mainGame->dInfo.selfnames, mainGame->dInfo.opponames);
+	std::swap(mainGame->dInfo.current_player[0], mainGame->dInfo.current_player[1]);
 	for(auto& chit : chains) {
 		chit.controler = 1 - chit.controler;
 		GetChainLocation(chit.controler, chit.location, chit.sequence, &chit.chain_pos);
@@ -1412,15 +1413,16 @@ void ClientField::UpdateDeclarableList(bool refresh) {
 	mainGame->lstANCard->clear();
 	ancard.clear();
 	for(auto& card : gDataManager->cards) {
-		auto& name = card.second.GetStrings()->name;
-		if(Utils::ContainsSubstring(name, pname, true)) {
+		auto strings = card.second.GetStrings();
+		auto name = Utils::ToUpperNoAccents<std::wstring>(strings->name);
+		if(Utils::ContainsSubstring(name, pname)) {
 			//datas.alias can be double card names or alias
 			if(is_declarable(&card.second._data, declare_opcodes)) {
 				if(pname == name) { //exact match
-					mainGame->lstANCard->insertItem(0, name.c_str(), -1);
+					mainGame->lstANCard->insertItem(0, strings->name.c_str(), -1);
 					ancard.insert(ancard.begin(), card.first);
 				} else {
-					mainGame->lstANCard->addItem(name.c_str());
+					mainGame->lstANCard->addItem(strings->name.c_str());
 					ancard.push_back(card.first);
 				}
 			}
