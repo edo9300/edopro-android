@@ -22,7 +22,6 @@ import static android.content.ClipDescription.MIMETYPE_TEXT_PLAIN;
 public class EpNativeActivity extends NativeActivity {
 
 	private static native void putComboBoxResult(int index);
-	private static native void pauseApp(boolean pause);
 	static {
 		System.loadLibrary("EDOProClient");
 	}
@@ -41,7 +40,6 @@ public class EpNativeActivity extends NativeActivity {
 	protected void onResume() {
 		super.onResume();
 		makeFullScreen();
-		pauseApp(false);
 	}
 
 	@SuppressWarnings("ObsoleteSdkInt")
@@ -146,12 +144,6 @@ public class EpNativeActivity extends NativeActivity {
 		ClipData clip = clipboard.getPrimaryClip();
 		return clip.getItemAt(0).getText().toString();
     }
-
-	@Override
-	public void onStop (){
-		super.onStop();
-		pauseApp(true);
-	}
 
 	@Override
 	public void onDestroy() {
