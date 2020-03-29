@@ -27,10 +27,10 @@ namespace irr
 			DriverType(video::EDT_BURNINGSVIDEO),
 			WindowSize(core::dimension2d<u32>(800, 600)),
 			WindowPosition(core::position2di(-1,-1)),
-			Bits(16),
-			ZBufferBits(16),
+			Bits(32),
+			ZBufferBits(24),
 			Fullscreen(false),
-			Stencilbuffer(false),
+			Stencilbuffer(true),
 			Vsync(false),
 			AntiAlias(0),
 			HandleSRGB(false),
@@ -51,13 +51,11 @@ namespace irr
 			UsePerformanceTimer(true),
 			SDK_version_do_not_use(IRRLICHT_SDK_VERSION),
 			PrivateData(0),
-	#ifdef _IRR_COMPILE_WITH_IPHONE_DEVICE_
-			OGLES2ShaderPath("")
-	#elif defined(_IRR_ANDROID_PLATFORM_)
+#if defined(_IRR_COMPILE_WITH_IOS_DEVICE_) || defined(_IRR_ANDROID_PLATFORM_) || defined(_IRR_EMSCRIPTEN_PLATFORM_)
 			OGLES2ShaderPath("media/Shaders/")
-	#else
+#else
 			OGLES2ShaderPath("../../media/Shaders/")
-	#endif
+#endif
 		{
 		}
 
@@ -109,9 +107,8 @@ namespace irr
 
 		//! Type of video driver used to render graphics.
 		/** This can currently be video::EDT_NULL, video::EDT_SOFTWARE,
-		video::EDT_BURNINGSVIDEO, video::EDT_DIRECT3D8,
-		video::EDT_DIRECT3D9, and video::EDT_OPENGL.
-		Default: Software. */
+		video::EDT_BURNINGSVIDEO, video::EDT_DIRECT3D9, and video::EDT_OPENGL.
+		Default: EDT_BURNINGSVIDEO. */
 		video::E_DRIVER_TYPE DriverType;
 
 		//! Size of the window or the video mode in fullscreen mode. Default: 800x600
@@ -120,10 +117,10 @@ namespace irr
 		//! Position of the window on-screen. Default: (-1, -1) or centered.
 		core::position2di WindowPosition;
 
-		//! Minimum Bits per pixel of the color buffer in fullscreen mode. Ignored if windowed mode. Default: 16.
+		//! Minimum Bits per pixel of the color buffer in fullscreen mode. Ignored if windowed mode. Default: 32.
 		u8 Bits;
 
-		//! Minimum Bits per pixel of the depth buffer. Default: 16.
+		//! Minimum Bits per pixel of the depth buffer. Default: 24.
 		u8 ZBufferBits;
 
 		//! Should be set to true if the device should run in fullscreen.
@@ -135,10 +132,10 @@ namespace irr
 		stencil buffer shadows. Note that not all drivers are able to
 		use the stencil buffer, hence it can be ignored during device
 		creation. Without the stencil buffer no shadows will be drawn.
-		Default: false. */
+		Default: true. */
 		bool Stencilbuffer;
 
-		//! Specifies vertical syncronisation.
+		//! Specifies vertical synchronization.
 		/** If set to true, the driver will wait for the vertical
 		retrace period, otherwise not. May be silently ignored.
 		Default: false */
@@ -154,7 +151,7 @@ namespace irr
 		be a good idea to make it possible to switch this option off
 		again by the user.
 		The value is the maximal antialiasing factor requested for
-		the device. The cretion method will automatically try smaller
+		the device. The creation method will automatically try smaller
 		values if no window can be created with the given value.
 		Value one is usually the same as 0 (disabled), but might be a
 		special value on some platforms. On D3D devices it maps to
@@ -163,7 +160,7 @@ namespace irr
 		u8 AntiAlias;
 
 		//! Flag to enable proper sRGB and linear color handling
-		/** In most situations, it is desireable to have the color handling in
+		/** In most situations, it is desirable to have the color handling in
 		non-linear sRGB color space, and only do the intermediate color
 		calculations in linear RGB space. If this flag is enabled, the device and
 		driver try to assure that all color input and output are color corrected
@@ -178,7 +175,7 @@ namespace irr
 		bool HandleSRGB;
 
 		//! Whether the main framebuffer uses an alpha channel.
-		/** In some situations it might be desireable to get a color
+		/** In some situations it might be desirable to get a color
 		buffer with an alpha channel, e.g. when rendering into a
 		transparent window or overlay. If this flag is set the device
 		tries to create a framebuffer with alpha channel.
@@ -225,17 +222,18 @@ namespace irr
 
 		//! Window Id.
 		/** If this is set to a value other than 0, the Irrlicht Engine
-		will be created in an already existing window. For windows, set
-		this to the HWND of the window you want. The windowSize and
-		FullScreen options will be ignored when using the WindowId
-		parameter. Default this is set to 0.
+		will be created in an already existing window.
+		For Windows, set this to the HWND of the window you want.
+		For iOS, assign UIView to this variable.
+		The windowSize and FullScreen options will be ignored when using
+		the WindowId parameter. Default this is set to 0.
 		To make Irrlicht run inside the custom window, you still will
 		have to draw Irrlicht on your own. You can use this loop, as
 		usual:
 		\code
 		while (device->run())
 		{
-			driver->beginScene(true, true, 0);
+			driver->beginScene(video::ECBF_COLOR | video::ECBF_DEPTH, 0);
 			smgr->drawAll();
 			driver->endScene();
 		}
@@ -267,7 +265,7 @@ namespace irr
 			device->getTimer()->tick();
 
 			// draw engine picture
-			driver->beginScene(true, true, 0);
+			driver->beginScene(video::ECBF_COLOR | video::ECBF_DEPTH, 0);
 			smgr->drawAll();
 			driver->endScene();
 		}

@@ -71,7 +71,7 @@ namespace irr
 		DispatchMessage and whatever and simply don't use this method.
 		But note that Irrlicht will not be able to fetch user input
 		then. See irr::SIrrlichtCreationParameters::WindowId for more
-		informations and example code.
+		information and example code.
 		*/
 		virtual bool run() = 0;
 
@@ -82,7 +82,7 @@ namespace irr
 
 		//! Pause execution and let other processes to run for a specified amount of time.
 		/** It may not wait the full given time, as sleep may be interrupted
-		\param timeMs: Time to sleep for in milisecs.
+		\param timeMs: Time to sleep for in milliseconds.
 		\param pauseTimer: If true, pauses the device timer while sleeping
 		*/
 		virtual void sleep(u32 timeMs, bool pauseTimer=false) = 0;
@@ -112,19 +112,19 @@ namespace irr
 		virtual ILogger* getLogger() = 0;
 
 		//! Gets a list with all video modes available.
-		/** If you are confused now, because you think you have to
-		create an Irrlicht Device with a video mode before being able
-		to get the video mode list, let me tell you that there is no
-		need to start up an Irrlicht Device with EDT_DIRECT3D8,
-		EDT_OPENGL or EDT_SOFTWARE: For this (and for lots of other
-		reasons) the null driver, EDT_NULL exists.
+		/** You only need a null driver (ED_NULL) to access
+		those video modes. So you can get the available modes
+		before starting any other video driver.
 		\return Pointer to a list with all video modes supported
 		by the gfx adapter. */
 		virtual video::IVideoModeList* getVideoModeList() = 0;
 
+		//! Get context manager
+		virtual video::IContextManager* getContextManager() = 0;
+
 		//! Provides access to the operation system operator object.
 		/** The OS operator provides methods for
-		getting system specific informations and doing system
+		getting system specific information and doing system
 		specific operations, such as exchanging data with the clipboard
 		or reading the operation system version.
 		\return Pointer to the OS operator. */
@@ -259,40 +259,40 @@ namespace irr
 				is defined, false if joysticks are not supported or support is compiled out.
 		*/
 		virtual bool activateJoysticks(core::array<SJoystickInfo>& joystickInfo) =0;
-        
+
         //! Activate accelerometer.
         virtual bool activateAccelerometer(float updateInterval = 0.016666f) = 0;
-        
+
         //! Deactivate accelerometer.
         virtual bool deactivateAccelerometer() = 0;
-        
+
         //! Is accelerometer active.
         virtual bool isAccelerometerActive() = 0;
-        
+
         //! Is accelerometer available.
         virtual bool isAccelerometerAvailable() = 0;
 
         //! Activate gyroscope.
         virtual bool activateGyroscope(float updateInterval = 0.016666f) = 0;
-        
+
         //! Deactivate gyroscope.
         virtual bool deactivateGyroscope() = 0;
-        
+
         //! Is gyroscope active.
         virtual bool isGyroscopeActive() = 0;
-        
+
         //! Is gyroscope available.
         virtual bool isGyroscopeAvailable() = 0;
-        
+
         //! Activate device motion.
         virtual bool activateDeviceMotion(float updateInterval = 0.016666f) = 0;
-        
+
         //! Deactivate device motion.
         virtual bool deactivateDeviceMotion() = 0;
-        
+
         //! Is device motion active.
         virtual bool isDeviceMotionActive() = 0;
-        
+
         //! Is device motion available.
         virtual bool isDeviceMotionAvailable() = 0;
 
@@ -303,9 +303,6 @@ namespace irr
 		//! Get the current Gamma Value for the Display
 		virtual bool getGammaRamp(f32 &red, f32 &green, f32 &blue,
 					f32 &brightness, f32 &contrast) =0;
-
-		//! Get context manager
-		virtual video::IContextManager* getContextManager() =0;
 
 		//! Set the maximal elapsed time between 2 clicks to generate doubleclicks for the mouse. It also affects tripleclick behavior.
 		/** When set to 0 no double- and tripleclicks will be generated.
@@ -357,12 +354,6 @@ namespace irr
 #else
 					return false;
 #endif
-				case video::EDT_DIRECT3D8:
-#ifdef _IRR_COMPILE_WITH_DIRECT3D_8_
-					return true;
-#else
-					return false;
-#endif
 				case video::EDT_DIRECT3D9:
 #ifdef _IRR_COMPILE_WITH_DIRECT3D_9_
 					return true;
@@ -383,6 +374,12 @@ namespace irr
 #endif
 				case video::EDT_OGLES2:
 #ifdef _IRR_COMPILE_WITH_OGLES2_
+					return true;
+#else
+					return false;
+#endif
+				case video::EDT_WEBGL1:
+#ifdef _IRR_COMPILE_WITH_WEBGL1_
 					return true;
 #else
 					return false;

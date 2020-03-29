@@ -36,13 +36,18 @@ namespace scene
 		//! Explicitly set all vertices for each triangle.
 		EPT_TRIANGLES,
 
-		//! After the first two vertices each further tw vetices create a quad with the preceding two.
+		//! After the first two vertices each further two vertices create a quad with the preceding two.
+		//! Not supported by Direct3D
 		EPT_QUAD_STRIP,
 
 		//! Every four vertices create a quad.
+		//! Not supported by Direct3D
+		//! Deprecated with newer OpenGL drivers
 		EPT_QUADS,
 
 		//! Just as LINE_LOOP, but filled.
+		//! Not supported by Direct3D
+		//! Deprecated with newer OpenGL drivers
 		EPT_POLYGON,
 
 		//! The single vertices are expanded to quad billboards on the GPU.

@@ -13,14 +13,12 @@
 #include "EGUIElementTypes.h"
 #include "EGUIAlignment.h"
 #include "IAttributes.h"
+#include "IGUIEnvironment.h"
 
 namespace irr
 {
 namespace gui
 {
-
-class IGUIEnvironment;
-
 //! Base class of all GUI elements.
 class IGUIElement : public virtual io::IAttributeExchangingObject, public IEventReceiver
 {
@@ -67,7 +65,6 @@ public:
 	{
 		return Parent;
 	}
-
 
 	//! Returns the relative rectangle of this element.
 	core::rect<s32> getRelativePosition() const
@@ -342,7 +339,6 @@ public:
 	//! Returns true if element is visible.
 	virtual bool isVisible() const
 	{
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return IsVisible;
 	}
 
@@ -351,7 +347,6 @@ public:
 	false if this or any parent element is invisible. */
 	virtual bool isTrulyVisible() const
 	{
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		if(!IsVisible)
 			return false;
 
@@ -371,7 +366,6 @@ public:
 	//! Returns true if this element was created as part of its parent control
 	virtual bool isSubElement() const
 	{
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return IsSubElement;
 	}
 
@@ -397,7 +391,6 @@ public:
 	//! Returns true if this element can be focused by navigating with the tab key
 	bool isTabStop() const
 	{
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return IsTabStop;
 	}
 
@@ -451,7 +444,6 @@ public:
 	//! Returns true if this element is a tab group.
 	bool isTabGroup() const
 	{
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return IsTabGroup;
 	}
 
@@ -470,7 +462,7 @@ public:
 
 	//! Returns true if element is enabled
 	/** Currently elements do _not_ care about parent-states.
-		So if you want to affect childs you have to enable/disable them all.
+		So if you want to affect children you have to enable/disable them all.
 		The only exception to this are sub-elements which also check their parent.
 	*/
 	virtual bool isEnabled() const
@@ -478,7 +470,6 @@ public:
 		if ( isSubElement() && IsEnabled && getParent() )
 			return getParent()->isEnabled();
 
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return IsEnabled;
 	}
 
@@ -554,7 +545,6 @@ public:
 			}
 		}
 
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return false;
 	}
 
@@ -576,7 +566,6 @@ public:
 			}
 		}
 
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return false;
 	}
 
@@ -628,7 +617,7 @@ public:
 
 		} while (child->Parent && child != this);
 
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
+
 		return child == this;
 	}
 
@@ -711,13 +700,11 @@ public:
 				// search within children
 				if ((*it)->getNextElement(startOrder, reverse, group, first, closest))
 				{
-					_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 					return true;
 				}
 			}
 			++it;
 		}
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return false;
 	}
 
@@ -738,7 +725,7 @@ public:
 	you can overload this function and add a check for the type of the base-class additionally.
 	This allows for checks comparable to the dynamic_cast of c++ with enabled rtti.
 	Note that you can't do that by calling BaseClass::hasType(type), but you have to do an explicit
-	comparison check, because otherwise the base class usually just checks for the membervariable
+	comparison check, because otherwise the base class usually just checks for the member variable
 	Type which contains the type of your derived class.
 	*/
 	virtual bool hasType(EGUI_ELEMENT_TYPE type) const
@@ -787,6 +774,7 @@ public:
 		out->addString("Name", Name.c_str());
 		out->addInt("Id", ID );
 		out->addString("Caption", getText());
+		out->addString("ToolTip", getToolTipText().c_str());
 		out->addRect("Rect", DesiredRect);
 		out->addPosition2d("MinSize", core::position2di(MinSize.Width, MinSize.Height));
 		out->addPosition2d("MaxSize", core::position2di(MaxSize.Width, MaxSize.Height));
@@ -811,6 +799,7 @@ public:
 		setName(in->getAttributeAsString("Name"));
 		setID(in->getAttributeAsInt("Id"));
 		setText(in->getAttributeAsStringW("Caption").c_str());
+		setToolTipText(in->getAttributeAsStringW("ToolTip").c_str());
 		setVisible(in->getAttributeAsBool("Visible"));
 		setEnabled(in->getAttributeAsBool("Enabled"));
 		IsTabStop = in->getAttributeAsBool("TabStop");
@@ -1024,10 +1013,10 @@ protected:
 	//! tooltip
 	core::stringw ToolTipText;
 
-	//! users can set this for identificating the element by string
+	//! users can set this for identifying the element by string
 	core::stringc Name;
 
-	//! users can set this for identificating the element by integer
+	//! users can set this for identifying the element by integer
 	s32 ID;
 
 	//! tab stop like in windows

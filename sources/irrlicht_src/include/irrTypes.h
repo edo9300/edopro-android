@@ -7,6 +7,10 @@
 
 #include "IrrCompileConfig.h"
 
+#if defined(__GNUC__)
+	#include <limits.h>	// for __WORDSIZE
+#endif
+
 namespace irr
 {
 
@@ -72,8 +76,8 @@ typedef signed int		s32;
 /** This is a typedef for 64bit uint, it ensures portability of the engine. */
 #if defined(_MSC_VER) || ((__BORLANDC__ >= 0x530) && !defined(__STRICT_ANSI__))
 typedef unsigned __int64			u64;
-#elif __GNUC__
-#if __WORDSIZE == 64
+#elif defined(__GNUC__)
+#if defined(__WORDSIZE) && __WORDSIZE == 64
 typedef unsigned long int			u64;
 #else
 __extension__ typedef unsigned long long	u64;
@@ -86,8 +90,8 @@ typedef unsigned long long			u64;
 /** This is a typedef for 64bit int, it ensures portability of the engine. */
 #if defined(_MSC_VER) || ((__BORLANDC__ >= 0x530) && !defined(__STRICT_ANSI__))
 typedef __int64					s64;
-#elif __GNUC__
-#if __WORDSIZE == 64
+#elif defined(__GNUC__)
+#if defined(__WORDSIZE) && __WORDSIZE == 64
 typedef long int				s64;
 #else
 __extension__ typedef long long			s64;
@@ -113,16 +117,16 @@ typedef double				f64;
 
 #include <wchar.h>
 #ifdef _IRR_WINDOWS_API_
-//! Defines for s{w,n}printf because these methods do not match the ISO C
-//! standard on Windows platforms, but it does on all others.
-//! These should be int snprintf(char *str, size_t size, const char *format, ...);
-//! and int swprintf(wchar_t *wcs, size_t maxlen, const wchar_t *format, ...);
+//! Defines for s{w,n}printf_irr because s{w,n}printf methods do not match the ISO C
+//! standard on Windows platforms.
+//! We want int snprintf_irr(char *str, size_t size, const char *format, ...);
+//! and int swprintf_irr(wchar_t *wcs, size_t maxlen, const wchar_t *format, ...);
 #if defined(_MSC_VER) && _MSC_VER > 1310 && !defined (_WIN32_WCE)
-#define swprintf swprintf_s
-#define snprintf sprintf_s
+#define swprintf_irr swprintf_s
+#define snprintf_irr sprintf_s
 #elif !defined(__CYGWIN__)
-#define swprintf _snwprintf
-#define snprintf _snprintf
+#define swprintf_irr _snwprintf
+#define snprintf_irr _snprintf
 #endif
 
 // define the wchar_t type if not already built in.
@@ -140,6 +144,9 @@ typedef unsigned short wchar_t;
 #define _WCHAR_T_DEFINED
 #endif // wchar is not defined
 #endif // microsoft compiler
+#else
+#define swprintf_irr swprintf
+#define snprintf_irr snprintf
 #endif // _IRR_WINDOWS_API_
 
 namespace irr
@@ -147,7 +154,7 @@ namespace irr
 
 //! Type name for character type used by the file system.
 /** Should the wide character version of the FileSystem be used it is a
-16 bit character variable. Used for unicode Filesystem and unicode strings.
+16 bit character variable. Used for Unicode Filesystem and Unicode strings.
 Else it is a 8 bit character variable. Used for ansi Filesystem and non-unicode
 strings
 */
@@ -199,28 +206,15 @@ For functions:		template<class T> _IRR_DEPRECATED_ void test4(void) {}
 /** Usage in a derived class:
 virtual void somefunc() _IRR_OVERRIDE_;
 */
-#if (__GNUC__ >= 4 && __GNUC_MINOR__ >= 7 && (defined(__GXX_EXPERIMENTAL_CXX0X) || __cplusplus >= 201103L) )
+#if ( ((__GNUC__ > 4 ) || ((__GNUC__ == 4 ) && (__GNUC_MINOR__ >= 7))) && (defined(__GXX_EXPERIMENTAL_CXX0X) || __cplusplus >= 201103L) )
 #define _IRR_OVERRIDE_ override
 #elif (_MSC_VER >= 1600 ) /* supported since MSVC 2010 */
 #define _IRR_OVERRIDE_ override
-#elif (__clang_major__ >= 3)
+#elif (__clang_major__ >= 3 && __has_feature(cxx_override_control))
 #define _IRR_OVERRIDE_ override
 #else
 #define _IRR_OVERRIDE_
 #endif
-
-//! Defines a small statement to work around a microsoft compiler bug.
-/** The microsoft compiler 7.0 - 7.1 has a bug:
-When you call unmanaged code that returns a bool type value of false from managed code,
-the return value may appear as true. See
-http://support.microsoft.com/default.aspx?kbid=823071 for details.
-Compiler version defines: VC6.0 : 1200, VC7.0 : 1300, VC7.1 : 1310, VC8.0 : 1400*/
-#if defined(_IRR_WINDOWS_API_) && defined(_MSC_VER) && (_MSC_VER > 1299) && (_MSC_VER < 1400)
-#define _IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX __asm mov eax,100
-#else
-#define _IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX
-#endif // _IRR_MANAGED_MARSHALLING_BUGFIX
-
 
 // memory debugging
 #if defined(_DEBUG) && defined(IRRLICHT_EXPORTS) && defined(_MSC_VER) && \
@@ -234,14 +228,8 @@ Compiler version defines: VC6.0 : 1200, VC7.0 : 1300, VC7.1 : 1310, VC8.0 : 1400
 	#define new DEBUG_CLIENTBLOCK
 #endif
 
-// disable truncated debug information warning in visual studio 6 by default
-#if defined(_MSC_VER) && (_MSC_VER < 1300 )
-#pragma warning( disable: 4786)
-#endif // _MSC
-
-
 //! ignore VC8 warning deprecated
-/** The microsoft compiler */
+/** The Microsoft compiler */
 #if defined(_IRR_WINDOWS_API_) && defined(_MSC_VER) && (_MSC_VER >= 1400)
 	//#pragma warning( disable: 4996)
 	//#define _CRT_SECURE_NO_DEPRECATE 1

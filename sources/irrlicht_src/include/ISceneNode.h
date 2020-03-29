@@ -242,7 +242,6 @@ namespace scene
 		visible (if all parents are also visible). */
 		virtual bool isVisible() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return IsVisible;
 		}
 
@@ -251,7 +250,6 @@ namespace scene
 		false if this or any parent node is invisible. */
 		virtual bool isTrulyVisible() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			if(!IsVisible)
 				return false;
 
@@ -328,7 +326,6 @@ namespace scene
 					return true;
 				}
 
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return false;
 		}
 
@@ -595,7 +592,6 @@ namespace scene
 		\return If this node is a debug object, true is returned. */
 		bool isDebugObject() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return IsDebugObject;
 		}
 
@@ -730,23 +726,26 @@ namespace scene
 		{
 			if (!in)
 				return;
-			Name = in->getAttributeAsString("Name");
-			ID = in->getAttributeAsInt("Id");
+			Name = in->getAttributeAsString("Name", Name);
+			ID = in->getAttributeAsInt("Id", ID);
 
-			setPosition(in->getAttributeAsVector3d("Position"));
-			setRotation(in->getAttributeAsVector3d("Rotation"));
-			setScale(in->getAttributeAsVector3d("Scale"));
+			setPosition(in->getAttributeAsVector3d("Position", RelativeTranslation));
+			setRotation(in->getAttributeAsVector3d("Rotation", RelativeRotation));
+			setScale(in->getAttributeAsVector3d("Scale", RelativeScale));
 
-			IsVisible = in->getAttributeAsBool("Visible");
-			s32 tmpState = in->getAttributeAsEnumeration("AutomaticCulling",
-					scene::AutomaticCullingNames);
-			if (tmpState != -1)
-				AutomaticCullingState = (u32)tmpState;
-			else
-				AutomaticCullingState = in->getAttributeAsInt("AutomaticCulling");
+			IsVisible = in->getAttributeAsBool("Visible", IsVisible);
+			if (in->existsAttribute("AutomaticCulling"))
+			{
+				s32 tmpState = in->getAttributeAsEnumeration("AutomaticCulling",
+						scene::AutomaticCullingNames);
+				if (tmpState != -1)
+					AutomaticCullingState = (u32)tmpState;
+				else
+					AutomaticCullingState = in->getAttributeAsInt("AutomaticCulling");
+			}
 
-			DebugDataVisible = in->getAttributeAsInt("DebugDataVisible");
-			IsDebugObject = in->getAttributeAsBool("IsDebugObject");
+			DebugDataVisible = in->getAttributeAsInt("DebugDataVisible", DebugDataVisible);
+			IsDebugObject = in->getAttributeAsBool("IsDebugObject", IsDebugObject);
 
 			updateAbsolutePosition();
 		}

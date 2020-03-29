@@ -33,7 +33,7 @@ public:
 
 	//! Constructs an array and allocates an initial chunk of memory.
 	/** \param start_count Amount of elements to pre-allocate. */
-	array(u32 start_count) : data(0), allocated(0), used(0),
+	explicit array(u32 start_count) : data(0), allocated(0), used(0),
 			strategy(ALLOC_STRATEGY_DOUBLE),
 			free_when_destroyed(true), is_sorted(true)
 	{
@@ -126,9 +126,7 @@ public:
 
 
 	//! Insert item into array at specified position.
-	/** Please use this only if you know what you are doing (possible
-	performance loss). The preferred method of adding elements should be
-	push_back().
+	/**
 	\param element: Element to be inserted
 	\param index: Where position to insert the new element. */
 	void insert(const T& element, u32 index=0)
@@ -147,8 +145,7 @@ public:
 			switch ( strategy )
 			{
 				case ALLOC_STRATEGY_DOUBLE:
-					newAlloc = used + 1 + (allocated < 500 ?
-							(allocated < 5 ? 5 : used) : used >> 2);
+					newAlloc = used + 5 + (allocated < 500 ? used : used >> 2);
 					break;
 				default:
 				case ALLOC_STRATEGY_SAFE:
@@ -587,7 +584,7 @@ public:
 
 
 	//! Swap the content of this array container with the content of another array
-	/** Afterwards this object will contain the content of the other object and the other
+	/** Afterward this object will contain the content of the other object and the other
 	object will contain the content of this object.
 	\param other Swap content with this object */
 	void swap(array<T, TAlloc>& other)
@@ -607,6 +604,9 @@ public:
 		other.is_sorted = helper_is_sorted;
 	}
 
+	typedef TAlloc allocator_type;
+	typedef T value_type;
+	typedef u32 size_type;
 
 private:
 	T* data;

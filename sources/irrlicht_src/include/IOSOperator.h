@@ -11,7 +11,7 @@
 namespace irr
 {
 
-//! The Operating system operator provides operation system specific methods and informations.
+//! The Operating system operator provides operation system specific methods and information.
 class IOSOperator : public virtual IReferenceCounted
 {
 public:
@@ -38,10 +38,10 @@ public:
 	virtual bool getProcessorSpeedMHz(u32* MHz) const = 0;
 
 	//! Get the total and available system RAM
-	/** \param Total: will contain the total system memory
-	\param Avail: will contain the available memory
+	/** \param totalBytes: will contain the total system memory in bytes
+	\param availableBytes: will contain the available memory in bytes
 	\return True if successful, false if not */
-	virtual bool getSystemMemory(u32* Total, u32* Avail) const = 0;
+	virtual bool getSystemMemory(u32* totalBytes, u32* availableBytes) const = 0;
 
 };
 
