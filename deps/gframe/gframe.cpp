@@ -20,9 +20,6 @@
 #import <CoreFoundation/CoreFoundation.h>
 #include "osx_menu.h"
 #endif
-#ifdef __ANDROID__
-#include "Android/porting_android.h"
-#endif
 
 bool exit_on_return = false;
 bool is_from_discord = false;
@@ -130,16 +127,27 @@ void CheckArguments(int argc, path_char* argv[]) {
 			if(extension == EPRO_TEXT("ydk")) {
 				open_file = true;
 				open_file_name = std::move(parameter);
-				exit_on_return = !keep_on_return;
+				keep_on_return = true;
+				exit_on_return = false;
 				ClickButton(ygo::mainGame->btnDeckEdit);
 				break;
 			}
 			if(extension == EPRO_TEXT("yrp") || extension == EPRO_TEXT("yrpx")) {
 				open_file = true;
 				open_file_name = std::move(parameter);
-				exit_on_return = !keep_on_return;
+				keep_on_return = true;
+				exit_on_return = false;
 				ClickButton(ygo::mainGame->btnReplayMode);
 				ClickButton(ygo::mainGame->btnLoadReplay);
+				break;
+			}
+			if(extension == EPRO_TEXT("lua")) {
+				open_file = true;
+				open_file_name = std::move(parameter);
+				keep_on_return = true;
+				exit_on_return = false;
+				ClickButton(ygo::mainGame->btnSingleMode);
+				ClickButton(ygo::mainGame->btnLoadSinglePlay);
 				break;
 			}
 		}
@@ -160,12 +168,6 @@ void CheckArguments(int argc, path_char* argv[]) {
 int wmain(int argc, wchar_t* argv[]) {
 #else
 int main(int argc, char* argv[]) {
-#endif
-#ifdef __ANDROID__
-	porting::initAndroid();
-	porting::initializePathsAndroid();
-	if(chdir(porting::working_directory.c_str())!=0)
-		LOGE("failed to change directory");
 #endif
 #ifdef __APPLE__
 	CFURLRef bundle_url = CFBundleCopyBundleURL(CFBundleGetMainBundle());

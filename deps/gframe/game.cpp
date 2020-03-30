@@ -55,7 +55,7 @@
 
 unsigned short PRO_VERSION = 0x1350;
 #define EDOPRO_VERSION_MAJOR 37
-#define EDOPRO_VERSION_MINOR 2
+#define EDOPRO_VERSION_MINOR 3
 #define EDOPRO_VERSION_PATCH 0
 #define EDOPRO_VERSION_CODENAME L"Spider Shark"
 
@@ -206,7 +206,7 @@ bool Game::Initialize() {
 		gGameConfig->skin = NoSkinLabel();
 	}
 	smgr = device->getSceneManager();
-	device->setWindowCaption(L"EDOPro by Project Ignis");
+	device->setWindowCaption(L"Project Ignis: EDOPro");
 	device->setResizable(true);
 #ifdef _WIN32
 	HINSTANCE hInstance = (HINSTANCE)GetModuleHandle(NULL);
@@ -240,7 +240,7 @@ bool Game::Initialize() {
 	wAbout->setDraggable(false);
 	wAbout->setDrawTitlebar(false);
 	wAbout->setDrawBackground(false);
-	stAbout = env->addStaticText(L"EDOPro by Project Ignis\n"
+	stAbout = env->addStaticText(L"Project Ignis: EDOPro\n"
 								 L"The bleeding-edge automatic duel simulator\n"
 								 L"\n"
 								 L"Copyright (C) 2020  Edoardo Lolletti (edo9300) and others\n"
@@ -252,8 +252,8 @@ bool Game::Initialize() {
 								 L"\n"
 								 L"Project Ignis:\n"
 								 L"ahtelel, AlphaKretin, AndreOliveiraMendes, Cybercatman, Dragon3989, DyXel, edo9300, "
-								 L"EerieCode, Gideon, Hatter, Hel, kevinlul, Larry126, LogicalNonsense, NaimSantos, "
-								 L"pyrQ, Sanct, senpaizuri, Tungnon, WolfOfWolves, Yamato\n"
+								 L"EerieCode, Gideon, Hatter, Hel, Icematoro, kevinlul, Larry126, LogicalNonsense, "
+								 L"NaimSantos, pyrQ, Sanct, senpaizuri, Tungnon, WolfOfWolves, Yamato\n"
 								 L"Default background: LogicalNonsense\n"
 								 L"Default fields: Icematoro\n"
 								 L"\n"
@@ -270,7 +270,7 @@ bool Game::Initialize() {
 	wVersion->setDrawTitlebar(false);
 	wVersion->setDrawBackground(false);
 	auto formatVersion = []() {
-		return fmt::format(L"EDOPro by Project Ignis | {}.{}.{} \"{}\"", EDOPRO_VERSION_MAJOR, EDOPRO_VERSION_MINOR, EDOPRO_VERSION_PATCH, EDOPRO_VERSION_CODENAME);
+		return fmt::format(L"Project Ignis: EDOPro | {}.{}.{} \"{}\"", EDOPRO_VERSION_MAJOR, EDOPRO_VERSION_MINOR, EDOPRO_VERSION_PATCH, EDOPRO_VERSION_CODENAME);
 	};
 	stVersion = env->addStaticText(formatVersion().c_str(), Scale(10, 10, 290, 35), false, false, wVersion);
 	int titleWidth = stVersion->getTextWidth();
@@ -675,8 +675,12 @@ bool Game::Initialize() {
 	gSettings.window = env->addWindow(Scale(180, 90, 840, 530), false, gDataManager->GetSysString(1273).c_str());
 	defaultStrings.emplace_back(gSettings.window, 1273);
 	gSettings.window->setVisible(false);
-	gSettings.panel = Panel::addPanel(env, gSettings.window, -250, gSettings.window->getClientRect(), true, false);
+	auto sRect = gSettings.window->getClientRect();
+	sRect.UpperLeftCorner.Y += Scale(30);
+	gSettings.panel = Panel::addPanel(env, gSettings.window, -1, sRect, true, false);
 	auto sPanel = gSettings.panel->getSubpanel();
+	gSettings.chkShowScopeLabel = env->addCheckBox(gGameConfig->showScopeLabel, Scale(15, 5, 320, 30), sPanel, CHECKBOX_SHOW_SCOPE_LABEL, gDataManager->GetSysString(2076).c_str());
+	defaultStrings.emplace_back(gSettings.chkShowScopeLabel, 2076);
 	gSettings.chkShowFPS = env->addCheckBox(gGameConfig->showFPS, Scale(15, 35, 320, 60), sPanel, CHECKBOX_SHOW_FPS, gDataManager->GetSysString(1445).c_str());
 	defaultStrings.emplace_back(gSettings.chkShowFPS, 1445);
 	gSettings.chkFullscreen = env->addCheckBox(gGameConfig->fullscreen, Scale(15, 65, 320, 90), sPanel, CHECKBOX_FULLSCREEN, gDataManager->GetSysString(2060).c_str());
@@ -728,23 +732,26 @@ bool Game::Initialize() {
 	gSettings.ebDpiScale->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	gSettings.btnRestart = env->addButton(Scale(175, 365, 320, 390), sPanel, BUTTON_APPLY_RESTART, gDataManager->GetSysString(2071).c_str());
 	defaultStrings.emplace_back(gSettings.btnRestart, 2071);
-	gSettings.chkVSync = env->addCheckBox(gGameConfig->vsync, Scale(15, 395, 320, 420), sPanel, -1, gDataManager->GetSysString(2073).c_str());
-	defaultStrings.emplace_back(gSettings.chkVSync, 2073);
 
-	gSettings.stFPSCap = env->addStaticText(gDataManager->GetSysString(2074).c_str(), Scale(340, 35, 545, 60), false, true, sPanel);
+	gSettings.stAntiAlias = env->addStaticText(gDataManager->GetSysString(2075).c_str(), Scale(340, 5, 545, 30), false, true, sPanel);
+	defaultStrings.emplace_back(gSettings.stAntiAlias, 2075);
+	gSettings.ebAntiAlias = env->addEditBox(fmt::to_wstring(gGameConfig->antialias).c_str(), Scale(550, 5, 645, 30), true, sPanel, EDITBOX_NUMERIC);
+	gSettings.chkVSync = env->addCheckBox(gGameConfig->vsync, Scale(340, 35, 645, 60), sPanel, -1, gDataManager->GetSysString(2073).c_str());
+	defaultStrings.emplace_back(gSettings.chkVSync, 2073);
+	gSettings.stFPSCap = env->addStaticText(gDataManager->GetSysString(2074).c_str(), Scale(340, 65, 545, 90), false, true, sPanel);
 	defaultStrings.emplace_back(gSettings.stFPSCap, 2074);
-	gSettings.ebFPSCap = env->addEditBox(fmt::to_wstring(gGameConfig->maxFPS).c_str(), Scale(550, 35, 600, 60), true, sPanel, EDITBOX_NUMERIC);
-	gSettings.btnFPSCap = env->addButton(Scale(605, 35, 645, 60), sPanel, BUTTON_FPS_CAP, gDataManager->GetSysString(1211).c_str());
+	gSettings.ebFPSCap = env->addEditBox(fmt::to_wstring(gGameConfig->maxFPS).c_str(), Scale(550, 65, 600, 90), true, sPanel, EDITBOX_NUMERIC);
+	gSettings.btnFPSCap = env->addButton(Scale(605, 65, 645, 90), sPanel, BUTTON_FPS_CAP, gDataManager->GetSysString(1211).c_str());
 	defaultStrings.emplace_back(gSettings.btnFPSCap, 1211);
-	gSettings.chkShowConsole = env->addCheckBox(gGameConfig->showConsole, Scale(340, 65, 645, 90), sPanel, -1, gDataManager->GetSysString(2072).c_str());
+	gSettings.chkShowConsole = env->addCheckBox(gGameConfig->showConsole, Scale(340, 95, 645, 120), sPanel, -1, gDataManager->GetSysString(2072).c_str());
 	defaultStrings.emplace_back(gSettings.chkShowConsole, 2072);
 #ifndef _WIN32
 	gSettings.chkShowConsole->setChecked(false);
 	gSettings.chkShowConsole->setEnabled(false);
 #endif
-	gSettings.stCoreLogOutput = env->addStaticText(gDataManager->GetSysString(1998).c_str(), Scale(340, 95, 430, 120), false, true, sPanel);
+	gSettings.stCoreLogOutput = env->addStaticText(gDataManager->GetSysString(1998).c_str(), Scale(340, 125, 430, 150), false, true, sPanel);
 	defaultStrings.emplace_back(gSettings.stCoreLogOutput, 1998);
-	gSettings.cbCoreLogOutput = ADDComboBox(Scale(435, 95, 645, 120), sPanel, COMBOBOX_CORE_LOG_OUTPUT);
+	gSettings.cbCoreLogOutput = ADDComboBox(Scale(435, 125, 645, 150), sPanel, COMBOBOX_CORE_LOG_OUTPUT);
 	ReloadCBCoreLogOutput();
 
 	wBtnSettings = env->addWindow(Scale(0, 610, 30, 640));
@@ -1926,17 +1933,18 @@ void Game::RefreshReplay() {
 void Game::RefreshSingleplay() {
 	lstSinglePlayList->resetPath();
 }
+template<typename T>
+inline void TrySaveInt(T& dest, const IGUIElement* src) {
+	try {
+		dest = static_cast<T>(std::stoul(src->getText()));
+	}
+	catch (...) {}
+}
 void Game::SaveConfig() {
 	gGameConfig->nickname = ebNickName->getText();
 	gGameConfig->lastallowedcards = cbRule->getSelected();
 	gGameConfig->lastDuelParam = duel_param;
 	gGameConfig->lastDuelForbidden = forbiddentypes;
-	auto TrySaveInt = [](unsigned int& dest, const IGUIElement* src) {
-		try {
-			dest = std::stoi(src->getText());
-		}
-		catch (...) {}
-	};
 	TrySaveInt(gGameConfig->timeLimit, ebTimeLimit);
 	TrySaveInt(gGameConfig->team1count, ebTeam1);
 	TrySaveInt(gGameConfig->team2count, ebTeam2);
@@ -1944,6 +1952,7 @@ void Game::SaveConfig() {
 	TrySaveInt(gGameConfig->startLP, ebStartLP);
 	TrySaveInt(gGameConfig->startHand, ebStartHand);
 	TrySaveInt(gGameConfig->drawCount, ebDrawCount);
+	TrySaveInt(gGameConfig->antialias, gSettings.ebAntiAlias);
 	gGameConfig->showConsole = gSettings.chkShowConsole->isChecked();
 	gGameConfig->vsync = gSettings.chkVSync->isChecked();
 	gGameConfig->relayDuel = btnRelayMode->isPressed();
@@ -2547,6 +2556,8 @@ void Game::ReloadCBLimit() {
 	cbLimit->addItem(gDataManager->GetSysString(1901).c_str());
 	cbLimit->addItem(gDataManager->GetSysString(1902).c_str());
 	cbLimit->addItem(gDataManager->GetSysString(1903).c_str());
+	cbLimit->addItem(gDataManager->GetSysString(1910).c_str());
+	cbLimit->addItem(gDataManager->GetSysString(1911).c_str());
 	if (chkAnime->isChecked()) {
 		cbLimit->addItem(gDataManager->GetSysString(1265).c_str());
 		cbLimit->addItem(gDataManager->GetSysString(1266).c_str());
@@ -2836,7 +2847,9 @@ void Game::OnResize() {
 	btnTabShowSettings->setRelativePosition(rect<s32>(Scale(20), Scale(415), std::min(tabSystem->getSubpanel()->getRelativePosition().getWidth() - 21, Scale(300)), Scale(435)));
 
 	SetCentered(gSettings.window);
-	gSettings.panel->setRelativePosition(gSettings.window->getClientRect());
+	auto sRect = gSettings.window->getClientRect();
+	sRect.UpperLeftCorner.Y += Scale(30);
+	gSettings.panel->setRelativePosition(sRect);
 
 	wChat->setRelativePosition(rect<s32>(wInfos->getRelativePosition().LowerRightCorner.X + Scale(4), Scale<s32>(615.0f  * window_scale.Y), (window_size.Width - Scale(4 * window_scale.X)), (window_size.Height - Scale(2))));
 
