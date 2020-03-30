@@ -27,15 +27,34 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static android.content.Intent.URI_INTENT_SCHEME;
+
 public class MainActivity extends Activity {
 
 	private final static int PERMISSIONS = 1;
 	private static final String[] REQUIRED_SDK_PERMISSIONS = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE};
 	public static String working_directory;
+	public static ArrayList<String> parameter;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
+		Uri data = getIntent().getData();
+		parameter = new ArrayList<String>();
+		if(data!=null) {
+			getIntent().setData(null);
+			try {
+				Log.e("Edopro", data.getPath());
+				String path = FileUtil.getFullPathFromTreeUri(data,this);
+				parameter.add(path);
+				Log.e("Edopro", "parsed path: " + parameter);
+			} catch (Exception e) {
+				String path = data.getPath();
+				parameter.add(path);
+				Log.e("Edopro", "It was already a path: " + data.getPath());
+			}
+		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			checkPermission();
 		} else {
@@ -156,6 +175,7 @@ public class MainActivity extends Activity {
 	public void next() {
 		WindBot.initAndroid(working_directory + "/WindBot");
 		Intent intent = new Intent(this, SdlLauncher.class);
+		intent.putStringArrayListExtra("ARGUMENTS", parameter);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 		startActivity(intent);
 	}
