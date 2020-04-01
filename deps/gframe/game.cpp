@@ -7,7 +7,6 @@
 #include <dirent.h>
 #endif
 #ifdef __ANDROID__
-#include "Android/porting_android.h"
 #include "Android/COSAndroidOperator.h"
 #endif
 #include "game_config.h"
@@ -46,6 +45,10 @@
 
 #ifdef __ANDROID__
 #include "CGUICustomComboBox/CGUICustomComboBox.h"
+class android_app;
+namespace porting {
+extern android_app* app_global;
+}
 #define ADDComboBox(...) (gGameConfig->native_mouse ? env->addComboBox(__VA_ARGS__): CGUICustomComboBox::addCustomComboBox(env, __VA_ARGS__))
 #define MATERIAL_GUARD(f) do {mainGame->driver->enableMaterial2D(true); f; mainGame->driver->enableMaterial2D(false);} while(false);
 #else
@@ -186,7 +189,6 @@ bool Game::Initialize() {
 	discord.Initialize(filesystem->getWorkingDirectory().c_str());
 	discord.UpdatePresence(DiscordWrapper::INITIALIZE);
 	PopulateResourcesDirectories();
-	deckManager.LoadLFList();
 	env = device->getGUIEnvironment();
 #ifdef __ANDROID__
 	irr::IOSOperator* Operator = new irr::COSAndroidOperator();
@@ -275,7 +277,7 @@ bool Game::Initialize() {
 	stVersion = env->addStaticText(formatVersion().c_str(), Scale(10, 10, 290, 35), false, false, wVersion);
 	int titleWidth = stVersion->getTextWidth();
 	stVersion->setRelativePosition(recti(Scale(10), Scale(10), titleWidth + Scale(10), Scale(35)));
-	stCoreVersion = env->addStaticText(L"", Scale(10, 40, 290, 65), false, true, wVersion);
+	stCoreVersion = env->addStaticText(L"", Scale(10, 40, 500, 65), false, false, wVersion);
 	RefreshUICoreVersion();
 	stExpectedCoreVersion = env->addStaticText(
 		GetLocalizedExpectedCore().c_str(),
@@ -284,7 +286,6 @@ bool Game::Initialize() {
 		GetLocalizedCompatVersion().c_str(),
 		Scale(10, 100, 290, 125), false, true, wVersion);
 	((CGUICustomContextMenu*)mVersion)->addItem(wVersion, -1);
-	wVersion->setRelativePosition(recti(0, 0, std::max(Scale(300), stVersion->getTextWidth() + Scale(20)), Scale(135)));
 	mBeta = mTopMenu->getSubMenu(mTopMenu->addItem(L"CLOSED BETA ONLY", 4));
 	//main menu
 	int mainMenuWidth = std::max(280, static_cast<int>(titleWidth / dpi_scale + 15));
@@ -753,6 +754,8 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(gSettings.stCoreLogOutput, 1998);
 	gSettings.cbCoreLogOutput = ADDComboBox(Scale(435, 125, 645, 150), sPanel, COMBOBOX_CORE_LOG_OUTPUT);
 	ReloadCBCoreLogOutput();
+	gSettings.chkSaveHandTest = env->addCheckBox(gGameConfig->saveHandTest, Scale(340, 155, 645, 180), sPanel, CHECKBOX_SAVE_HAND_TEST_REPLAY, gDataManager->GetSysString(2077).c_str());
+	defaultStrings.emplace_back(gSettings.chkSaveHandTest, 2077);
 
 	wBtnSettings = env->addWindow(Scale(0, 610, 30, 640));
 	wBtnSettings->getCloseButton()->setVisible(false);
@@ -1883,7 +1886,7 @@ void Game::RefreshLFLists() {
 	cbHostLFList->setSelected(0);
 	cbDBLFList->clear();
 	cbDBLFList->setSelected(0);
-	for (auto &list : deckManager._lfList) {
+	for (auto &list : gdeckManager->_lfList) {
 		auto hostIndex = cbHostLFList->addItem(list.listName.c_str(), list.hash);
 		auto deckIndex = cbDBLFList->addItem(list.listName.c_str(), list.hash);
 		if (gGameConfig->lastlflist == list.hash) {
@@ -1891,7 +1894,7 @@ void Game::RefreshLFLists() {
 			cbDBLFList->setSelected(deckIndex);
 		}
 	}
-	deckBuilder.filterList = &deckManager._lfList[mainGame->cbDBLFList->getSelected()];
+	deckBuilder.filterList = &gdeckManager->_lfList[mainGame->cbDBLFList->getSelected()];
 }
 void Game::RefreshAiDecks() {
 	gBot.bots.clear();
@@ -2081,8 +2084,8 @@ void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 	}
 	auto data_path = Utils::ToPathString(repo->data_path);
 	auto lflist_path = Utils::ToPathString(repo->lflist_path);
-	if (deckManager.LoadLFListSingle(data_path + EPRO_TEXT("lflist.conf")) || deckManager.LoadLFListFolder(lflist_path)) {
-		deckManager.RefreshLFList();
+	if (gdeckManager->LoadLFListSingle(data_path + EPRO_TEXT("lflist.conf")) || gdeckManager->LoadLFListFolder(lflist_path)) {
+		gdeckManager->RefreshLFList();
 		RefreshLFLists();
 	}
 }
@@ -2488,6 +2491,9 @@ void Game::RefreshUICoreVersion() {
 	} else {
 		stCoreVersion->setText(L"");
 	}
+	auto w1 = stVersion->getTextWidth();
+	auto w2 = stCoreVersion->getTextWidth();
+	wVersion->setRelativePosition(recti(0, 0, Scale(20) + std::max({ Scale(280), w1, w2 }), Scale(135)));
 }
 std::wstring Game::GetLocalizedExpectedCore() {
 	return fmt::format(gDataManager->GetSysString(2011), OCG_VERSION_MAJOR, OCG_VERSION_MINOR);
@@ -2595,8 +2601,8 @@ void Game::ReloadCBFilterRule() {
 void Game::ReloadCBFilterBanlist() {
 	cbFilterBanlist->clear();
 	cbFilterBanlist->addItem(fmt::format(L"[{}]", gDataManager->GetSysString(1226)).c_str());
-	for (unsigned int i = 0; i < deckManager._lfList.size(); ++i)
-		cbFilterBanlist->addItem(deckManager._lfList[i].listName.c_str(), deckManager._lfList[i].hash);
+	for (unsigned int i = 0; i < gdeckManager->_lfList.size(); ++i)
+		cbFilterBanlist->addItem(gdeckManager->_lfList[i].listName.c_str(), gdeckManager->_lfList[i].hash);
 }
 void Game::ReloadCBDuelRule() {
 	cbDuelRule->clear();
@@ -2638,15 +2644,15 @@ void Game::ReloadElementsStrings() {
 		elem.first->setText(gDataManager->GetSysString(elem.second).c_str());
 	}
 
-	unsigned int nullLFlist = deckManager._lfList.size() - 1;
-	deckManager._lfList[nullLFlist].listName = gDataManager->GetSysString(1442);
+	unsigned int nullLFlist = gdeckManager->_lfList.size() - 1;
+	gdeckManager->_lfList[nullLFlist].listName = gDataManager->GetSysString(1442);
 	auto prev = cbDBLFList->getSelected();
 	cbDBLFList->removeItem(nullLFlist);
-	cbDBLFList->addItem(deckManager._lfList[nullLFlist].listName.c_str(), deckManager._lfList[nullLFlist].hash);
+	cbDBLFList->addItem(gdeckManager->_lfList[nullLFlist].listName.c_str(), gdeckManager->_lfList[nullLFlist].hash);
 	cbDBLFList->setSelected(prev);
 	prev = cbHostLFList->getSelected();
 	cbHostLFList->removeItem(nullLFlist);
-	cbHostLFList->addItem(deckManager._lfList[nullLFlist].listName.c_str(), deckManager._lfList[nullLFlist].hash);
+	cbHostLFList->addItem(gdeckManager->_lfList[nullLFlist].listName.c_str(), gdeckManager->_lfList[nullLFlist].hash);
 	cbHostLFList->setSelected(prev);
 
 	prev = cbSortType->getSelected();

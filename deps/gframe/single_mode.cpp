@@ -1,6 +1,7 @@
+#include "single_mode.h"
 #include <fmt/chrono.h>
 #include <random>
-#include "single_mode.h"
+#include "game_config.h"
 #include "duelclient.h"
 #include "game.h"
 #include "core_utils.h"
@@ -78,7 +79,7 @@ restart:
 			hand_test = true;
 			OCG_DestroyDuel(pduel);
 			pduel = mainGame->SetupDuel({ (uint32_t)DuelClient::rnd(), DUEL_ATTACK_FIRST_TURN | DUEL_MODE_MR5 | DUEL_SIMPLE_AI, { 8000, 5, 1 }, { 8000, 0, 0 } });
-			Deck playerdeck(deckManager.current_deck);
+			Deck playerdeck(gdeckManager->current_deck);
 			std::shuffle(playerdeck.main.begin(), playerdeck.main.end(), DuelClient::rnd);
 			OCG_NewCardInfo card_info = { 0, 0, 0, 0, 0, 0, POS_FACEDOWN_DEFENSE };
 			card_info.duelist = 0;
@@ -152,7 +153,8 @@ restart:
 	std::vector<uint8> duelBuffer;
 	is_closing = false;
 	is_continuing = true;
-	if(!hand_test) {
+	bool saveReplay = !hand_test || gGameConfig->saveHandTest;
+	if(saveReplay) {
 		last_replay.BeginRecord(false);
 		last_replay.WriteHeader(rh);
 		//records the replay with the new system
@@ -199,7 +201,7 @@ restart:
 	end :
 	OCG_DestroyDuel(pduel);
 	pduel = nullptr;
-	if(!hand_test && !is_restarting) {
+	if(saveReplay && !is_restarting) {
 		last_replay.EndRecord(0x1000);
 		std::vector<unsigned char> oldreplay;
 		oldreplay.insert(oldreplay.end(), (unsigned char*)&last_replay.pheader, ((unsigned char*)&last_replay.pheader) + sizeof(ReplayHeader));
@@ -217,7 +219,7 @@ restart:
 	}
 	gSoundManager->StopSounds();
 	bool was_in_replay = false;
-	if(!hand_test && !is_restarting) {
+	if(saveReplay && !is_restarting) {
 		was_in_replay = true;
 		auto now = std::time(nullptr);
 		mainGame->gMutex.lock();
@@ -313,7 +315,7 @@ bool SingleMode::SinglePlayAnalyze(CoreUtils::Packet packet) {
 	switch(mainGame->dInfo.curMsg) {
 		case MSG_RETRY:	{
 			mainGame->gMutex.lock();
-			mainGame->stMessage->setText(L"Error occurs.");
+			mainGame->stMessage->setText(gDataManager->GetSysString(1434).c_str());
 			mainGame->PopupElement(mainGame->wMessage);
 			mainGame->gMutex.unlock();
 			mainGame->actionSignal.Reset();

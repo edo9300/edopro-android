@@ -81,7 +81,7 @@ void ServerLobby::FillOnlineRooms() {
 			}
 			/*add mutex for banlist access*/
 			if(searchBanlist > 0) {
-				if(room.info.lflist != deckManager._lfList[searchBanlist - 1].hash) {
+				if(room.info.lflist != gdeckManager->_lfList[searchBanlist - 1].hash) {
 					continue;
 				}
 			}
@@ -90,7 +90,7 @@ void ServerLobby::FillOnlineRooms() {
 		}
 		std::wstring banlist;
 
-		for(auto& list : deckManager._lfList) {
+		for(auto& list : gdeckManager->_lfList) {
 			if(list.hash == room.info.lflist) {
 				banlist = list.listName;
 				break;
@@ -171,7 +171,7 @@ int ServerLobby::GetRoomsThread() {
 	curl_easy_cleanup(curl_handle);
 	if(res != CURLE_OK) {
 		//error
-		mainGame->PopupMessage(gDataManager->GetSysString(2037), L"Error 05");
+		mainGame->PopupMessage(gDataManager->GetSysString(2037));
 		GUIUtils::ChangeCursor(mainGame->device, irr::gui::ECI_NORMAL);
 		mainGame->btnLanRefresh2->setEnabled(true);
 		mainGame->serverChoice->setEnabled(true);
@@ -181,7 +181,7 @@ int ServerLobby::GetRoomsThread() {
 	}
 
 	if(retrieved_data == "[server busy]") {
-		mainGame->PopupMessage(gDataManager->GetSysString(2031), L"Error 04");
+		mainGame->PopupMessage(gDataManager->GetSysString(2031));
 	} else {
 		roomsVector.clear();
 		nlohmann::json j = nlohmann::json::parse(retrieved_data);
