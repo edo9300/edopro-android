@@ -91,11 +91,11 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 	case irr::EET_GUI_EVENT: {
 		irr::gui::IGUIElement* caller = event.GUIEvent.Caller;
 		int id = caller->getID();
-		if(mainGame->wRules->isVisible() && (id != BUTTON_RULE_OK && id != CHECKBOX_EXTRA_RULE))
+		if(mainGame->wRules->isVisible() && (id != BUTTON_RULE_OK && id != CHECKBOX_EXTRA_RULE && id != COMBOBOX_DUEL_RULE))
 			break;
 		if(mainGame->wMessage->isVisible() && id != BUTTON_MSG_OK)
 			break;
-		if(mainGame->wCustomRules->isVisible() && id != BUTTON_CUSTOM_RULE_OK && (id < CHECKBOX_OBSOLETE || id > CHECKBOX_EMZONE))
+		if(mainGame->wCustomRulesR->isVisible() && id != BUTTON_CUSTOM_RULE_OK && ((id < CHECKBOX_OBSOLETE || id > INVERTED_PRIORITY) && id != COMBOBOX_DUEL_RULE))
 			break;
 		if(mainGame->wQuery->isVisible() && id != BUTTON_YES && id != BUTTON_NO) {
 			mainGame->wQuery->getParent()->bringToFront(mainGame->wQuery);
@@ -203,15 +203,17 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				break;
 			}
 			case BUTTON_CREATE_HOST: {
-				mainGame->isHostingOnline = false;
-				mainGame->btnHostConfirm->setEnabled(true);
-				mainGame->btnHostCancel->setEnabled(true);
-				mainGame->HideElement(mainGame->wLanWindow);
-				mainGame->stHostPort->setVisible(true);
-				mainGame->ebHostPort->setVisible(true);
-				mainGame->stHostNotes->setVisible(false);
-				mainGame->ebHostNotes->setVisible(false);
-				mainGame->ShowElement(mainGame->wCreateHost);
+				if (wcslen(mainGame->ebNickName->getText())) {
+					mainGame->isHostingOnline = false;
+					mainGame->btnHostConfirm->setEnabled(true);
+					mainGame->btnHostCancel->setEnabled(true);
+					mainGame->HideElement(mainGame->wLanWindow);
+					mainGame->stHostPort->setVisible(true);
+					mainGame->ebHostPort->setVisible(true);
+					mainGame->stHostNotes->setVisible(false);
+					mainGame->ebHostNotes->setVisible(false);
+					mainGame->ShowElement(mainGame->wCreateHost);
+				}
 				break;
 			}
 			case BUTTON_CREATE_HOST2: {
@@ -242,6 +244,16 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				CHECK(3)
 				CHECK(4)
 				CHECK(5)
+				case 5:	{
+					mainGame->duel_param = DUEL_MODE_SPEED;
+					mainGame->forbiddentypes = 0;
+					break;
+				}
+				case 6:	{
+					mainGame->duel_param = DUEL_MODE_RUSH;
+					mainGame->forbiddentypes = 0;
+					break;
+				}
 				}
 #undef CHECK
 				uint32 filter = 0x100;
@@ -253,12 +265,14 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				const uint32 limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
 				for (int i = 0; i < (sizeof(mainGame->chkTypeLimit) / sizeof(irr::gui::IGUICheckBox*)); ++i, filter <<= 1)
 						mainGame->chkTypeLimit[i]->setChecked(mainGame->forbiddentypes & limits[i]);
-				mainGame->PopupElement(mainGame->wCustomRules);
+				mainGame->PopupElement(mainGame->wCustomRulesL);
+				mainGame->PopupElement(mainGame->wCustomRulesR);
 				break;
 			}
 			case BUTTON_CUSTOM_RULE_OK: {
 				mainGame->UpdateDuelParam();
-				mainGame->HideElement(mainGame->wCustomRules);
+				mainGame->HideElement(mainGame->wCustomRulesL);
+				mainGame->HideElement(mainGame->wCustomRulesR);
 				break;
 			}
 			case BUTTON_HOST_CONFIRM: {
@@ -287,6 +301,8 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				break;
 			}
 			case BUTTON_HOST_CANCEL: {
+				if(DuelClient::IsConnected())
+					break;
 				mainGame->dInfo.isInLobby = false;
 				mainGame->btnCreateHost->setEnabled(mainGame->coreloaded);
 				mainGame->btnJoinHost->setEnabled(true);
@@ -358,8 +374,10 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->btnJoinCancel->setEnabled(true);
 				mainGame->HideElement(mainGame->wHostPrepare);
 				mainGame->HideElement(mainGame->gBot.window);
-				if(mainGame->wHostPrepare2->isVisible())
-					mainGame->HideElement(mainGame->wHostPrepare2);
+				if (mainGame->wHostPrepareR->isVisible())
+					mainGame->HideElement(mainGame->wHostPrepareR);
+				if (mainGame->wHostPrepareL->isVisible())
+					mainGame->HideElement(mainGame->wHostPrepareL);
 				if(mainGame->isHostingOnline)
 					mainGame->ShowElement(mainGame->wRoomListPlaceholder);
 				else
@@ -440,7 +458,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			case BUTTON_BOT_ADD: {
 				try {
 					int port = std::stoi(gGameConfig->serverport);
-					mainGame->gBot.LaunchSelected(port);
+					mainGame->gBot.LaunchSelected(port, BufferIO::DecodeUTF8s(mainGame->dInfo.secret.pass));
 				}
 				catch(...) {
 				}
@@ -529,7 +547,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				if(prev_operation == BUTTON_RENAME_REPLAY) {
 					auto oldname = Utils::ToPathString(mainGame->lstReplayList->getListItem(prev_sel, true));
 					auto oldpath = oldname.substr(0, oldname.find_last_of(EPRO_TEXT("/"))) + EPRO_TEXT("/");
-					if(Replay::RenameReplay(oldname, oldpath + Utils::ToPathString(mainGame->ebRSName->getText()))) {
+					if(Replay::RenameReplay(oldname, oldpath + Utils::ToPathString(mainGame->ebRSName->getText()) + EPRO_TEXT(".yrpX"))) {
 						mainGame->lstReplayList->refreshList();
 					} else {
 						mainGame->PopupMessage(gDataManager->GetSysString(1365));
@@ -543,6 +561,10 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->HideElement(mainGame->wReplaySave);
 				prev_operation = 0;
 				prev_sel = -1;
+				break;
+			}
+			case BUTTON_FILTER_RELAY: {
+				ServerLobby::FillOnlineRooms();
 				break;
 			}
 			}
@@ -596,7 +618,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					repinfo.append(names[i + replay.GetPlayersCount(0)] + L"\n");
 				}
 				if(replay.GetTurnsCount())
-					repinfo.append(fmt::format(L"\n\n\n{}: {}", gDataManager->GetSysString(2009), replay.GetTurnsCount()));
+					repinfo.append(fmt::format(L"\n{}: {}", gDataManager->GetSysString(2009), replay.GetTurnsCount()));
 				mainGame->ebRepStartTurn->setText(L"1");
 				mainGame->stReplayInfo->setText((wchar_t*)repinfo.c_str());
 				mainGame->chkYrp->setChecked(false);
@@ -676,7 +698,9 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				break;
 			}
 			case CHECK_SHOW_ACTIVE_ROOMS: {
-				ServerLobby::RefreshRooms();
+				ServerLobby::FillOnlineRooms();
+				//atm the behaviour for locked rooms is the same, so no need to refresh
+				//ServerLobby::RefreshRooms();
 				break;
 			}
 			case CHECKBOX_HP_READY: {
@@ -774,6 +798,8 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				break;
 			}
 			}
+			if(caller->getParent() == mainGame->wRoomListPlaceholder)
+				ServerLobby::FillOnlineRooms();
 			break;
 		}
 		case irr::gui::EGET_COMBO_BOX_CHANGED: {
@@ -789,15 +815,41 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			}
 			case COMBOBOX_DUEL_RULE: {
 				auto combobox = static_cast<irr::gui::IGUIComboBox*>(event.GUIEvent.Caller);
-#define CHECK(MR) case (MR - 1): { combobox->removeItem(5); mainGame->duel_param = DUEL_MODE_MR##MR; mainGame->forbiddentypes = DUEL_MODE_MR##MR##_FORB; break; }
+#define CHECK(MR) case (MR - 1): { mainGame->duel_param = DUEL_MODE_MR##MR; mainGame->forbiddentypes = DUEL_MODE_MR##MR##_FORB; mainGame->chkRules[13]->setChecked(false); goto remove; }
 				switch (combobox->getSelected()) {
 				CHECK(1)
 				CHECK(2)
 				CHECK(3)
 				CHECK(4)
 				CHECK(5)
+				case 5:	{
+					mainGame->duel_param = DUEL_MODE_SPEED;
+					mainGame->forbiddentypes = 0;
+					mainGame->chkRules[13]->setChecked(true);
+					goto remove;
+				}
+				case 6:	{
+					mainGame->duel_param = DUEL_MODE_RUSH;
+					mainGame->forbiddentypes = 0;
+					mainGame->chkRules[13]->setChecked(false);
+					mainGame->ebStartHand->setText(L"4");
+					goto remove;
+				}
+				default: break;
+				remove:
+				combobox->removeItem(7);
+				mainGame->UpdateExtraRules();
 				}
 #undef CHECK
+				uint32 filter = 0x100;
+				for(int i = 0; i < (sizeof(mainGame->chkCustomRules) / sizeof(irr::gui::IGUICheckBox*)); ++i, filter <<= 1) {
+					mainGame->chkCustomRules[i]->setChecked(mainGame->duel_param & filter);
+					if(i == 3)
+						mainGame->chkCustomRules[4]->setEnabled(mainGame->duel_param & filter);
+				}
+				const uint32 limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
+				for(int i = 0; i < (sizeof(mainGame->chkTypeLimit) / sizeof(irr::gui::IGUICheckBox*)); ++i, filter <<= 1)
+					mainGame->chkTypeLimit[i]->setChecked(mainGame->forbiddentypes & limits[i]);
 				break;
 			}
 			case COMBOBOX_BOT_DECK: {
@@ -805,8 +857,15 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->gBot.UpdateDescription();
 				break;
 			}
+			case SERVER_CHOICE: {
+				ServerLobby::RefreshRooms();
+				break;
+			}
 			default: break;
 			}
+			if(caller->getParent() == mainGame->wRoomListPlaceholder)
+				ServerLobby::FillOnlineRooms();
+			break;
 		}
 		case irr::gui::EGET_TABLE_SELECTED_AGAIN: {
 			switch(id) {

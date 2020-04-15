@@ -52,6 +52,8 @@ bool GameConfig::Load(const path_char* filename)
 				lastdeck = BufferIO::DecodeUTF8s(str);
 			else if (type == "lastDuelParam")
 				lastDuelParam = std::stoi(str);
+			else if (type == "lastExtraRules")
+				lastExtraRules = std::stoi(str);
 			else if (type == "lastDuelForbidden")
 				lastDuelForbidden = std::stoi(str);
 #define DESERIALIZE_UNSIGNED(name) \
@@ -75,10 +77,13 @@ bool GameConfig::Load(const path_char* filename)
 #define DESERIALIZE_BOOL(name) else if (type == #name) name = !!std::stoi(str);
 			DESERIALIZE_BOOL(relayDuel)
 			DESERIALIZE_BOOL(noCheckDeck)
+			DESERIALIZE_BOOL(hideHandsInReplays)
 			DESERIALIZE_BOOL(noShuffleDeck)
 			DESERIALIZE_BOOL(vsync)
 			DESERIALIZE_BOOL(showScopeLabel)
 			DESERIALIZE_BOOL(saveHandTest)
+			DESERIALIZE_BOOL(discordIntegration)
+			DESERIALIZE_BOOL(loopMusic)
 #ifdef WIN32
 			DESERIALIZE_BOOL(showConsole)
 #endif
@@ -128,7 +133,7 @@ bool GameConfig::Load(const path_char* filename)
 			else if (type == "mute_opponent")
 				chkIgnore1 = !!std::stoi(str);
 			else if (type == "mute_spectators")
-				chkIgnore1 = !!std::stoi(str);
+				chkIgnore2 = !!std::stoi(str);
 			else if (type == "hide_setname")
 				chkHideSetname = !!std::stoi(str);
 			else if (type == "hide_hint_button")
@@ -213,6 +218,7 @@ bool GameConfig::Save(const path_char* filename)
 	conf_file << "lastlflist = "         << lastlflist << "\n";
 	conf_file << "lastallowedcards = "   << lastallowedcards << "\n";
 	SERIALIZE(lastDuelParam);
+	SERIALIZE(lastExtraRules);
 	SERIALIZE(lastDuelForbidden);
 	SERIALIZE(timeLimit);
 	SERIALIZE(team1count);
@@ -224,6 +230,7 @@ bool GameConfig::Save(const path_char* filename)
 	SERIALIZE(relayDuel);
 	SERIALIZE(noShuffleDeck);
 	SERIALIZE(noCheckDeck);
+	SERIALIZE(hideHandsInReplays);
 	conf_file << "textfont = "           << BufferIO::EncodeUTF8s(textfont) << " " << std::to_string(textfontsize) << "\n";
 	conf_file << "numfont = "            << BufferIO::EncodeUTF8s(numfont) << "\n";
 	conf_file << "serverport = "         << BufferIO::EncodeUTF8s(serverport) << "\n";
@@ -260,7 +267,9 @@ bool GameConfig::Save(const path_char* filename)
 	conf_file << "enable_sound = "       << enablesound << "\n";
 	conf_file << "music_volume = "       << musicVolume << "\n";
 	conf_file << "sound_volume = "       << soundVolume << "\n";
+	SERIALIZE(loopMusic);
 	SERIALIZE(saveHandTest);
+	SERIALIZE(discordIntegration);
 #ifdef __ANDROID__
 	conf_file << "native_keyboard = "    << native_keyboard << "\n";
 	conf_file << "native_mouse = "       << native_mouse << "\n";

@@ -98,18 +98,16 @@ void DiscordWrapper::UpdatePresence(PresenceType type) {
 		case DUEL:
 		case DUEL_STARTED:
 		case DECK_SIDING: {
+			auto count = ygo::DuelClient::GetPlayersCount();
+			discordPresence.partySize = std::max(1, count.first + count.second);
+			discordPresence.partyMax = ygo::mainGame->dInfo.team1 + ygo::mainGame->dInfo.team2 + ygo::DuelClient::GetSpectatorsCount() + 1;
 			if(presence == IN_LOBBY) {
 				discordPresence.details = "Hosting a Duel";
-				auto count = ygo::DuelClient::GetPlayersCount();
-				discordPresence.partySize = count.first + count.second;
-				discordPresence.partyMax = ygo::mainGame->dInfo.team1 + ygo::mainGame->dInfo.team2;
-				//discordPresence.joinSecret = "join";
 			} else {
 				if(presence == DECK_SIDING)
 					discordPresence.details = "Side decking";
 				else
 					discordPresence.details = "Dueling";
-				//discordPresence.spectateSecret = "look";
 			}
 			if(((ygo::mainGame->dInfo.team1 + ygo::mainGame->dInfo.team2) > 2) || ygo::mainGame->dInfo.isRelay)
 				presenceState = fmt::format("{}: {} vs {}", ygo::mainGame->dInfo.isRelay ? "Relay" : "Tag", ygo::mainGame->dInfo.team1, ygo::mainGame->dInfo.team2).c_str();
@@ -145,9 +143,7 @@ void DiscordWrapper::UpdatePresence(PresenceType type) {
 	discordPresence.state = presenceState.c_str();
 	discordPresence.startTimestamp = start;
 	discordPresence.largeImageKey = "game-icon";
-	//discordPresence.smallImageKey = "game-icon";
 	discordPresence.partyId = partyid.c_str();
-	//discordPresence.joinSecret = "join";
 	Discord_UpdatePresence(&discordPresence);
 #endif
 }
@@ -228,6 +224,8 @@ void DiscordWrapper::OnJoin(const char* secret, void* payload) {
 	game->isHostingOnline = true;
 	if(ygo::DuelClient::StartClient(host.server_address, host.server_port, host.game_id, false)) {
 #define HIDE_AND_CHECK(obj) if(obj->isVisible()) game->HideElement(obj);
+		if(game->is_building)
+			game->deckBuilder.Terminate(false);
 		HIDE_AND_CHECK(game->wMainMenu)
 		HIDE_AND_CHECK(game->wLanWindow)
 		HIDE_AND_CHECK(game->wCreateHost)
@@ -235,10 +233,9 @@ void DiscordWrapper::OnJoin(const char* secret, void* payload) {
 		HIDE_AND_CHECK(game->wSinglePlay)
 		HIDE_AND_CHECK(game->wDeckEdit)
 		HIDE_AND_CHECK(game->wRules)
-		HIDE_AND_CHECK(game->wCustomRules)
+		HIDE_AND_CHECK(game->wCustomRulesL)
+		HIDE_AND_CHECK(game->wCustomRulesR)
 		HIDE_AND_CHECK(game->wRoomListPlaceholder)
-		if(game->is_building)
-			game->deckBuilder.Terminate();
 		game->device->setEventReceiver(&game->menuHandler);
 #undef HIDE_AND_CHECK
 	}

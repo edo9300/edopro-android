@@ -62,6 +62,7 @@ struct CTOS_JoinGame {
 	unsigned short version;
 	unsigned int gameid;
 	unsigned short pass[20];
+	unsigned int version2;
 };
 struct CTOS_Kick {
 	unsigned char pos;
@@ -162,7 +163,7 @@ public:
 #define NETWORK_SERVER_ID	0x7428
 #define NETWORK_CLIENT_ID	0xdef6
 
-#define SERVER_HANDSHAKE 4903489263569811227
+#define SERVER_HANDSHAKE 4680591157758091777
 
 #define NETPLAYER_TYPE_PLAYER1		0
 #define NETPLAYER_TYPE_PLAYER2		1
@@ -224,6 +225,7 @@ public:
 #define ERRMSG_DECKERROR	0x2
 #define ERRMSG_SIDEERROR	0x3
 #define ERRMSG_VERERROR		0x4
+#define ERRMSG_VERERROR2	0x5
 
 #define DECKERROR_LFLIST		0x1
 #define DECKERROR_OCGONLY		0x2
@@ -245,17 +247,17 @@ public:
 #define SEALED_DUEL         0x1
 #define BOOSTER_DUEL        0x2
 #define DESTINY_DRAW        0x4
-#define SPEED_DUEL          0x8
-#define CONCENTRATION_DUEL  0x10
-#define BOSS_DUEL           0x20
-#define BATTLE_CITY         0x40
-#define DUELIST_KINGDOM     0x80
-#define DIMENSION_DUEL      0x100
-#define TURBO_DUEL          0x200
-#define DOUBLE_DECK         0x400
-#define COMMAND_DUEL        0x800
-#define DECK_MASTER         0x1000
-#define ACTION_DUEL         0x2000
+#define CONCENTRATION_DUEL  0x8
+#define BOSS_DUEL           0x10
+#define BATTLE_CITY         0x20
+#define DUELIST_KINGDOM     0x40
+#define DIMENSION_DUEL      0x80
+#define TURBO_DUEL          0x100
+#define DOUBLE_DECK         0x200
+#define COMMAND_DUEL        0x400
+#define DECK_MASTER         0x800
+#define ACTION_DUEL         0x1000
+#define DECK_LIMIT_20       0x2000
 
 #define DUEL_STAGE_BEGIN		0
 #define DUEL_STAGE_FINGER		1

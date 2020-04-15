@@ -2,7 +2,7 @@
 #define SOUNDMANAGER_H
 
 #include <memory>
-#include <random>
+#include "random_fwd.h"
 #include <map>
 #include "text_types.h"
 #include "sound_backend.h"
@@ -57,7 +57,7 @@ public:
 	void RefreshBGMList();
 	void RefreshChantsList();
 	void PlaySoundEffect(SFX sound);
-	void PlayBGM(BGM scene);
+	void PlayBGM(BGM scene, bool loop = true);
 	bool PlayChant(CHANT chant, unsigned int code);
 	void SetSoundVolume(double volume);
 	void SetMusicVolume(double volume);
@@ -72,7 +72,7 @@ private:
 	std::vector<std::string> BGMList[8];
 	std::map<std::pair<CHANT, unsigned int>, std::string> ChantsList;
 	int bgm_scene = -1;
-	std::mt19937 rnd;
+	randengine rnd;
 	std::unique_ptr<SoundBackend> mixer;
 	void RefreshBGMDir(path_string path, BGM scene);
 	bool soundsEnabled = false;

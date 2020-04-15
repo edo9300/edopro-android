@@ -12,7 +12,7 @@
 #include "network.h"
 #include "data_manager.h"
 #include "deck_manager.h"
-#include <random>
+#include "random_fwd.h"
 #include "replay.h"
 
 namespace ygo {
@@ -33,7 +33,7 @@ private:
 	static std::wstring event_string;
 	static bool is_swapping;
 public:
-	static std::mt19937 rnd;
+	static randengine rnd;
 	static unsigned int temp_ip;
 	static unsigned short temp_port;
 	static unsigned short temp_ver;
@@ -54,7 +54,13 @@ public:
 	static ReplayStream replay_stream;
 	static Replay last_replay;
 	static int ClientAnalyze(char* msg, unsigned int len);
+	static int GetSpectatorsCount() {
+		return watching;
+	};
 	static void SwapField();
+	static bool IsConnected() {
+		return !!connect_state;
+	};
 	static void SetResponseI(int respI);
 	static void SetResponseB(void* respB, unsigned int len);
 	static void SendResponse();

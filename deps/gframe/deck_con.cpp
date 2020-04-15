@@ -1,5 +1,6 @@
 #include "game_config.h"
 #include <irrlicht.h>
+#include "random_fwd.h"
 #include "config.h"
 #include "deck_con.h"
 #include "data_manager.h"
@@ -173,7 +174,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 				std::shuffle(
 					gdeckManager->current_deck.main.begin(),
 					gdeckManager->current_deck.main.end(),
-					std::mt19937(time(nullptr))
+					randengine(time(nullptr))
 				);
 				break;
 			}
@@ -405,6 +406,10 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			switch(id) {
 			case COMBOBOX_DBLFLIST: {
 				filterList = &gdeckManager->_lfList[mainGame->cbDBLFList->getSelected()];
+				if (filterList->whitelist) { // heuristic to help with restricted card pools
+					mainGame->chkAnime->setChecked(true);
+					mainGame->cbLimit->setSelected(4); // unlimited
+				}
 				StartFilter(true);
 				break;
 			}
@@ -606,12 +611,15 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 					pop_side(hovered_seq);
 				} else {
 					auto pointer = gDataManager->GetCardData(hovered_code);
-					if(!pointer)
+					if(!pointer || !check_limit(pointer))
 						break;
-					if(!check_limit(pointer))
-						break;
-					if(!push_extra(pointer) && !push_main(pointer))
+					if (event.MouseInput.Shift) {
 						push_side(pointer);
+					}
+					else {
+						if (!push_extra(pointer) && !push_main(pointer))
+							push_side(pointer);
+					}
 				}
 			} else {
 				if(click_pos == 1) {
@@ -663,7 +671,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			break;
 		}
 		case irr::EMIE_MOUSE_WHEEL: {
-			if(!mainGame->scrFilter->isVisible())
+			if(!mainGame->scrFilter->isVisible() || mainGame->env->getFocus() == mainGame->scrFilter)
 				break;
 			if(!mainGame->Resize(805, 160, 1020, 630).isPointInside(mouse_pos))
 				break;
@@ -1021,8 +1029,8 @@ bool DeckBuilder::CheckCard(CardDataM* data, SEARCH_MODIFIER modifier, const std
 		}
 		if(filter_scltype) {
 			if((filter_scltype == 1 && data->_data.lscale != filter_scl) || (filter_scltype == 2 && data->_data.lscale < filter_scl)
-				|| (filter_scltype == 3 && data->_data.lscale <= filter_scl) || (filter_scltype == 4 && (data->_data.lscale > filter_scl || data->_data.lscale == 0))
-				|| (filter_scltype == 5 && (data->_data.lscale >= filter_scl || data->_data.lscale == 0)) || filter_scltype == 6
+				|| (filter_scltype == 3 && data->_data.lscale <= filter_scl) || (filter_scltype == 4 && (data->_data.lscale > filter_scl))
+				|| (filter_scltype == 5 && (data->_data.lscale >= filter_scl)) || filter_scltype == 6
 				|| !(data->_data.type & TYPE_PENDULUM))
 				return false;
 		}

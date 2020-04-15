@@ -62,11 +62,11 @@ void ServerLobby::FillOnlineRooms() {
 		}
 		if(doFilter) {
 			if(searchText.size()) {
-				bool res = false;
+				bool res = Utils::ContainsSubstring(room.description, searchText, true);
 				for(auto& name : room.players) {
 					res = res || Utils::ContainsSubstring(name, searchText, true);
 				}
-				if(!res && (room.description.size() && !Utils::ContainsSubstring(room.description, searchText, true)))
+				if(!res)
 					continue;
 			}
 			if(bestOf && room.info.best_of != bestOf)
@@ -76,7 +76,7 @@ void ServerLobby::FillOnlineRooms() {
 			if(team2 && room.info.team2 != team2)
 				continue;
 			if(searchRules > 0) {
-				if(searchRules != room.info.rule - 1)
+				if(searchRules != room.info.rule + 1)
 					continue;
 			}
 			/*add mutex for banlist access*/
@@ -140,6 +140,7 @@ void ServerLobby::FillOnlineRooms() {
 		roomListTable->setCellColor(index, 6, color);
 		roomListTable->setCellColor(index, 7, color);
 	}
+	mainGame->roomListTable->setActiveColumn(mainGame->roomListTable->getActiveColumn(), true);
 }
 int ServerLobby::GetRoomsThread() {
 	GUIUtils::ChangeCursor(mainGame->device, irr::gui::ECI_WAIT);
@@ -160,7 +161,8 @@ int ServerLobby::GetRoomsThread() {
 		curl_easy_setopt(curl_handle, CURLOPT_URL, fmt::format("http://{}:{}/api/getrooms", BufferIO::EncodeUTF8s(serverInfo.roomaddress), serverInfo.roomlistport).c_str());
 	}
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-	curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, 7L);
+	curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT, 7L);
+	curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, 15L);
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void*)&retrieved_data);
 	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "YGOPRO");
 
@@ -184,11 +186,11 @@ int ServerLobby::GetRoomsThread() {
 		mainGame->PopupMessage(gDataManager->GetSysString(2031));
 	} else {
 		roomsVector.clear();
-		nlohmann::json j = nlohmann::json::parse(retrieved_data);
-		if(j.size()) {
+		try {
+			nlohmann::json j = nlohmann::json::parse(retrieved_data);
+			if (j.size()) {
 #define GET(field, type) obj[field].get<type>()
-			try {
-				for(auto& obj : j["rooms"].get<std::vector<nlohmann::json>>()) {
+				for (auto& obj : j["rooms"].get<std::vector<nlohmann::json>>()) {
 					RoomInfo room;
 					room.id = GET("roomid", int);
 					room.name = BufferIO::DecodeUTF8s(GET("roomname", std::string));
@@ -211,15 +213,15 @@ int ServerLobby::GetRoomsThread() {
 					room.info.no_shuffle_deck = GET("no_shuffle", bool);
 					room.info.lflist = GET("banlist_hash", int);
 #undef GET
-					for(auto& obj2 : obj["users"].get<std::vector<nlohmann::json>>()) {
+					for (auto& obj2 : obj["users"].get<std::vector<nlohmann::json>>()) {
 						room.players.push_back(BufferIO::DecodeUTF8s(obj2["name"].get<std::string>()));
 					}
 					roomsVector.push_back(std::move(room));
 				}
 			}
-			catch(...) {
-
-			}
+		}
+		catch (const std::exception& e) {
+			ErrorLog(fmt::format("Exception occurred parsing server rooms: {}", e.what()));
 		}
 	}
 	if(roomsVector.empty()) {
@@ -267,8 +269,10 @@ void ServerLobby::JoinServer(bool host) {
 						return;
 					}
 				}
+				mainGame->dInfo.secret.pass = BufferIO::EncodeUTF8s(mainGame->ebRPName->getText());
+			} else {
+				mainGame->dInfo.secret.pass = "";
 			}
-			mainGame->dInfo.secret.pass = BufferIO::EncodeUTF8s(mainGame->ebRPName->getText());
 			if(!DuelClient::StartClient(serverinfo.first, serverinfo.second, room->id, false)) {
 				return;
 			}

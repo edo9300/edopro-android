@@ -2,13 +2,13 @@
 #include "netserver.h"
 #include "game.h"
 #include "core_utils.h"
-#include <random>
+#include "random_fwd.h"
 
 namespace ygo {
 
 ReplayStream GenericDuel::replay_stream;
 
-GenericDuel::GenericDuel(int team1, int team2, bool relay, int best_of) :relay(relay), best_of(best_of), match_kill(0) {
+GenericDuel::GenericDuel(int team1, int team2, bool relay, int best_of) :relay(relay), best_of(best_of), match_kill(0), swapped(false){
 	players.home.resize(team1);
 	players.opposing.resize(team2);
 	players.home_size = team1;
@@ -180,10 +180,10 @@ void GenericDuel::JoinGame(DuelPlayer* dp, void* pdata, bool is_creater) {
 			return;
 		}
 		CTOS_JoinGame* pkt = (CTOS_JoinGame*)pdata;
-		if(pkt->version != PRO_VERSION) {
+		if(pkt->version2 != CLIENT_VERSION) {
 			STOC_ErrorMsg scem;
-			scem.msg = ERRMSG_VERERROR;
-			scem.code = PRO_VERSION;
+			scem.msg = ERRMSG_VERERROR2;
+			scem.code = CLIENT_VERSION;
 			NetServer::SendPacketToPlayer(dp, STOC_ERROR_MSG, scem);
 			return;
 		}
@@ -513,8 +513,9 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 	if(dp->state != CTOS_TP_RESULT)
 		return;
 	duel_stage = DUEL_STAGE_DUELING;
-	bool swapped = false;
-	if((tp && dp == players.opposing.front().player) || (!tp && dp == players.home.front().player)) {
+	if(swapped) tp = 1 - tp;
+	if((!swapped && ((tp == 1 && dp == players.opposing.front().player) || (tp == 0 && dp == players.home.front().player))) ||
+		(swapped && ((tp == 0 && dp == players.opposing.front().player) || (tp == 1 && dp == players.home.front().player)))) {
 		std::swap(players.opposing, players.home);
 		std::swap(players.home_size, players.opposing_size);
 		for(auto& val : match_result) {
@@ -527,26 +528,26 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 		for(int i = 0; i < players.opposing.size(); i++) {
 			players.opposing[i].player->type = i + players.home_size;
 		}
-		players.home_iterator = players.home.begin();
-		if(relay)
-			players.opposing_iterator = players.opposing.begin();
-		else
-			players.opposing_iterator = players.opposing.end() - 1;
-		swapped = true;
+		swapped = !swapped;
 	}
+	players.home_iterator = players.home.begin();
+	if(relay)
+		players.opposing_iterator = players.opposing.begin();
+	else
+		players.opposing_iterator = players.opposing.end() - 1;
 	turn_count = 0;
 	cur_player[0] = players.home_iterator->player;
 	cur_player[1] = players.opposing_iterator->player;
 	dp->state = CTOS_RESPONSE;
 	ReplayHeader rh;
 	rh.id = REPLAY_YRP1;
-	rh.version = PRO_VERSION;
+	rh.version = CLIENT_VERSION;
 	rh.flag = REPLAY_LUA64 | REPLAY_NEWREPLAY;
 	time_t seed = time(0);
 	rh.seed = seed;
 	last_replay.BeginRecord(false);
 	last_replay.WriteHeader(rh);
-	std::mt19937 rnd(seed);
+	randengine rnd(seed);
 	//records the replay with the new system
 	new_replay.BeginRecord();
 	rh.id = REPLAY_YRPX;
@@ -569,8 +570,6 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 	int opt = host_info.duel_flag;
 	if(host_info.no_shuffle_deck)
 		opt |= DUEL_PSEUDO_SHUFFLE;
-	if(host_info.extra_rules & SPEED_DUEL)
-		opt |= DUEL_SPEED;
 	OCG_Player team = { (int)host_info.start_lp, host_info.start_hand, host_info.draw_count };
 	pduel = mainGame->SetupDuel({ (uint32_t)rnd(), opt, team, team });
 	if(!host_info.no_shuffle_deck) {
@@ -599,7 +598,7 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 	if(host_info.extra_rules & DIMENSION_DUEL)
 		extracards.push_back(511600002);
 	if(host_info.extra_rules & TURBO_DUEL)
-		extracards.push_back(302);
+		extracards.push_back(110000000);
 	if(host_info.extra_rules & COMMAND_DUEL)
 		extracards.push_back(95200000);
 	if(host_info.extra_rules & DECK_MASTER)
@@ -607,7 +606,7 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 	if(host_info.extra_rules & DESTINY_DRAW)
 		extracards.push_back(511004000);
 	if(host_info.extra_rules & ACTION_DUEL)
-		extracards.push_back(301);
+		extracards.push_back(151999999);
 	OCG_NewCardInfo card_info = { 0, 0, 0, 0, 0, 0, POS_FACEDOWN_DEFENSE };
 	for(int32 i = (int32)extracards.size() - 1; i >= 0; --i) {
 		card_info.code = extracards[i];
@@ -723,6 +722,10 @@ void GenericDuel::DuelEndProc() {
 		rematch[0] = MSG_SELECT_YESNO;
 		rematch[1] = 0;
 		*((uint64_t*)&rematch[2]) = 1989;
+		ITERATE_PLAYERS(
+			dueler.player->state = CTOS_RESPONSE;
+			dueler.ready = false;
+		)
 		NetServer::SendBufferToPlayer(nullptr, STOC_GAME_MSG, rematch, sizeof(rematch));
 		for(auto& duelist : players.home) {
 			NetServer::ReSendToPlayer(duelist.player);
@@ -732,10 +735,6 @@ void GenericDuel::DuelEndProc() {
 		for(auto& duelist : players.opposing) {
 			NetServer::ReSendToPlayer(duelist.player);
 		}
-		ITERATE_PLAYERS(
-			dueler.player->state = CTOS_RESPONSE;
-			dueler.ready = false;
-		)
 		duel_stage = DUEL_STAGE_BEGIN;
 		for(auto& obs : observers)
 			NetServer::SendPacketToPlayer(obs, STOC_WAITING_SIDE);
@@ -782,6 +781,7 @@ void GenericDuel::BeforeParsing(CoreUtils::Packet& packet, int& return_value, bo
 		RefreshSzone(1);
 		RefreshHand(0);
 		RefreshHand(1);
+		record_last = false;
 		break;
 	}
 	case MSG_SELECT_CHAIN:
@@ -790,12 +790,14 @@ void GenericDuel::BeforeParsing(CoreUtils::Packet& packet, int& return_value, bo
 		RefreshMzone(1);
 		RefreshSzone(0);
 		RefreshSzone(1);
+		record_last = false;
 		break;
 	}
 	case MSG_FLIPSUMMONING: {
 		pbuf += 4;
 		CoreUtils::loc_info info = CoreUtils::ReadLocInfo(pbuf, false);
 		RefreshSingle(info.controler, info.location, info.sequence);
+		record_last = false;
 		break;
 	}
 	default:
@@ -1217,16 +1219,17 @@ int GenericDuel::Analyze(CoreUtils::Packet packet) {
 	bool record = true;
 	bool record_last = false;
 	unsigned char message = packet.message;
+	auto packetcpy = packet;
 	BeforeParsing(packet, return_value, record, record_last);
 	Sending(packet, return_value, record, record_last);
 	AfterParsing(packet, return_value, record, record_last);
 	if(record && (return_value != 1 && message != MSG_RETRY)) {
 		if(!record_last) {
-			new_replay.WritePacket(packet);
+			new_replay.WritePacket(packetcpy);
 			new_replay.WriteStream(replay_stream);
 		} else {
 			new_replay.WriteStream(replay_stream);
-			new_replay.WritePacket(packet);
+			new_replay.WritePacket(packetcpy);
 		}
 		new_replay.Flush();
 	} else {

@@ -105,6 +105,7 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/Android/COSAndroidOperator.cpp \
 				$(GFRAME_PATH)/repo_manager.cpp \
 				$(GFRAME_PATH)/replay.cpp \
 				$(GFRAME_PATH)/server_lobby.cpp \
+				$(GFRAME_PATH)/settings_window.cpp \
 				$(GFRAME_PATH)/single_mode.cpp \
 				$(GFRAME_PATH)/sound_manager.cpp \
 				$(GFRAME_PATH)/sound_sdlmixer.cpp \
