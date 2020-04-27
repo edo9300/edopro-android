@@ -22,6 +22,7 @@ script:
 - echo "sdk.dir=$ANDROID_HOME" > local.properties
 - $ANDROID_HOME/ndk-bundle/ndk-build -j2
 - $ANDROID_HOME/ndk-bundle/ndk-build -C deps/ocgcore -j2
+- ./download-assets.sh
 - ./finalize-assets.sh
 - ./gradlew assemble
 before_deploy:
