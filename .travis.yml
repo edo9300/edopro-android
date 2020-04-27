@@ -5,6 +5,7 @@ git:
   depth: 1
 env:
   global:
+  - MINIO_UPLOAD=release
   - DEPLOY_DIR=release
   - DEPLOY_BRANCH=android
   - LIBWINDBOT_URL=https://github.com/edo9300/libWindbot/releases/download/v2/libWindbot.aar
@@ -32,4 +33,4 @@ before_deploy:
 deploy:
 - provider: script
   skip_cleanup: true
-  script: bash ./deps/ocgcore/travis/deploy.sh
+  script: bash ./travis-minio.sh
