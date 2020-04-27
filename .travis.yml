@@ -25,7 +25,7 @@ script:
 - ./finalize-assets.sh
 - ./gradlew assemble
 before_deploy:
-- mkdir -p release
+- ./sign-release.sh
 - cp build/outputs/apk/debug/*.apk build/outputs/apk/release/*.apk release
 - rm -f release/*.json
 deploy:
