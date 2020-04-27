@@ -19,7 +19,7 @@ cd ..
 rsync -ar --exclude='.*' --exclude=update.sh --exclude='script/.*' \
 	--exclude='expansions/.*' --exclude='expansions/ci' --exclude='expansions/README.md' \
 	--exclude=textures/Backup --exclude=puzzles \
-	edopro-config $ASSETS
+	edopro-config/ $ASSETS
 
 mkdir -p $ASSETS/WindBot
 curl --retry 5 --connect-timeout 30 --location --remote-header-name -o $ASSETS/WindBot/bots.json https://raw.githubusercontent.com/ProjectIgnis/windbot/master/bots.json
