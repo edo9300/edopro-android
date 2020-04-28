@@ -5,7 +5,7 @@ git:
   depth: 1
 env:
   global:
-  - MINIO_UPLOAD=$(date +%Y-%m-%d_%k-%M-$TRAVIS_COMMIT)
+  - MINIO_UPLOAD=$(date +%Y-%m-%d_%H-%M-$TRAVIS_COMMIT)
   - DEPLOY_DIR=release
   - DEPLOY_BRANCH=android
   - LIBWINDBOT_URL=https://github.com/edo9300/libWindbot/releases/download/v2/libWindbot.aar
