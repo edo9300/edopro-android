@@ -31,3 +31,4 @@ find $ASSETS/deck ! \( -name 'Starter*' -o -name 'Structure*' \) -type f -exec r
 # Unsupported for release
 rm -rf $ASSETS/config/*.json $ASSETS/config/languages/Deutsch $ASSETS/config/languages/Thai
 cp edopro-config/config/configs.prod.json $ASSETS/config/configs.json
+sed -i 's/dpi_scale = .*/dpi_scale = 2.000000/' $ASSETS/config/system.conf
