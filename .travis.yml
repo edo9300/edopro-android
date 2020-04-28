@@ -5,7 +5,7 @@ git:
   depth: 1
 env:
   global:
-  - MINIO_UPLOAD=$(date +%Y-%m-%d_%k-%M)-$TRAVIS_COMMIT
+  - MINIO_UPLOAD=$(date +%Y-%m-%d_%k-%M-$TRAVIS_COMMIT)
   - DEPLOY_DIR=release
   - DEPLOY_BRANCH=android
   - LIBWINDBOT_URL=https://github.com/edo9300/libWindbot/releases/download/v2/libWindbot.aar
@@ -28,8 +28,8 @@ script:
 - ./gradlew assemble
 before_deploy:
 - ./sign-release.sh
-- mkdir -p $MINIO_UPLOAD
-- cp release/*.apk $MINIO_UPLOAD
+- mkdir -p "$MINIO_UPLOAD"
+- cp release/*.apk "$MINIO_UPLOAD"
 deploy:
 - provider: script
   skip_cleanup: true
