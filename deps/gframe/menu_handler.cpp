@@ -13,13 +13,27 @@
 #include "utils_gui.h"
 #include "CGUIFileSelectListBox/CGUIFileSelectListBox.h"
 #include "CGUITTFont/CGUITTFont.h"
+#include <IrrlichtDevice.h>
+#include <IGUIEnvironment.h>
+#include <IGUIButton.h>
+#include <IGUICheckBox.h>
+#include <IGUIComboBox.h>
+#include <IGUIContextMenu.h>
+#include <IGUIEditBox.h>
+#include <IGUIStaticText.h>
+#include <IGUITabControl.h>
+#include <IGUITable.h>
+#include <IGUIWindow.h>
 
 namespace ygo {
 
 void UpdateDeck() {
 	gGameConfig->lastdeck = mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected());
-	char deckbuf[1024];
+	char deckbuf[0xf000];
 	char* pdeck = deckbuf;
+	const auto totsize = gdeckManager->current_deck.main.size() + gdeckManager->current_deck.extra.size() + gdeckManager->current_deck.side.size();
+	if(totsize > (sizeof(deckbuf) - 2 * sizeof(int32_t)))
+		return;
 	BufferIO::Write<int32_t>(pdeck, gdeckManager->current_deck.main.size() + gdeckManager->current_deck.extra.size());
 	BufferIO::Write<int32_t>(pdeck, gdeckManager->current_deck.side.size());
 	for(size_t i = 0; i < gdeckManager->current_deck.main.size(); ++i)
@@ -70,7 +84,7 @@ void LoadReplay() {
 	catch(...) { start_turn = 0; }
 	if(start_turn == 1)
 		start_turn = 0;
-	ReplayMode::StartReplay(start_turn, mainGame->chkYrp->isChecked());
+	ReplayMode::StartReplay(start_turn, (mainGame->chkYrp->isChecked() || replay.pheader.id == REPLAY_YRP1));
 }
 inline void TriggerEvent(irr::gui::IGUIElement* target, irr::gui::EGUI_EVENT_TYPE type) {
 	irr::SEvent event;
@@ -785,12 +799,6 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				elem->setText(string);
 				break;
 			}
-			case EDITBOX_NUMERIC: {
-				std::wstring tmp(caller->getText());
-				if(Utils::KeepOnlyDigits(tmp))
-					caller->setText(tmp.c_str());
-				break;
-			}
 			case EDITBOX_NICKNAME: {
 				auto elem = static_cast<irr::gui::IGUIEditBox*>(event.GUIEvent.Caller);
 				auto target = (elem == mainGame->ebNickNameOnline) ? mainGame->ebNickName : mainGame->ebNickNameOnline;
@@ -902,12 +910,6 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 		case irr::KEY_F5: {
 			if(!event.KeyInput.PressedDown && mainGame->wRoomListPlaceholder->isVisible())
 				ServerLobby::RefreshRooms();
-			break;
-		}
-		case irr::KEY_F12: {
-			if (!event.KeyInput.PressedDown)
-				GUIUtils::TakeScreenshot(mainGame->device);
-			return true;
 			break;
 		}
 		default: break;

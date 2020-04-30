@@ -3,7 +3,25 @@
 #ifndef __C_XMLNODE_H_INCLUDED__
 #define __C_XMLNODE_H_INCLUDED__
 
-#include <irrlicht.h>
+#include <irrArray.h>
+#include <irrString.h>
+#include <irrList.h>
+
+namespace irr {
+class IReferenceCounted;
+namespace io {
+#if IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
+template<class char_type, class super_class>
+class IIrrXMLWriter;
+typedef IIrrXMLWriter<wchar_t, IReferenceCounted> IXMLWriter;
+#else
+class IXMLWriter;
+#endif
+}
+namespace gui {
+class IGUITreeViewNode;
+}
+}
 
 enum CXMLNODETYPE {
 	CXMLNODETYPE_VALUE,

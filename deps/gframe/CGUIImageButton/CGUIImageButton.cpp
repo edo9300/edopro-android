@@ -5,10 +5,11 @@
 #include "CGUIImageButton.h"
 #ifdef _IRR_COMPILE_WITH_GUI_
 
-#include "IGUISkin.h"
-#include "IGUIEnvironment.h"
-#include "IVideoDriver.h"
-#include "IGUIFont.h"
+#include <IGUISkin.h>
+#include <IGUISpriteBank.h>
+#include <IGUIEnvironment.h>
+#include <IVideoDriver.h>
+#include <IGUIFont.h>
 #if IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
 #include "../IrrlichtCommonIncludes1.9/os.h"
 #else

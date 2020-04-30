@@ -54,6 +54,9 @@ ClientCard::ClientCard() {
 	overlayTarget = 0;
 	equipTarget = 0;
 }
+void ClientCard::UpdateDrawCoordinates(bool setTrans) {
+	mainGame->dField.GetCardDrawCoordinates(this, &curPos, &curRot, setTrans);
+}
 void ClientCard::SetCode(uint32_t code) {
 	if((location == LOCATION_HAND) && (this->code != code)) {
 		this->code = code;
@@ -118,8 +121,10 @@ void ClientCard::UpdateInfo(const CoreUtils::Query& query) {
 	}*/
 	if(query.flag & QUERY_EQUIP_CARD) {
 		ClientCard* ecard = mainGame->dField.GetCard(mainGame->LocalPlayer(query.equip_card.controler), query.equip_card.location, query.equip_card.sequence);
-		equipTarget = ecard;
-		ecard->equipped.insert(this);
+		if(ecard) {
+			equipTarget = ecard;
+			ecard->equipped.insert(this);
+		}
 	}
 	if(query.flag & QUERY_TARGET_CARD) {
 		for(auto& card : query.target_cards) {
