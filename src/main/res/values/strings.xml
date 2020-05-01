@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<string name="app_name">Project Ignis: EDOPro</string>
 	<string name="preparing_media">Preparing media&#8230;</string>
 	<string name="not_granted">Required permission wasn\'t granted, Project Ignis: EDOPro can\'t run without it</string>
 	<string name="default_path">You chose a folder in an external storage, due to some android limitations, the game path will be set to: %s</string>
