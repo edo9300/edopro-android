@@ -146,10 +146,6 @@ namespace ygo {
 #endif
 	}
 
-	static inline bool CompareIgnoreCase(path_string a, path_string b) {
-		return Utils::ToUpperNoAccents(a) < Utils::ToUpperNoAccents(b);
-	};
-
 	std::vector<path_string> Utils::FindFiles(const path_string& path, std::vector<path_string> extensions, int subdirectorylayers) {
 		std::vector<path_string> res;
 		FindFiles(path, [&res, extensions, path, subdirectorylayers](path_string name, bool isdir, void* payload) {
@@ -171,7 +167,7 @@ namespace ygo {
 				res.push_back(name);
 			}
 		});
-		std::sort(res.begin(), res.end(), CompareIgnoreCase);
+		std::sort(res.begin(), res.end(), CompareIgnoreCase<path_string>);
 		return res;
 	}
 	std::vector<path_string> Utils::FindSubfolders(const path_string& path, int subdirectorylayers, bool addparentpath) {
@@ -195,7 +191,7 @@ namespace ygo {
 				return;
 			}
 		});
-		std::sort(results.begin(), results.end(), CompareIgnoreCase);
+		std::sort(results.begin(), results.end(), CompareIgnoreCase<path_string>);
 		return results;
 	}
 	std::vector<int> Utils::FindFiles(irr::io::IFileArchive* archive, const path_string& path, std::vector<path_string> extensions, int subdirectorylayers) {
@@ -225,132 +221,6 @@ namespace ygo {
 			}
 		}
 		return nullptr;
-	}
-	std::wstring Utils::NormalizePath(std::wstring path, bool trailing_slash) {
-		std::replace(path.begin(), path.end(), L'\\', L'/');
-		std::vector<std::wstring> paths = TokenizeString<std::wstring>(path, L"/");
-		if(paths.empty())
-			return path;
-		std::wstring normalpath;
-		if(paths.front() == L".") {
-			paths.erase(paths.begin());
-			normalpath += L".";
-		}
-		for(auto it = paths.begin(); it != paths.end();) {
-			if((*it).empty()) {
-				it = paths.erase(it);
-				continue;
-			}
-			if((*it) == L".") {
-				it = paths.erase(it);
-				continue;
-			}
-			if((*it) == L".." && it != paths.begin() && (*(it - 1)) != L"..") {
-				it = paths.erase(paths.erase(it - 1, it));
-				continue;
-			}
-			it++;
-		}
-		if(!paths.empty()) {
-			if(!normalpath.empty())
-				normalpath += L"/";
-			for(auto it = paths.begin(); it != (paths.end() - 1); it++) {
-				normalpath += *it + L"/";
-			}
-			normalpath += paths.back();
-		}
-		if(trailing_slash && normalpath.back() != L'/')
-			normalpath += L"/";
-		return normalpath;
-	}
-	std::wstring Utils::GetFileExtension(std::wstring file) {
-		size_t dotpos = file.find_last_of(L".");
-		if(dotpos == std::wstring::npos)
-			return L"";
-		std::wstring extension = file.substr(dotpos + 1);
-		std::transform(extension.begin(), extension.end(), extension.begin(), ::towlower);
-		return extension;
-	}
-	std::wstring Utils::GetFilePath(std::wstring file) {
-		std::replace(file.begin(), file.end(), L'\\', L'/');
-		size_t slashpos = file.find_last_of(L'/');
-		if(slashpos == std::wstring::npos)
-			return file;
-		std::wstring extension = file.substr(0, slashpos);
-		std::transform(extension.begin(), extension.end(), extension.begin(), ::towlower);
-		return extension;
-	}
-	std::wstring Utils::GetFileName(std::wstring file) {
-		std::replace(file.begin(), file.end(), L'\\', L'/');
-		size_t dashpos = file.find_last_of(L"/");
-		if(dashpos == std::wstring::npos)
-			dashpos = 0;
-		else
-			dashpos++;
-		size_t dotpos = file.find_last_of(L".");
-		if(dotpos == std::wstring::npos)
-			dotpos = file.size();
-		std::wstring name = file.substr(dashpos, dotpos - dashpos);
-		return name;
-	}
-	std::string Utils::NormalizePath(std::string path, bool trailing_slash) {
-		std::replace(path.begin(), path.end(), '\\', '/');
-		std::vector<std::string> paths = TokenizeString<std::string>(path, "/");
-		if(paths.empty())
-			return path;
-		std::string normalpath;
-		for(auto it = paths.begin(); it != paths.end();) {
-			if((*it).empty()) {
-				it = paths.erase(it);
-				continue;
-			}
-			if((*it) == "." && it != paths.begin()) {
-				it = paths.erase(it);
-				continue;
-			}
-			if((*it) != ".." && it != paths.begin() && (it + 1) != paths.end() && (*(it + 1)) == "..") {
-				it = paths.erase(paths.erase(it));
-				continue;
-			}
-			it++;
-		}
-		for(auto it = paths.begin(); it != (paths.end() - 1); it++) {
-			normalpath += *it + "/";
-		}
-		normalpath += paths.back();
-		if(trailing_slash)
-			normalpath += "/";
-		return normalpath;
-	}
-	std::string Utils::GetFileExtension(std::string file) {
-		size_t dotpos = file.find_last_of(".");
-		if(dotpos == std::string::npos)
-			return "";
-		std::string extension = file.substr(dotpos + 1);
-		std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
-		return extension;
-	}
-	std::string Utils::GetFilePath(std::string file) {
-		std::replace(file.begin(), file.end(), '\\', '/');
-		size_t slashpos = file.find_last_of(".");
-		if(slashpos == std::string::npos)
-			return file;
-		std::string extension = file.substr(0, slashpos);
-		std::transform(extension.begin(), extension.end(), extension.begin(), ::towlower);
-		return extension;
-	}
-	std::string Utils::GetFileName(std::string file) {
-		std::replace(file.begin(), file.end(), '\\', '/');
-		size_t dashpos = file.find_last_of("/");
-		if(dashpos == std::wstring::npos)
-			dashpos = 0;
-		else
-			dashpos++;
-		size_t dotpos = file.find_last_of(".");
-		if(dotpos == std::string::npos)
-			dotpos = file.size();
-		std::string name = file.substr(dashpos, dotpos - dashpos);
-		return name;
 	}
 	path_string Utils::ToPathString(const std::wstring& input) {
 #ifdef UNICODE

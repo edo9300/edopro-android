@@ -50,7 +50,7 @@ namespace porting {
 extern android_app* app_global;
 }
 #define ADDComboBox(...) (gGameConfig->native_mouse ? env->addComboBox(__VA_ARGS__): irr::gui::CGUICustomComboBox::addCustomComboBox(env, __VA_ARGS__))
-#define MATERIAL_GUARD(f) do {mainGame->driver->enableMaterial2D(true); f; mainGame->driver->enableMaterial2D(false);} while(false);
+#define MATERIAL_GUARD(f) do {driver->enableMaterial2D(true); f; driver->enableMaterial2D(false);} while(false);
 #else
 #define ADDComboBox(...) env->addComboBox(__VA_ARGS__)
 #define MATERIAL_GUARD(f) do {f;} while(false);
@@ -96,15 +96,15 @@ bool Game::Initialize() {
 #ifndef __ANDROID__
 	device->enableDragDrop(true, [](irr::core::vector2di pos, bool isFile) ->bool {
 		if(isFile) {
-			if(ygo::mainGame->dInfo.isInDuel || ygo::mainGame->dInfo.isInLobby || ygo::mainGame->is_siding
-			   || ygo::mainGame->wRoomListPlaceholder->isVisible() || ygo::mainGame->wLanWindow->isVisible()
-			   || ygo::mainGame->wCreateHost->isVisible() || ygo::mainGame->wHostPrepare->isVisible())
+			if(mainGame->dInfo.isInDuel || mainGame->dInfo.isInLobby || mainGame->is_siding
+			   || mainGame->wRoomListPlaceholder->isVisible() || mainGame->wLanWindow->isVisible()
+			   || mainGame->wCreateHost->isVisible() || mainGame->wHostPrepare->isVisible())
 				return false;
 			else
 				return true;
 		} else {
-			auto elem = ygo::mainGame->env->getRootGUIElement()->getElementFromPoint(pos);
-			if(elem && elem != ygo::mainGame->env->getRootGUIElement()) {
+			auto elem = mainGame->env->getRootGUIElement()->getElementFromPoint(pos);
+			if(elem && elem != mainGame->env->getRootGUIElement()) {
 				if(elem->hasType(irr::gui::EGUIET_EDIT_BOX) && elem->isEnabled())
 					return true;
 				return false;
@@ -112,7 +112,7 @@ bool Game::Initialize() {
 			irr::core::position2di convpos = mainGame->Resize(pos.X, pos.Y, true);
 			auto x = convpos.X;
 			auto y = convpos.Y;
-			if(ygo::mainGame->is_building && !ygo::mainGame->is_siding) {
+			if(mainGame->is_building && !mainGame->is_siding) {
 				if(x >= 314 && x <= 794) {
 					if((y >= 164 && y <= 435) || (y >= 466 && y <= 530) || (y >= 564 && y <= 628))
 						return true;
@@ -239,27 +239,28 @@ bool Game::Initialize() {
 	wAbout->setDraggable(false);
 	wAbout->setDrawTitlebar(false);
 	wAbout->setDrawBackground(false);
-	stAbout = env->addStaticText(L"Project Ignis: EDOPro\n"
-								 L"The bleeding-edge automatic duel simulator\n"
-								 L"\n"
-								 L"Copyright (C) 2020  Edoardo Lolletti (edo9300) and others\n"
-								 L"Card scripts and other assets by Project Ignis.\n"
-								 L"Licensed under the GNU AGPLv3 or later. See LICENSE for more details.\n"
-								 L"https://github.com/edo9300/ygopro\n"
-								 L"https://github.com/edo9300/ygopro-core\n"
-								 L"Assets may be distributed under their own licenses.\n"
-								 L"\n"
-								 L"Project Ignis:\n"
-								 L"ahtelel, AlphaKretin, AndreOliveiraMendes, Cybercatman, Dragon3989, DyXel, edo9300, "
-								 L"EerieCode, Gideon, Hatter, Hel, Icematoro, kevinlul, Larry126, LogicalNonsense, "
-								 L"NaimSantos, pyrQ, Sanct, senpaizuri, Steeldarkeagel, Tungnon, WolfOfWolves, Yamato\n"
-								 L"Default background: LogicalNonsense\n"
-								 L"Default fields: Icematoro\n"
-								 L"\n"
-								 L"Forked from Fluorohydride's YGOPro, maintainers DailyShana, mercury233.\n"
-								 L"Yu-Gi-Oh! is a trademark of Shueisha and Konami.\n"
-								 L"This project is not affiliated with or endorsed by Shueisha or Konami.",
-								 Scale(10, 10, 440, 690), false, true, wAbout);
+	stAbout = irr::gui::CGUICustomText::addCustomText(L"Project Ignis: EDOPro\n"
+											L"The bleeding-edge automatic duel simulator\n"
+											L"\n"
+											L"Copyright (C) 2020  Edoardo Lolletti (edo9300) and others\n"
+											L"Card scripts and other assets by Project Ignis.\n"
+											L"Licensed under the GNU AGPLv3 or later. See LICENSE for more details.\n"
+											L"https://github.com/edo9300/ygopro\n"
+											L"https://github.com/edo9300/ygopro-core\n"
+											L"Assets may be distributed under their own licenses.\n"
+											L"\n"
+											L"Project Ignis:\n"
+											L"ahtelel, AlphaKretin, AndreOliveiraMendes, Cybercatman, Dragon3989, DyXel, edo9300, "
+											L"EerieCode, Gideon, Hatter, Hel, Icematoro, kevinlul, Larry126, LogicalNonsense, "
+											L"NaimSantos, pyrQ, Sanct, senpaizuri, Steeldarkeagel, Tungnon, WolfOfWolves, Yamato\n"
+											L"Default background: LogicalNonsense\n"
+											L"Default fields: Icematoro\n"
+											L"\n"
+											L"Forked from Fluorohydride's YGOPro, maintainers DailyShana, mercury233.\n"
+											L"Yu-Gi-Oh! is a trademark of Shueisha and Konami.\n"
+											L"This project is not affiliated with or endorsed by Shueisha or Konami.", false, env, wAbout, -1, Scale(10, 10, 440, 690));
+	((irr::gui::CGUICustomText*)stAbout)->enableScrollBar();
+	((irr::gui::CGUICustomText*)stAbout)->setWordWrap(true);
 	((irr::gui::CGUICustomContextMenu*)mAbout)->addItem(wAbout, -1);
 	wAbout->setRelativePosition(irr::core::recti(0, 0, std::min(Scale(450), stAbout->getTextWidth() + Scale(20)), std::min(stAbout->getTextHeight() + Scale(20), Scale(700))));
 	mVersion = mTopMenu->getSubMenu(mTopMenu->addItem(gDataManager->GetSysString(2040).c_str(), 3, true, true));
@@ -741,7 +742,8 @@ bool Game::Initialize() {
 	PopulateLocales();
 	gSettings.cbCurrentLocale = ADDComboBox(Scale(95, 335, 320, 360), sPanel, COMBOBOX_CURRENT_LOCALE);
 	int selectedLocale = gSettings.cbCurrentLocale->addItem(L"English");
-	for(auto& locale : locales) {
+	for(auto& _locale : locales) {
+		auto& locale = _locale.first;
 		auto itemIndex = gSettings.cbCurrentLocale->addItem(Utils::ToUnicodeIfNeeded(locale).c_str());
 		if(gGameConfig->locale == locale) {
 			selectedLocale = itemIndex;
@@ -1547,8 +1549,8 @@ bool Game::MainLoop() {
 	while(!restart && device->run()) {
 		if(should_reload_skin) {
 			should_reload_skin = false;
-			if(Utils::ToPathString(mainGame->gSettings.cbCurrentSkin->getItem(mainGame->gSettings.cbCurrentSkin->getSelected())) != gGameConfig->skin) {
-				gGameConfig->skin = Utils::ToPathString(mainGame->gSettings.cbCurrentSkin->getItem(mainGame->gSettings.cbCurrentSkin->getSelected()));
+			if(Utils::ToPathString(gSettings.cbCurrentSkin->getItem(gSettings.cbCurrentSkin->getSelected())) != gGameConfig->skin) {
+				gGameConfig->skin = Utils::ToPathString(gSettings.cbCurrentSkin->getItem(gSettings.cbCurrentSkin->getSelected()));
 				ApplySkin(gGameConfig->skin);
 			} else {
 				ApplySkin(EPRO_TEXT(""), true);
@@ -1562,9 +1564,33 @@ bool Game::MainLoop() {
 				UpdateRepoInfo(repo, grepo);
 				auto data_path = Utils::ToPathString(repo->data_path);
 				auto files = Utils::FindFiles(data_path, { EPRO_TEXT("cdb") }, 0);
-				for(auto& file : files)
-					refresh_db = gDataManager->LoadDB(data_path + file) || refresh_db;
-				gDataManager->LoadStrings(data_path + EPRO_TEXT("strings.conf"));
+				if(!repo->is_language) {
+					for(auto& file : files)
+						refresh_db = gDataManager->LoadDB(data_path + file) || refresh_db;
+					gDataManager->LoadStrings(data_path + EPRO_TEXT("strings.conf"));
+				} else {
+					if(Utils::ToUTF8IfNeeded(gGameConfig->locale) == repo->language) {
+						for(auto& file : files)
+							refresh_db = gDataManager->LoadLocaleDB(data_path + file) || refresh_db;
+						gDataManager->LoadLocaleStrings(data_path + EPRO_TEXT("strings.conf"));
+					}
+					auto langpath = Utils::ToPathString(repo->language);
+					auto lang = Utils::ToUpperNoAccents(langpath);
+					auto it = std::find_if(locales.begin(), locales.end(),
+										   [&lang]
+					(const std::pair<path_string, std::vector<path_string>>& locale)->bool
+					{
+						return Utils::ToUpperNoAccents(locale.first) == lang;
+					});
+					if(it != locales.end()) {
+						it->second.push_back(data_path);
+						ReloadElementsStrings();
+					} else {
+						Utils::MakeDirectory(EPRO_TEXT("./config/languages/") + langpath);
+						locales.emplace_back(langpath, std::vector<path_string>{ data_path });
+						gSettings.cbCurrentLocale->addItem(BufferIO::DecodeUTF8s(repo->language).c_str());
+					}
+				}
 			}
 			if(refresh_db && is_building && deckBuilder.results.size())
 				deckBuilder.StartFilter(true);
@@ -1655,15 +1681,15 @@ bool Game::MainLoop() {
 					discord.UpdatePresence(DiscordWrapper::DUEL);
 			}
 			if (showcardcode == 1 || showcardcode == 3)
-				gSoundManager->PlayBGM(SoundManager::BGM::WIN);
+				gSoundManager->PlayBGM(SoundManager::BGM::WIN, gGameConfig->loopMusic);
 			else if (showcardcode == 2)
-				gSoundManager->PlayBGM(SoundManager::BGM::LOSE);
+				gSoundManager->PlayBGM(SoundManager::BGM::LOSE, gGameConfig->loopMusic);
 			else if (dInfo.lp[0] > 0 && dInfo.lp[0] <= dInfo.lp[1] / 2)
-				gSoundManager->PlayBGM(SoundManager::BGM::DISADVANTAGE);
+				gSoundManager->PlayBGM(SoundManager::BGM::DISADVANTAGE, gGameConfig->loopMusic);
 			else if (dInfo.lp[0] > 0 && dInfo.lp[0] >= dInfo.lp[1] * 2)
-				gSoundManager->PlayBGM(SoundManager::BGM::ADVANTAGE);
+				gSoundManager->PlayBGM(SoundManager::BGM::ADVANTAGE, gGameConfig->loopMusic);
 			else
-				gSoundManager->PlayBGM(SoundManager::BGM::DUEL);
+				gSoundManager->PlayBGM(SoundManager::BGM::DUEL, gGameConfig->loopMusic);
 			MATERIAL_GUARD(
 			DrawBackImage(imageManager.tBackGround, resized);
 			DrawBackGround();
@@ -1678,7 +1704,7 @@ bool Game::MainLoop() {
 				discord.UpdatePresence(DiscordWrapper::DECK_SIDING);
 			else
 				discord.UpdatePresence(DiscordWrapper::DECK);
-			gSoundManager->PlayBGM(SoundManager::BGM::DECK);
+			gSoundManager->PlayBGM(SoundManager::BGM::DECK, gGameConfig->loopMusic);
 			DrawBackImage(imageManager.tBackGround_deck, resized);
 			MATERIAL_GUARD(DrawDeckBd());
 		} else {
@@ -1686,7 +1712,7 @@ bool Game::MainLoop() {
 				discord.UpdatePresence(DiscordWrapper::IN_LOBBY);
 			else
 				discord.UpdatePresence(DiscordWrapper::MENU);
-			gSoundManager->PlayBGM(SoundManager::BGM::MENU);
+			gSoundManager->PlayBGM(SoundManager::BGM::MENU, gGameConfig->loopMusic);
 			DrawBackImage(imageManager.tBackGround_menu, resized);
 		}
 #ifndef __ANDROID__
@@ -1953,7 +1979,7 @@ void Game::RefreshLFLists() {
 			cbDBLFList->setSelected(deckIndex);
 		}
 	}
-	deckBuilder.filterList = &gdeckManager->_lfList[mainGame->cbDBLFList->getSelected()];
+	deckBuilder.filterList = &gdeckManager->_lfList[cbDBLFList->getSelected()];
 	cbFilterBanlist->setSelected(prevFilter);
 }
 void Game::RefreshAiDecks() {
@@ -2089,6 +2115,17 @@ void Game::LoadGithubRepositories() {
 		auto grepo = AddGithubRepositoryStatusWindow(repo);
 		if(repo->ready && update_ready) {
 			UpdateRepoInfo(repo, grepo);
+			if(repo->is_language) {
+				auto lang = Utils::ToPathString(repo->language);
+				auto it = std::find_if(locales.begin(), locales.end(),
+									   [&lang]
+				(const std::pair<path_string, std::vector<path_string>>& locale)->bool {
+					return locale.first == lang;
+				});
+				if(it != locales.end()) {
+					it->second.push_back(Utils::ToPathString(repo->data_path));
+				}
+			}
 		} else {
 			update_ready = false;
 		}
@@ -2514,7 +2551,7 @@ int Game::GetMasterRule(uint32 param, uint32 forbiddentypes, int* truerule) {
 void Game::SetPhaseButtons() {
 	// reset master rule 4 phase button position
 	wPhase->setRelativePosition(Resize(480, 310, 855, 330));
-	if (mainGame->dInfo.duel_params & DUEL_3_COLUMNS_FIELD) {
+	if (dInfo.duel_params & DUEL_3_COLUMNS_FIELD) {
 		if (dInfo.duel_field >= 4) {
 			wPhase->setRelativePosition(Resize(480, 290, 855, 350));
 			btnShuffle->setRelativePosition(Resize(0, 40, 50, 60));
@@ -2598,10 +2635,10 @@ void Game::ReloadCBCardType() {
 }
 void Game::ReloadCBCardType2() {
 	cbCardType2->clear();
-	mainGame->cbCardType2->setEnabled(true);
+	cbCardType2->setEnabled(true);
 	switch (cbCardType->getSelected()) {
 	case 0:
-		mainGame->cbCardType2->setEnabled(false);
+		cbCardType2->setEnabled(false);
 		cbCardType2->addItem(gDataManager->GetSysString(1310).c_str(), 0);
 		break;
 	case 1:
@@ -2815,7 +2852,12 @@ void Game::ReloadElementsStrings() {
 	ReloadCBCurrentSkin();
 }
 void Game::OnResize() {
-	wRoomListPlaceholder->setRelativePosition(irr::core::recti(0, 0, mainGame->window_size.Width, mainGame->window_size.Height));
+	const auto waboutpos = wAbout->getAbsolutePosition();
+	stAbout->setRelativePosition(irr::core::recti(0, 0, std::min<uint32>(window_size.Width - waboutpos.UpperLeftCorner.X,
+																		 std::min<uint32>(Scale(450), stAbout->getTextWidth() + Scale(20))),
+												  std::min<uint32>(window_size.Height - waboutpos.UpperLeftCorner.Y,
+																   std::min<uint32>(stAbout->getTextHeight() + Scale(20), Scale(700)))));
+	wRoomListPlaceholder->setRelativePosition(irr::core::recti(0, 0, window_size.Width, window_size.Height));
 	wMainMenu->setRelativePosition(ResizeWin(mainMenuLeftX, 200, mainMenuRightX, 450));
 	wBtnSettings->setRelativePosition(ResizeWin(0, 610, 30, 640));
 	SetCentered(wCommitsLog);
@@ -3156,7 +3198,10 @@ void Game::PopulateResourcesDirectories() {
 }
 
 void Game::PopulateLocales() {
-	locales = Utils::FindSubfolders(EPRO_TEXT("./config/languages/"), 1, false);
+	locales.clear();
+	for(auto& locale : Utils::FindSubfolders(EPRO_TEXT("./config/languages/"), 1, false)) {
+		locales.emplace_back(locale, std::vector<path_string>());
+	}
 }
 
 void Game::ApplyLocale(int index, bool forced) {
@@ -3170,12 +3215,21 @@ void Game::ApplyLocale(int index, bool forced) {
 	gDataManager->ClearLocaleTexts();
 	if(index > 0) {
 		try {
-			gGameConfig->locale = locales[index - 1];
-			auto locale = fmt::format(EPRO_TEXT("./config/languages/{}"), locales[index - 1]);
+			gGameConfig->locale = locales[index - 1].first;
+			auto locale = fmt::format(EPRO_TEXT("./config/languages/{}"), gGameConfig->locale);
 			for(auto& file : Utils::FindFiles(locale, { EPRO_TEXT("cdb") })) {
 				gDataManager->LoadLocaleDB(fmt::format(EPRO_TEXT("{}/{}"), locale, file));
 			}
 			gDataManager->LoadLocaleStrings(fmt::format(EPRO_TEXT("{}/strings.conf"), locale));
+			auto& extra = locales[index - 1].second;
+			bool refresh_db = false;
+			for(auto& path : extra) {
+				for(auto& file : Utils::FindFiles(path, { EPRO_TEXT("cdb") }, 0))
+					refresh_db = gDataManager->LoadLocaleDB(path + file) || refresh_db;
+				gDataManager->LoadLocaleStrings(path + EPRO_TEXT("strings.conf"));
+			}
+			if(refresh_db && is_building && deckBuilder.results.size())
+				deckBuilder.StartFilter(true);
 		}
 		catch(...) {
 			return;
