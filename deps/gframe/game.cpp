@@ -9,6 +9,7 @@
 #ifdef __ANDROID__
 #include "Android/COSAndroidOperator.h"
 #endif
+#include "client_updater.h"
 #include "game_config.h"
 #include "repo_manager.h"
 #include "image_downloader.h"
@@ -56,7 +57,7 @@ extern android_app* app_global;
 #define MATERIAL_GUARD(f) do {f;} while(false);
 #endif
 
-unsigned short PRO_VERSION = 0x1350;
+unsigned short PRO_VERSION = 0x1351;
 
 namespace ygo {
 
@@ -214,7 +215,6 @@ bool Game::Initialize() {
 	HWND hWnd = reinterpret_cast<HWND>(driver->getExposedVideoData().D3D9.HWnd);
 	SendMessage(hWnd, WM_SETICON, ICON_SMALL, (long)hSmallIcon);
 	SendMessage(hWnd, WM_SETICON, ICON_BIG, (long)hBigIcon);
-	DragAcceptFiles(hWnd, TRUE);
 #endif
 	wCommitsLog = env->addWindow(Scale(0, 0, 500 + 10, 400 + 35 + 35), false, gDataManager->GetSysString(1209).c_str());
 	defaultStrings.emplace_back(wCommitsLog, 1209);
@@ -243,17 +243,20 @@ bool Game::Initialize() {
 											L"The bleeding-edge automatic duel simulator\n"
 											L"\n"
 											L"Copyright (C) 2020  Edoardo Lolletti (edo9300) and others\n"
-											L"Card scripts and other assets by Project Ignis.\n"
-											L"Licensed under the GNU AGPLv3 or later. See LICENSE for more details.\n"
-											L"https://github.com/edo9300/ygopro\n"
+											L"Card scripts and supporting resources by Project Ignis.\n"
+											L"https://github.com/edo9300/edopro\n"
 											L"https://github.com/edo9300/ygopro-core\n"
-											L"Assets may be distributed under their own licenses.\n"
+											L"https://github.com/ProjectIgnis/CardScripts\n"
+											L"https://github.com/ProjectIgnis/BabelCDB\n"
+											L"https://github.com/ProjectIgnis/windbot\n"
+                                            L"Software components licensed under the GNU AGPLv3 or later. See LICENSE for more details.\n"
+											L"Supporting resources and app icon are distributed under separate licenses in their subfolders.\n"
 											L"\n"
 											L"Project Ignis:\n"
 											L"ahtelel, AlphaKretin, AndreOliveiraMendes, Cybercatman, Dragon3989, DyXel, edo9300, "
 											L"EerieCode, Gideon, Hatter, Hel, Icematoro, kevinlul, Larry126, LogicalNonsense, "
 											L"NaimSantos, pyrQ, Sanct, senpaizuri, Steeldarkeagel, Tungnon, WolfOfWolves, Yamato\n"
-											L"Default background: LogicalNonsense\n"
+											L"Default background and icon: LogicalNonsense\n"
 											L"Default fields: Icematoro\n"
 											L"\n"
 											L"Forked from Fluorohydride's YGOPro, maintainers DailyShana, mercury233.\n"
@@ -656,48 +659,51 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(tabSettings.chkIgnoreSpectators, 1291);
 	tabSettings.chkQuickAnimation = env->addCheckBox(gGameConfig->quick_animation, Scale(20, 80, 300, 105), tabPanel, CHECKBOX_QUICK_ANIMATION, gDataManager->GetSysString(1299).c_str());
 	defaultStrings.emplace_back(tabSettings.chkQuickAnimation, 1299);
-	tabSettings.chkHideChainButtons = env->addCheckBox(gGameConfig->chkHideHintButton, Scale(20, 110, 280, 135), tabPanel, CHECKBOX_CHAIN_BUTTONS, gDataManager->GetSysString(1355).c_str());
+	tabSettings.chkAlternativePhaseLayout = env->addCheckBox(gGameConfig->alternative_phase_layout, Scale(20, 110, 300, 135), tabPanel, CHECKBOX_ALTERNATIVE_PHASE_LAYOUT, gDataManager->GetSysString(1298).c_str());
+	defaultStrings.emplace_back(tabSettings.chkAlternativePhaseLayout, 1298);
+	tabSettings.chkHideChainButtons = env->addCheckBox(gGameConfig->chkHideHintButton, Scale(20, 140, 280, 165), tabPanel, CHECKBOX_CHAIN_BUTTONS, gDataManager->GetSysString(1355).c_str());
 	defaultStrings.emplace_back(tabSettings.chkHideChainButtons, 1355);
-	tabSettings.chkAutoChainOrder = env->addCheckBox(gGameConfig->chkAutoChain, Scale(20, 140, 280, 165), tabPanel, -1, gDataManager->GetSysString(1276).c_str());
+	tabSettings.chkAutoChainOrder = env->addCheckBox(gGameConfig->chkAutoChain, Scale(20, 170, 280, 195), tabPanel, -1, gDataManager->GetSysString(1276).c_str());
 	defaultStrings.emplace_back(tabSettings.chkAutoChainOrder, 1276);
-	tabSettings.chkNoChainDelay = env->addCheckBox(gGameConfig->chkWaitChain, Scale(20, 170, 280, 195), tabPanel, -1, gDataManager->GetSysString(1277).c_str());
+	tabSettings.chkNoChainDelay = env->addCheckBox(gGameConfig->chkWaitChain, Scale(20, 200, 280, 225), tabPanel, -1, gDataManager->GetSysString(1277).c_str());
 	defaultStrings.emplace_back(tabSettings.chkNoChainDelay, 1277);
 	// audio
-	tabSettings.chkEnableSound = env->addCheckBox(gGameConfig->enablesound, Scale(20, 200, 280, 225), tabPanel, CHECKBOX_ENABLE_SOUND, gDataManager->GetSysString(2047).c_str());
+	tabSettings.chkEnableSound = env->addCheckBox(gGameConfig->enablesound, Scale(20, 230, 280, 255), tabPanel, CHECKBOX_ENABLE_SOUND, gDataManager->GetSysString(2047).c_str());
 	defaultStrings.emplace_back(tabSettings.chkEnableSound, 2047);
-	tabSettings.stSoundVolume = env->addStaticText(gDataManager->GetSysString(2049).c_str(), Scale(20, 230, 80, 255), false, true, tabPanel);
+	tabSettings.stSoundVolume = env->addStaticText(gDataManager->GetSysString(2049).c_str(), Scale(20, 260, 80, 285), false, true, tabPanel);
 	defaultStrings.emplace_back(tabSettings.stSoundVolume, 2049);
-	tabSettings.scrSoundVolume = env->addScrollBar(true, Scale(85, 235, 280, 250), tabPanel, SCROLL_SOUND_VOLUME);
+	tabSettings.scrSoundVolume = env->addScrollBar(true, Scale(85, 265, 280, 280), tabPanel, SCROLL_SOUND_VOLUME);
 	tabSettings.scrSoundVolume->setMax(100);
 	tabSettings.scrSoundVolume->setMin(0);
 	tabSettings.scrSoundVolume->setPos(gGameConfig->soundVolume);
 	tabSettings.scrSoundVolume->setLargeStep(1);
 	tabSettings.scrSoundVolume->setSmallStep(1);
-	tabSettings.chkEnableMusic = env->addCheckBox(gGameConfig->enablemusic, Scale(20, 260, 280, 285), tabPanel, CHECKBOX_ENABLE_MUSIC, gDataManager->GetSysString(2046).c_str());
+	tabSettings.chkEnableMusic = env->addCheckBox(gGameConfig->enablemusic, Scale(20, 290, 280, 315), tabPanel, CHECKBOX_ENABLE_MUSIC, gDataManager->GetSysString(2046).c_str());
 	defaultStrings.emplace_back(tabSettings.chkEnableMusic, 2046);
-	tabSettings.stMusicVolume = env->addStaticText(gDataManager->GetSysString(2048).c_str(), Scale(20, 290, 80, 315), false, true, tabPanel);
+	tabSettings.stMusicVolume = env->addStaticText(gDataManager->GetSysString(2048).c_str(), Scale(20, 320, 80, 345), false, true, tabPanel);
 	defaultStrings.emplace_back(tabSettings.stMusicVolume, 2048);
-	tabSettings.scrMusicVolume = env->addScrollBar(true, Scale(85, 295, 280, 310), tabPanel, SCROLL_MUSIC_VOLUME);
+	tabSettings.scrMusicVolume = env->addScrollBar(true, Scale(85, 325, 280, 340), tabPanel, SCROLL_MUSIC_VOLUME);
 	tabSettings.scrMusicVolume->setMax(100);
 	tabSettings.scrMusicVolume->setMin(0);
 	tabSettings.scrMusicVolume->setPos(gGameConfig->musicVolume);
 	tabSettings.scrMusicVolume->setLargeStep(1);
 	tabSettings.scrMusicVolume->setSmallStep(1);
-	tabSettings.stNoAudioBackend = env->addStaticText(gDataManager->GetSysString(2058).c_str(), Scale(20, 200, 280, 315), false, true, tabPanel);
+	tabSettings.stNoAudioBackend = env->addStaticText(gDataManager->GetSysString(2058).c_str(), Scale(20, 230, 280, 345), false, true, tabPanel);
 	defaultStrings.emplace_back(tabSettings.stNoAudioBackend, 2058);
 	tabSettings.stNoAudioBackend->setVisible(false);
 	// end audio
-	tabSettings.chkMAutoPos = env->addCheckBox(gGameConfig->chkMAutoPos, Scale(20, 320, 280, 345), tabPanel, -1, gDataManager->GetSysString(1274).c_str());
+	tabSettings.chkMAutoPos = env->addCheckBox(gGameConfig->chkMAutoPos, Scale(20, 350, 280, 375), tabPanel, -1, gDataManager->GetSysString(1274).c_str());
 	defaultStrings.emplace_back(tabSettings.chkMAutoPos, 1274);
-	tabSettings.chkSTAutoPos = env->addCheckBox(gGameConfig->chkSTAutoPos, Scale(20, 350, 280, 375), tabPanel, -1, gDataManager->GetSysString(1278).c_str());
+	tabSettings.chkSTAutoPos = env->addCheckBox(gGameConfig->chkSTAutoPos, Scale(20, 380, 280, 405), tabPanel, -1, gDataManager->GetSysString(1278).c_str());
 	defaultStrings.emplace_back(tabSettings.chkSTAutoPos, 1278);
-	tabSettings.chkRandomPos = env->addCheckBox(gGameConfig->chkRandomPos, Scale(40, 380, 280, 405), tabPanel, -1, gDataManager->GetSysString(1275).c_str());
+	tabSettings.chkRandomPos = env->addCheckBox(gGameConfig->chkRandomPos, Scale(40, 410, 280, 435), tabPanel, -1, gDataManager->GetSysString(1275).c_str());
 	defaultStrings.emplace_back(tabSettings.chkRandomPos, 1275);
-	btnTabShowSettings = env->addButton(Scale(20, 410, 280, 435), tabPanel, BUTTON_SHOW_SETTINGS, gDataManager->GetSysString(2059).c_str());
+	// Check OnResize for button placement information
+	btnTabShowSettings = env->addButton(Scale(20, 445, 280, 470), tabPanel, BUTTON_SHOW_SETTINGS, gDataManager->GetSysString(2059).c_str());
 	defaultStrings.emplace_back(btnTabShowSettings, 2059);
-	/* padding = */ env->addStaticText(L"", Scale(20, 440, 280, 450), false, true, tabPanel, -1, false);
+	/* padding = */ env->addStaticText(L"", Scale(20, 475, 280, 485), false, true, tabPanel, -1, false);
 
-	gSettings.window = env->addWindow(Scale(180, 90, 840, 530), false, gDataManager->GetSysString(1273).c_str());
+	gSettings.window = env->addWindow(Scale(180, 85, 840, 535), false, gDataManager->GetSysString(1273).c_str());
 	defaultStrings.emplace_back(gSettings.window, 1273);
 	gSettings.window->setVisible(false);
 	auto sRect = gSettings.window->getClientRect();
@@ -806,11 +812,17 @@ bool Game::Initialize() {
 	gSettings.stNoAudioBackend = env->addStaticText(gDataManager->GetSysString(2058).c_str(), Scale(340, 215, 645, 330), false, true, sPanel);
 	defaultStrings.emplace_back(gSettings.stNoAudioBackend, 2058);
 	gSettings.stNoAudioBackend->setVisible(false);
+	// end audio
+#ifdef DISCORD_APP_ID
 	gSettings.chkDiscordIntegration = env->addCheckBox(gGameConfig->discordIntegration, Scale(340, 335, 645, 360), sPanel, CHECKBOX_DISCORD_INTEGRATION, gDataManager->GetSysString(2078).c_str());
 	defaultStrings.emplace_back(gSettings.chkDiscordIntegration, 2078);
+#endif
 	gSettings.chkHideHandsInReplays = env->addCheckBox(gGameConfig->hideHandsInReplays, Scale(340, 365, 645, 390), sPanel, CHECKBOX_HIDE_HANDS_REPLAY, gDataManager->GetSysString(2080).c_str());
 	defaultStrings.emplace_back(gSettings.chkHideHandsInReplays, 2080);
-	// end audio
+#ifdef UPDATE_URL
+	gSettings.chkUpdates = env->addCheckBox(gGameConfig->noClientUpdates, Scale(340, 395, 645, 420), sPanel, -1, gDataManager->GetSysString(1466).c_str());
+	defaultStrings.emplace_back(gSettings.chkUpdates, 1466);
+#endif
 
 	wBtnSettings = env->addWindow(Scale(0, 610, 30, 640));
 	wBtnSettings->getCloseButton()->setVisible(false);
@@ -1473,6 +1485,22 @@ bool Game::Initialize() {
 #else
 	fpsCounter->setTextAlignment(irr::gui::EGUIA_UPPERLEFT, irr::gui::EGUIA_LOWERRIGHT);
 #endif
+	//update window
+	updateWindow = env->addWindow(Scale(490, 200, 840, 340), true, L"");
+	updateWindow->getCloseButton()->setVisible(false);
+	updateWindow->setVisible(false);
+	updateProgressText = env->addStaticText(L"", Scale(5, 5, 345, 90), false, true, updateWindow);
+	updateProgressTop = new IProgressBar(env, Scale(5, 60, 335, 85), -1, updateWindow);
+	updateProgressTop->addBorder(1);
+	updateProgressTop->setProgress(0);
+	updateProgressTop->setVisible(false);
+	updateProgressTop->drop();
+	updateSubprogressText = env->addStaticText(L"", Scale(5, 90, 345, 110), false, true, updateWindow);
+	updateProgressBottom = new IProgressBar(env, Scale(5, 115, 335, 130), -1, updateWindow);
+	updateProgressBottom->addBorder(1);
+	updateProgressBottom->setProgress(0);
+	updateProgressBottom->drop();
+
 	hideChat = false;
 	hideChatTimer = 0;
 	delta_time = 0;
@@ -1510,6 +1538,8 @@ bool Game::MainLoop() {
 	float frame_counter = 0.0f;
 	int fps = 0;
 	bool was_connected = false;
+	bool update_prompted = false;
+	bool unzip_started = false;
 #ifdef __ANDROID__
 	ogles2Solid = 0;
 	ogles2TrasparentAlpha = 0;
@@ -1779,6 +1809,21 @@ bool Game::MainLoop() {
 			stACMessage->setText(gDataManager->GetSysString(1438).c_str());
 			PopupElement(wACMessage, 30);
 		}
+		if(!update_prompted && !(dInfo.isInDuel || dInfo.isInLobby || is_siding
+			|| wRoomListPlaceholder->isVisible() || wLanWindow->isVisible()
+			|| wCreateHost->isVisible() || wHostPrepare->isVisible()) && gClientUpdater->HasUpdate()) {
+			gMutex.lock();
+			menuHandler.prev_operation = ACTION_UPDATE_PROMPT;
+			stQMessage->setText(fmt::format(L"{}\n{}", gDataManager->GetSysString(1460), gDataManager->GetSysString(1461)).c_str());
+			SetCentered(wQuery);
+			PopupElement(wQuery);
+			gMutex.unlock();
+			update_prompted = true;
+		}
+		if(!unzip_started && gClientUpdater->UpdateDownloaded()) {
+			unzip_started = true;
+			gClientUpdater->StartUnzipper(Game::UpdateUnzipBar, mainGame);
+		}
 #ifndef __ANDROID__
 #ifdef __APPLE__
 		// Recent versions of macOS break OpenGL vsync while offscreen, resulting in
@@ -1875,6 +1920,8 @@ bool Game::ApplySkin(const path_string& skinname, bool reload, bool firstrun) {
 			repo.second.progress1->setColors(skin::PROGRESSBAR_FILL_COLOR_VAL, skin::PROGRESSBAR_EMPTY_COLOR_VAL);
 			repo.second.progress2->setColors(skin::PROGRESSBAR_FILL_COLOR_VAL, skin::PROGRESSBAR_EMPTY_COLOR_VAL);
 		}
+		updateProgressTop->setColors(skin::PROGRESSBAR_FILL_COLOR_VAL, skin::PROGRESSBAR_EMPTY_COLOR_VAL);
+		updateProgressBottom->setColors(skin::PROGRESSBAR_FILL_COLOR_VAL, skin::PROGRESSBAR_EMPTY_COLOR_VAL);
 		btnPSAD->setImage(imageManager.tCover[0]);
 		btnPSDD->setImage(imageManager.tCover[0]);
 		btnSettings->setImage(imageManager.tSettings);
@@ -2073,6 +2120,9 @@ void Game::SaveConfig() {
 	gGameConfig->chkIgnore2 = tabSettings.chkIgnoreSpectators->isChecked();
 	gGameConfig->chkHideHintButton = tabSettings.chkHideChainButtons->isChecked();
 	gGameConfig->chkAnime = chkAnime->isChecked();
+#ifdef UPDATE_URL
+	gGameConfig->noClientUpdates = gSettings.chkUpdates->isChecked();
+#endif
 	gGameConfig->Save(EPRO_TEXT("./config/system.conf"));
 }
 Game::RepoGui* Game::AddGithubRepositoryStatusWindow(const GitRepo* repo) {
@@ -2549,42 +2599,56 @@ int Game::GetMasterRule(uint32 param, uint32 forbiddentypes, int* truerule) {
 		return 2;
 }
 void Game::SetPhaseButtons() {
-	// reset master rule 4 phase button position
-	wPhase->setRelativePosition(Resize(480, 310, 855, 330));
-	if (dInfo.duel_params & DUEL_3_COLUMNS_FIELD) {
-		if (dInfo.duel_field >= 4) {
-			wPhase->setRelativePosition(Resize(480, 290, 855, 350));
-			btnShuffle->setRelativePosition(Resize(0, 40, 50, 60));
-			btnDP->setRelativePosition(Resize(0, 40, 50, 60));
-			btnSP->setRelativePosition(Resize(0, 40, 50, 60));
-			btnM1->setRelativePosition(Resize(160, 20, 210, 40));
-			btnBP->setRelativePosition(Resize(160, 20, 210, 40));
-			btnM2->setRelativePosition(Resize(160, 20, 210, 40));
-			btnEP->setRelativePosition(Resize(310, 0, 360, 20));
-		} else {
-			btnShuffle->setRelativePosition(Resize(65, 0, 115, 20));
-			btnDP->setRelativePosition(Resize(65, 0, 115, 20));
-			btnSP->setRelativePosition(Resize(65, 0, 115, 20));
-			btnM1->setRelativePosition(Resize(130, 0, 180, 20));
-			btnBP->setRelativePosition(Resize(195, 0, 245, 20));
-			btnM2->setRelativePosition(Resize(260, 0, 310, 20));
-			btnEP->setRelativePosition(Resize(260, 0, 310, 20));
-		}
-	} else {
+	if (gui_alternative_phase_layout) {
+		wPhase->setRelativePosition(Resize(940, 80, 990, 340));
 		btnDP->setRelativePosition(Resize(0, 0, 50, 20));
-		if (dInfo.duel_field >= 4) {
-			btnSP->setRelativePosition(Resize(0, 0, 50, 20));
-			btnM1->setRelativePosition(Resize(160, 0, 210, 20));
-			btnBP->setRelativePosition(Resize(160, 0, 210, 20));
-			btnM2->setRelativePosition(Resize(160, 0, 210, 20));
-		} else {
-			btnSP->setRelativePosition(Resize(65, 0, 115, 20));
-			btnM1->setRelativePosition(Resize(130, 0, 180, 20));
-			btnBP->setRelativePosition(Resize(195, 0, 245, 20));
-			btnM2->setRelativePosition(Resize(260, 0, 310, 20));
+		btnSP->setRelativePosition(Resize(0, 40, 50, 60));
+		btnM1->setRelativePosition(Resize(0, 80, 50, 100));
+		btnBP->setRelativePosition(Resize(0, 120, 50, 140));
+		btnM2->setRelativePosition(Resize(0, 160, 50, 180));
+		btnEP->setRelativePosition(Resize(0, 200, 50, 220));
+		btnShuffle->setRelativePosition(Resize(0, 240, 50, 260));
+	}
+	else {
+		// reset master rule 4 phase button position
+		if (dInfo.duel_params & DUEL_3_COLUMNS_FIELD) {
+			if (dInfo.duel_field >= 4) {
+				wPhase->setRelativePosition(Resize(480, 290, 855, 350));
+				btnShuffle->setRelativePosition(Resize(0, 40, 50, 60));
+				btnDP->setRelativePosition(Resize(0, 40, 50, 60));
+				btnSP->setRelativePosition(Resize(0, 40, 50, 60));
+				btnM1->setRelativePosition(Resize(160, 20, 210, 40));
+				btnBP->setRelativePosition(Resize(160, 20, 210, 40));
+				btnM2->setRelativePosition(Resize(160, 20, 210, 40));
+				btnEP->setRelativePosition(Resize(310, 0, 360, 20));
+			}
+			else {
+				btnShuffle->setRelativePosition(Resize(65, 0, 115, 20));
+				btnDP->setRelativePosition(Resize(65, 0, 115, 20));
+				btnSP->setRelativePosition(Resize(65, 0, 115, 20));
+				btnM1->setRelativePosition(Resize(130, 0, 180, 20));
+				btnBP->setRelativePosition(Resize(195, 0, 245, 20));
+				btnM2->setRelativePosition(Resize(260, 0, 310, 20));
+				btnEP->setRelativePosition(Resize(260, 0, 310, 20));
+			}
 		}
-		btnEP->setRelativePosition(Resize(320, 0, 370, 20));
-		btnShuffle->setRelativePosition(Resize(0, 0, 50, 20));
+		else {
+			wPhase->setRelativePosition(Resize(480, 310, 855, 330));
+			btnDP->setRelativePosition(Resize(0, 0, 50, 20));
+			if (dInfo.duel_field >= 4) {
+				btnSP->setRelativePosition(Resize(0, 0, 50, 20));
+				btnM1->setRelativePosition(Resize(160, 0, 210, 20));
+				btnBP->setRelativePosition(Resize(160, 0, 210, 20));
+				btnM2->setRelativePosition(Resize(160, 0, 210, 20));
+			} else {
+				btnSP->setRelativePosition(Resize(65, 0, 115, 20));
+				btnM1->setRelativePosition(Resize(130, 0, 180, 20));
+				btnBP->setRelativePosition(Resize(195, 0, 245, 20));
+				btnM2->setRelativePosition(Resize(260, 0, 310, 20));
+			}
+			btnEP->setRelativePosition(Resize(320, 0, 370, 20));
+			btnShuffle->setRelativePosition(Resize(0, 0, 50, 20));
+		}
 	}
 }
 void Game::SetMessageWindow() {
@@ -2853,14 +2917,15 @@ void Game::ReloadElementsStrings() {
 }
 void Game::OnResize() {
 	const auto waboutpos = wAbout->getAbsolutePosition();
-	stAbout->setRelativePosition(irr::core::recti(0, 0, std::min<uint32>(window_size.Width - waboutpos.UpperLeftCorner.X,
-																		 std::min<uint32>(Scale(450), stAbout->getTextWidth() + Scale(20))),
+	stAbout->setRelativePosition(irr::core::recti(10, 10, std::min<uint32>(window_size.Width - waboutpos.UpperLeftCorner.X,
+																		 std::min<uint32>(Scale(440), stAbout->getTextWidth() + Scale(10))),
 												  std::min<uint32>(window_size.Height - waboutpos.UpperLeftCorner.Y,
-																   std::min<uint32>(stAbout->getTextHeight() + Scale(20), Scale(700)))));
+																   std::min<uint32>(stAbout->getTextHeight() + Scale(10), Scale(690)))));
 	wRoomListPlaceholder->setRelativePosition(irr::core::recti(0, 0, window_size.Width, window_size.Height));
 	wMainMenu->setRelativePosition(ResizeWin(mainMenuLeftX, 200, mainMenuRightX, 450));
 	wBtnSettings->setRelativePosition(ResizeWin(0, 610, 30, 640));
 	SetCentered(wCommitsLog);
+	SetCentered(updateWindow);
 	wDeckEdit->setRelativePosition(Resize(309, 8, 605, 130));
 	cbDBLFList->setRelativePosition(Resize(80, 5, 220, 30));
 	cbDBDecks->setRelativePosition(Resize(80, 35, 220, 60));
@@ -2979,9 +3044,9 @@ void Game::OnResize() {
 
 	auto tabsystemParentPos = tabSystem->getParent()->getAbsolutePosition();
 	tabSystem->setRelativePosition(irr::core::recti(0, 0, tabsystemParentPos.getWidth(), tabsystemParentPos.getHeight()));
-	tabSettings.scrSoundVolume->setRelativePosition(irr::core::recti(Scale(85), Scale(235), std::min(tabSystem->getSubpanel()->getRelativePosition().getWidth() - 21, Scale(300)), Scale(250)));
-	tabSettings.scrMusicVolume->setRelativePosition(irr::core::recti(Scale(85), Scale(295), std::min(tabSystem->getSubpanel()->getRelativePosition().getWidth() - 21, Scale(300)), Scale(310)));
-	btnTabShowSettings->setRelativePosition(irr::core::recti(Scale(20), Scale(415), std::min(tabSystem->getSubpanel()->getRelativePosition().getWidth() - 21, Scale(300)), Scale(435)));
+	tabSettings.scrSoundVolume->setRelativePosition(irr::core::recti(Scale(85), Scale(265), std::min(tabSystem->getSubpanel()->getRelativePosition().getWidth() - 21, Scale(300)), Scale(280)));
+	tabSettings.scrMusicVolume->setRelativePosition(irr::core::recti(Scale(85), Scale(325), std::min(tabSystem->getSubpanel()->getRelativePosition().getWidth() - 21, Scale(300)), Scale(340)));
+	btnTabShowSettings->setRelativePosition(irr::core::recti(Scale(20), Scale(445), std::min(tabSystem->getSubpanel()->getRelativePosition().getWidth() - 21, Scale(300)), Scale(470)));
 
 	SetCentered(gSettings.window);
 
@@ -3177,6 +3242,35 @@ void Game::MessageHandler(void* payload, const char* string, int type) {
 		if(type > 1)
 			std::cout << str << std::endl;
 	}
+}
+void Game::UpdateDownloadBar(int percentage, int cur, int tot, const char* filename, bool is_new, void* payload) {
+	Game* game = static_cast<Game*>(payload);
+	std::lock_guard<std::mutex> lk(game->gMutex);
+	game->updateProgressBottom->setProgress(percentage);
+	if(is_new)
+		game->updateProgressText->setText(
+			fmt::format(L"{}\n{}",
+				fmt::format(gDataManager->GetSysString(1462), BufferIO::DecodeUTF8s(filename)),
+				fmt::format(gDataManager->GetSysString(1464), cur, tot)
+			).c_str());
+}
+void Game::UpdateUnzipBar(unzip_payload* payload) {
+	UnzipperPayload* unzipper = static_cast<UnzipperPayload*>(payload->payload);
+	Game* game = static_cast<Game*>(unzipper->payload);
+	std::lock_guard<std::mutex> lk(game->gMutex);
+	// current archive
+	if(payload->is_new) {
+		game->updateProgressText->setText(
+			fmt::format(L"{}\n{}",
+				fmt::format(gDataManager->GetSysString(1463), Utils::ToUnicodeIfNeeded(unzipper->filename)),
+				fmt::format(gDataManager->GetSysString(1464), unzipper->cur, unzipper->tot)
+			).c_str());
+		game->updateProgressTop->setVisible(true);
+		game->updateSubprogressText->setText(fmt::format(gDataManager->GetSysString(1465), Utils::ToUnicodeIfNeeded(payload->filename)).c_str());
+	}
+	game->updateProgressTop->setProgress(std::round((double)payload->cur / (double)payload->tot * 100));
+	// current file in archive
+	game->updateProgressBottom->setProgress(payload->percentage);
 }
 void Game::PopulateResourcesDirectories() {
 	script_dirs.push_back(EPRO_TEXT("./expansions/script/"));

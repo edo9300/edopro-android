@@ -1,4 +1,5 @@
 #include <fmt/chrono.h>
+#include "client_updater.h"
 #include "game_config.h"
 #include "config.h"
 #include "menu_handler.h"
@@ -107,7 +108,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 		int id = caller->getID();
 		if(mainGame->wRules->isVisible() && (id != BUTTON_RULE_OK && id != CHECKBOX_EXTRA_RULE && id != COMBOBOX_DUEL_RULE))
 			break;
-		if(mainGame->wMessage->isVisible() && id != BUTTON_MSG_OK)
+		if(mainGame->wMessage->isVisible() && id != BUTTON_MSG_OK && prev_operation != ACTION_UPDATE_PROMPT)
 			break;
 		if(mainGame->wCustomRulesR->isVisible() && id != BUTTON_CUSTOM_RULE_OK && ((id < CHECKBOX_OBSOLETE || id > INVERTED_PRIORITY) && id != COMBOBOX_DUEL_RULE))
 			break;
@@ -545,12 +546,18 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 						mainGame->stReplayInfo->setText(L"");
 						mainGame->lstReplayList->refreshList();
 					}
+				} else if(prev_operation == ACTION_UPDATE_PROMPT) {
+					gClientUpdater->StartUpdate(Game::UpdateDownloadBar, mainGame);
+					mainGame->PopupElement(mainGame->updateWindow);
 				}
 				prev_operation = 0;
 				prev_sel = -1;
 				break;
 			}
 			case BUTTON_NO: {
+				if (prev_operation == ACTION_UPDATE_PROMPT) {
+					mainGame->wQuery->setRelativePosition(mainGame->ResizeWin(490, 200, 840, 340)); // from Game::OnResize
+				}
 				mainGame->HideElement(mainGame->wQuery);
 				prev_operation = 0;
 				prev_sel = -1;

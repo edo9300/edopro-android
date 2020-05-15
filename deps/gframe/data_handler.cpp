@@ -32,7 +32,8 @@ void DataHandler::LoadArchivesDB() {
 			buffer.resize(reader->getSize());
 			reader->read(buffer.data(), buffer.size());
 			reader->drop();
-			dataManager->LoadDBFromBuffer(buffer);
+			std::string filename(irr::core::stringc(reader->getFileName()).c_str()); //the zip loader stores the names as utf8
+			dataManager->LoadDBFromBuffer(buffer, filename);
 		}
 	}
 }
@@ -104,6 +105,7 @@ DataHandler::DataHandler() {
 	}
 #endif
 	filesystem = new irr::io::CFileSystem();
+	Utils::filesystem = filesystem;
 	LoadZipArchives();
 	deckManager = std::unique_ptr<DeckManager>(new DeckManager());
 	gitManager = std::unique_ptr<RepoManager>(new RepoManager());
