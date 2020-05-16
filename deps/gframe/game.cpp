@@ -1,19 +1,11 @@
 #include <sstream>
 #include <fstream>
-#include <iostream>
 #include <nlohmann/json.hpp>
-#ifndef _WIN32
-#include <sys/types.h>
-#include <dirent.h>
-#endif
-#ifdef __ANDROID__
-#include "Android/COSAndroidOperator.h"
-#endif
+#include <irrlicht.h>
 #include "client_updater.h"
 #include "game_config.h"
 #include "repo_manager.h"
 #include "image_downloader.h"
-#include <irrlicht.h>
 #include "config.h"
 #include "game.h"
 #include "server_lobby.h"
@@ -45,6 +37,7 @@
 #include "custom_skin_enum.h"
 
 #ifdef __ANDROID__
+#include "Android/COSAndroidOperator.h"
 #include "CGUICustomComboBox/CGUICustomComboBox.h"
 class android_app;
 namespace porting {
@@ -2598,8 +2591,8 @@ int Game::GetMasterRule(uint32 param, uint32 forbiddentypes, int* truerule) {
 	else
 		return 2;
 }
-void Game::SetPhaseButtons() {
-	if (gui_alternative_phase_layout) {
+void Game::SetPhaseButtons(bool visibility) {
+	if(gGameConfig->alternative_phase_layout) {
 		wPhase->setRelativePosition(Resize(940, 80, 990, 340));
 		btnDP->setRelativePosition(Resize(0, 0, 50, 20));
 		btnSP->setRelativePosition(Resize(0, 40, 50, 60));
@@ -2608,11 +2601,11 @@ void Game::SetPhaseButtons() {
 		btnM2->setRelativePosition(Resize(0, 160, 50, 180));
 		btnEP->setRelativePosition(Resize(0, 200, 50, 220));
 		btnShuffle->setRelativePosition(Resize(0, 240, 50, 260));
-	}
-	else {
+	} else {
 		// reset master rule 4 phase button position
-		if (dInfo.duel_params & DUEL_3_COLUMNS_FIELD) {
-			if (dInfo.duel_field >= 4) {
+		wPhase->setRelativePosition(Resize(480, 310, 855, 330));
+		if(dInfo.duel_params & DUEL_3_COLUMNS_FIELD) {
+			if(dInfo.duel_field >= 4) {
 				wPhase->setRelativePosition(Resize(480, 290, 855, 350));
 				btnShuffle->setRelativePosition(Resize(0, 40, 50, 60));
 				btnDP->setRelativePosition(Resize(0, 40, 50, 60));
@@ -2621,8 +2614,7 @@ void Game::SetPhaseButtons() {
 				btnBP->setRelativePosition(Resize(160, 20, 210, 40));
 				btnM2->setRelativePosition(Resize(160, 20, 210, 40));
 				btnEP->setRelativePosition(Resize(310, 0, 360, 20));
-			}
-			else {
+			} else {
 				btnShuffle->setRelativePosition(Resize(65, 0, 115, 20));
 				btnDP->setRelativePosition(Resize(65, 0, 115, 20));
 				btnSP->setRelativePosition(Resize(65, 0, 115, 20));
@@ -2631,11 +2623,9 @@ void Game::SetPhaseButtons() {
 				btnM2->setRelativePosition(Resize(260, 0, 310, 20));
 				btnEP->setRelativePosition(Resize(260, 0, 310, 20));
 			}
-		}
-		else {
-			wPhase->setRelativePosition(Resize(480, 310, 855, 330));
+		} else {
 			btnDP->setRelativePosition(Resize(0, 0, 50, 20));
-			if (dInfo.duel_field >= 4) {
+			if(dInfo.duel_field >= 4) {
 				btnSP->setRelativePosition(Resize(0, 0, 50, 20));
 				btnM1->setRelativePosition(Resize(160, 0, 210, 20));
 				btnBP->setRelativePosition(Resize(160, 0, 210, 20));
@@ -2649,6 +2639,14 @@ void Game::SetPhaseButtons() {
 			btnEP->setRelativePosition(Resize(320, 0, 370, 20));
 			btnShuffle->setRelativePosition(Resize(0, 0, 50, 20));
 		}
+	}
+	if(visibility) {
+		btnDP->setVisible(gGameConfig->alternative_phase_layout || btnDP->isSubElement());
+		btnSP->setVisible(gGameConfig->alternative_phase_layout || btnSP->isSubElement());
+		btnM1->setVisible(gGameConfig->alternative_phase_layout || btnM1->isSubElement());
+		btnM2->setVisible(gGameConfig->alternative_phase_layout || btnM2->isSubElement());
+		btnBP->setVisible(gGameConfig->alternative_phase_layout || btnBP->isSubElement());
+		btnEP->setVisible(gGameConfig->alternative_phase_layout || btnEP->isSubElement());
 	}
 }
 void Game::SetMessageWindow() {
@@ -3240,7 +3238,7 @@ void Game::MessageHandler(void* payload, const char* string, int type) {
 			str = str.substr(0, pos);
 		game->AddDebugMsg(str);
 		if(type > 1)
-			std::cout << str << std::endl;
+			fmt::print("{}\n", str);
 	}
 }
 void Game::UpdateDownloadBar(int percentage, int cur, int tot, const char* filename, bool is_new, void* payload) {
