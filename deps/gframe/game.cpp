@@ -1544,6 +1544,8 @@ bool Game::MainLoop() {
 	matManager.mTexture.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2TrasparentAlpha;
 	matManager.mBackLine.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2BlendTexture;
 	matManager.mSelField.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2BlendTexture;
+	matManager.mLinkedField.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2BlendTexture;
+	matManager.mMutualLinkedField.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2BlendTexture;
 	matManager.mOutLine.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2Solid;
 	matManager.mTRTexture.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2TrasparentAlpha;
 	matManager.mATK.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2BlendTexture;
@@ -1556,6 +1558,10 @@ bool Game::MainLoop() {
 		matManager.mBackLine.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
 		matManager.mSelField.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
 		matManager.mSelField.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
+		matManager.mLinkedField.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
+		matManager.mLinkedField.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
+		matManager.mMutualLinkedField.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
+		matManager.mMutualLinkedField.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
 		matManager.mOutLine.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
 		matManager.mOutLine.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
 		matManager.mTRTexture.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
@@ -1812,6 +1818,14 @@ bool Game::MainLoop() {
 			PopupElement(wQuery);
 			gMutex.unlock();
 			update_prompted = true;
+		} else if (show_changelog) {
+			gMutex.lock();
+			menuHandler.prev_operation = ACTION_SHOW_CHANGELOG;
+			stQMessage->setText(gDataManager->GetSysString(1443).c_str());
+			SetCentered(wQuery);
+			PopupElement(wQuery);
+			gMutex.unlock();
+			show_changelog = false;
 		}
 		if(!unzip_started && gClientUpdater->UpdateDownloaded()) {
 			unzip_started = true;
