@@ -27,8 +27,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static android.content.Intent.URI_INTENT_SCHEME;
-
 public class MainActivity extends Activity {
 
 	private final static int PERMISSIONS = 1;
@@ -39,20 +37,38 @@ public class MainActivity extends Activity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-
-		Uri data = getIntent().getData();
+		Intent intent = getIntent();
+		if (!isTaskRoot()){
+			if(intent.hasCategory(Intent.CATEGORY_LAUNCHER)
+				&& intent.getAction() != null
+				&& intent.getAction().equals(Intent.ACTION_MAIN)) {
+				finish();
+				return;
+			}
+		}
 		parameter = new ArrayList<String>();
-		if(data!=null) {
-			getIntent().setData(null);
-			try {
-				Log.e("Edopro", data.getPath());
-				String path = FileUtil.getFullPathFromTreeUri(data,this);
-				parameter.add(path);
-				Log.e("Edopro", "parsed path: " + parameter);
-			} catch (Exception e) {
-				String path = data.getPath();
-				parameter.add(path);
-				Log.e("Edopro", "It was already a path: " + data.getPath());
+		if(intent.getAction() != null
+			&& intent.getAction().equals(Intent.ACTION_VIEW)){
+			Log.e("Edopro open file", "aa");
+			if(!isTaskRoot()){
+				Log.e("Edopro open file", "bb");
+				/* TODO: Send drop event */
+				finish();
+				return;
+			}
+			Uri data = intent.getData();
+			if(data!=null) {
+				intent.setData(null);
+				try {
+					Log.e("Edopro", data.getPath());
+					String path = FileUtil.getFullPathFromTreeUri(data,this);
+					parameter.add(path);
+					Log.e("Edopro", "parsed path: " + parameter);
+				} catch (Exception e) {
+					String path = data.getPath();
+					parameter.add(path);
+					Log.e("Edopro", "It was already a path: " + data.getPath());
+				}
 			}
 		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
