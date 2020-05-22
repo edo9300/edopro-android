@@ -23,8 +23,8 @@ rsync -ar --exclude='.*' --exclude='*.sh' --exclude='script/.*' \
 	--exclude=textures/Backup --exclude=puzzles \
 	edopro-config/ $ASSETS
 
-mkdir -p $ASSETS/WindBot
-curl --retry 5 --connect-timeout 30 --location --remote-header-name -o $ASSETS/WindBot/bots.json https://raw.githubusercontent.com/ProjectIgnis/windbot/master/bots.json
+curl --retry 5 --connect-timeout 30 --location --remote-header-name -o WindBotIgnite-Resources.7z $LIBWINDBOT_RESOURCES
+7z x WindBotIgnite-Resources.7z -o$ASSETS
 
 find $ASSETS \( -name '*.md' -o -name 'COPYING*' -o -name 'LICENSE*' \) -exec mv {} {}.txt \;
 # Purge extra decks
