@@ -10,6 +10,11 @@ env:
   - DEPLOY_BRANCH=android
   - LIBWINDBOT_URL=https://github.com/ProjectIgnis/windbot/releases/download/20200522/libWindbot.aar
   - LIBWINDBOT_RESOURCES=https://github.com/ProjectIgnis/windbot/releases/download/20200522/WindBotIgnite-Resources.7z
+addons:
+  apt:
+    update: true
+    packages:
+    - p7zip-full
 android:
   components:
   - platform-tools
