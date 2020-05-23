@@ -2,6 +2,7 @@ build/
 libs/
 obj/
 release/
+bugreports/
 src/main/assets/defaults/
 .gradle/
 .id*/

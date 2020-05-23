@@ -150,20 +150,22 @@ public class MainActivity extends Activity {
 					setWorkingDir(dest_dir);
 				else {
 					File[] paths = getApplicationContext().getExternalFilesDirs("EDOPro");
-					String storage = dest_dir.split("/")[2];
+					String dirs[] = dest_dir.split("/");
 					boolean found = false;
-					for(int i = 0; i < paths.length; i++) {
-						Log.i("EDOPro", "Path " + i + " is: " + paths[i]);
-						if(storage.equals(paths[i].getAbsolutePath().split("/")[2])){
-							Log.i("EDOPro", "path matching with " + dest_dir + " is: " + paths[i].getAbsolutePath());
-							dest_dir = paths[i].getAbsolutePath();
-							if (!paths[i].exists()){
-								paths[i].mkdirs();
+					if(dirs.length>2){
+						String storage = dirs[2];
+						for(int i = 0; i < paths.length; i++) {
+							Log.i("EDOPro", "Path " + i + " is: " + paths[i]);
+							if (storage.equals(paths[i].getAbsolutePath().split("/")[2])) {
+								Log.i("EDOPro", "path matching with " + dest_dir + " is: " + paths[i].getAbsolutePath());
+								dest_dir = paths[i].getAbsolutePath();
+								if (!paths[i].exists()) {
+									paths[i].mkdirs();
+								}
+								found = true;
+								break;
 							}
-							found = true;
-							break;
 						}
-
 					}
 					if(found) {
 						Toast.makeText(getApplicationContext(),  String.format(getResources().getString(R.string.toast_dir), dest_dir), Toast.LENGTH_LONG).show();

@@ -24,22 +24,30 @@ public final class FileUtil {
     @Nullable
     public static String getFullPathFromTreeUri(@Nullable final Uri treeUri, Context con) {
         if (treeUri == null) return null;
-        String volumePath = getVolumePath(getVolumeIdFromTreeUri(treeUri),con);
-        if (volumePath == null) return File.separator;
-        if (volumePath.endsWith(File.separator))
-            volumePath = volumePath.substring(0, volumePath.length() - 1);
+        try{
+            String volumePath = getVolumePath(getVolumeIdFromTreeUri(treeUri),con);
+            if (volumePath == null) return File.separator;
+            if (volumePath.endsWith(File.separator))
+                volumePath = volumePath.substring(0, volumePath.length() - 1);
 
-        String documentPath = getDocumentPathFromTreeUri(treeUri);
-        if (documentPath.endsWith(File.separator))
-            documentPath = documentPath.substring(0, documentPath.length() - 1);
+            String documentPath = getDocumentPathFromTreeUri(treeUri);
+            if (documentPath.endsWith(File.separator))
+                documentPath = documentPath.substring(0, documentPath.length() - 1);
 
-        if (documentPath.length() > 0) {
-            if (documentPath.startsWith(File.separator))
-                return volumePath + documentPath;
-            else
-                return volumePath + File.separator + documentPath;
+            if (documentPath.length() > 0) {
+                if (documentPath.startsWith(File.separator))
+                    return volumePath + documentPath;
+                else
+                    return volumePath + File.separator + documentPath;
+            }
+            else return volumePath;
+        } catch(Exception ex){
+            String message = ex.getMessage();
+            if(message!=null && message.startsWith("raw path")){
+                return message.split(":")[1];
+            }
+            return null;
         }
-        else return volumePath;
     }
 
 
@@ -78,10 +86,15 @@ public final class FileUtil {
     }
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    private static String getVolumeIdFromTreeUri(final Uri treeUri) {
+    private static String getVolumeIdFromTreeUri(final Uri treeUri) throws Exception {
         final String docId = DocumentsContract.getTreeDocumentId(treeUri);
         final String[] split = docId.split(":");
-        if (split.length > 0) return split[0];
+        if (split.length > 0) {
+            if("raw".equals(split[0])){
+                throw new Exception("raw path:"+split[1]);
+            }
+            return split[0];
+        }
         else return null;
     }
 
