@@ -37,12 +37,7 @@
 #include "custom_skin_enum.h"
 
 #ifdef __ANDROID__
-#include "Android/COSAndroidOperator.h"
 #include "CGUICustomComboBox/CGUICustomComboBox.h"
-class android_app;
-namespace porting {
-extern android_app* app_global;
-}
 #define ADDComboBox(...) (gGameConfig->native_mouse ? env->addComboBox(__VA_ARGS__): irr::gui::CGUICustomComboBox::addCustomComboBox(env, __VA_ARGS__))
 #define MATERIAL_GUARD(f) do {driver->enableMaterial2D(true); f; driver->enableMaterial2D(false);} while(false);
 #else
@@ -58,31 +53,9 @@ bool Game::Initialize() {
 	srand(time(0));
 	dpi_scale = gGameConfig->dpi_scale;
 	if(!device) {
-		irr::SIrrlichtCreationParameters params = irr::SIrrlichtCreationParameters();
-		params.AntiAlias = gGameConfig->antialias;
-#ifndef __ANDROID__
-#ifdef _IRR_COMPILE_WITH_DIRECT3D_9_
-		if(gGameConfig->use_d3d)
-			params.DriverType = irr::video::EDT_DIRECT3D9;
-		else
-#endif
-			params.DriverType = irr::video::EDT_OPENGL;
-		params.WindowSize = irr::core::dimension2du(Scale(1024), Scale(640));
-#else
-		if(gGameConfig->use_d3d) {
-			params.DriverType = irr::video::EDT_OGLES1;
-		} else {
-			params.DriverType = irr::video::EDT_OGLES2;
-		}
-		params.PrivateData = porting::app_global;
-		params.Bits = 24;
-		params.ZBufferBits = 16;
-		params.AntiAlias = 0;
-		params.WindowSize = irr::core::dimension2du(0, 0);
-#endif
-		params.Vsync = gGameConfig->vsync;
-		device = irr::createDeviceEx(params);
-		if(!device) {
+		try {
+			device = GUIUtils::CreateDevice(gGameConfig);
+		} catch (...) {
 			ErrorLog("Failed to create Irrlicht Engine device!");
 			return false;
 		}
@@ -117,18 +90,6 @@ bool Game::Initialize() {
 	});
 #endif
 	filesystem = device->getFileSystem();
-#ifdef __ANDROID__
-	// The Android assets file-system does not know which sub-directories it has (blame google).
-	// So we have to add all sub-directories in assets manually. Otherwise we could still open the files,
-	// but existFile checks will fail (which are for example needed by getFont).
-	for(int i = 0; i < filesystem->getFileArchiveCount(); ++i) {
-		auto archive = filesystem->getFileArchive(i);
-		if(archive->getType() == irr::io::EFAT_ANDROID_ASSET) {
-			archive->addDirectoryToFileList("media/");
-			break;
-		}
-	}
-#endif
 	coreloaded = true;
 #ifdef YGOPRO_BUILD_DLL
 	if(!(ocgcore = LoadOCGcore(gGameConfig->working_directory + EPRO_TEXT("./"))) && !(ocgcore = LoadOCGcore(gGameConfig->working_directory + EPRO_TEXT("./expansions/"))))
@@ -137,8 +98,6 @@ bool Game::Initialize() {
 	skinSystem = new CGUISkinSystem((gGameConfig->working_directory + EPRO_TEXT("./skin")).c_str(), device);
 	if(!skinSystem)
 		ErrorLog("Couldn't create skin system");
-	auto logger = device->getLogger();
-	logger->setLogLevel(irr::ELL_NONE);
 	linePatternD3D = 0;
 	linePatternGL = 0x0f0f;
 	waitFrame = 0.0f;
@@ -158,18 +117,6 @@ bool Game::Initialize() {
 	dInfo = {};
 	memset(chatTiming, 0, sizeof(chatTiming));
 	driver = device->getVideoDriver();
-#ifdef __ANDROID__
-	isNPOTSupported = driver->queryFeature(irr::video::EVDF_TEXTURE_NPOT);
-	if(isNPOTSupported) {
-		driver->setTextureCreationFlag(irr::video::ETCF_CREATE_MIP_MAPS, false);
-	} else {
-		driver->setTextureCreationFlag(irr::video::ETCF_ALLOW_NON_POWER_2, true);
-		driver->setTextureCreationFlag(irr::video::ETCF_CREATE_MIP_MAPS, false);
-	}
-#else
-	driver->setTextureCreationFlag(irr::video::ETCF_CREATE_MIP_MAPS, false);
-#endif
-	driver->setTextureCreationFlag(irr::video::ETCF_OPTIMIZED_FOR_QUALITY, true);
 	imageManager.SetDevice(device);
 	if(!imageManager.Initial()) {
 		ErrorLog("Failed to load textures!");
@@ -181,11 +128,6 @@ bool Game::Initialize() {
 		discord.UpdatePresence(DiscordWrapper::INITIALIZE);
 	PopulateResourcesDirectories();
 	env = device->getGUIEnvironment();
-#ifdef __ANDROID__
-	irr::IOSOperator* Operator = new irr::COSAndroidOperator();
-	env->setOSOperator(Operator);
-	Operator->drop();
-#endif
 	numFont = irr::gui::CGUITTFont::createTTFont(env, gGameConfig->numfont.c_str(), Scale(16), {});
 	adFont = irr::gui::CGUITTFont::createTTFont(env, gGameConfig->numfont.c_str(), Scale(12), {});
 	lpcFont = irr::gui::CGUITTFont::createTTFont(env, gGameConfig->numfont.c_str(), Scale(48), {});
@@ -199,16 +141,6 @@ bool Game::Initialize() {
 		gGameConfig->skin = NoSkinLabel();
 	}
 	smgr = device->getSceneManager();
-	device->setWindowCaption(L"Project Ignis: EDOPro");
-	device->setResizable(true);
-#ifdef _WIN32
-	HINSTANCE hInstance = (HINSTANCE)GetModuleHandle(NULL);
-	HICON hSmallIcon = (HICON)LoadImage(hInstance, MAKEINTRESOURCE(1), IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR);
-	HICON hBigIcon = (HICON)LoadImage(hInstance, MAKEINTRESOURCE(1), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR);
-	HWND hWnd = reinterpret_cast<HWND>(driver->getExposedVideoData().D3D9.HWnd);
-	SendMessage(hWnd, WM_SETICON, ICON_SMALL, (long)hSmallIcon);
-	SendMessage(hWnd, WM_SETICON, ICON_BIG, (long)hBigIcon);
-#endif
 	wCommitsLog = env->addWindow(Scale(0, 0, 500 + 10, 400 + 35 + 35), false, gDataManager->GetSysString(1209).c_str());
 	defaultStrings.emplace_back(wCommitsLog, 1209);
 	wCommitsLog->setVisible(false);
@@ -1533,43 +1465,22 @@ bool Game::MainLoop() {
 	bool was_connected = false;
 	bool update_prompted = false;
 	bool unzip_started = false;
-#ifdef __ANDROID__
-	ogles2Solid = 0;
-	ogles2TrasparentAlpha = 0;
-	ogles2BlendTexture = 0;
-	ogles2Solid = irr::video::EMT_SOLID;
-	ogles2TrasparentAlpha = irr::video::EMT_TRANSPARENT_ALPHA_CHANNEL;
-	ogles2BlendTexture = irr::video::EMT_ONETEXTURE_BLEND;
-	matManager.mCard.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2BlendTexture;
-	matManager.mTexture.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2TrasparentAlpha;
-	matManager.mBackLine.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2BlendTexture;
-	matManager.mSelField.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2BlendTexture;
-	matManager.mLinkedField.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2BlendTexture;
-	matManager.mMutualLinkedField.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2BlendTexture;
-	matManager.mOutLine.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2Solid;
-	matManager.mTRTexture.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2TrasparentAlpha;
-	matManager.mATK.MaterialType = (irr::video::E_MATERIAL_TYPE)ogles2BlendTexture;
-	if(!isNPOTSupported) {
-		matManager.mCard.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mCard.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mTexture.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mTexture.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mBackLine.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mBackLine.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mSelField.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mSelField.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mLinkedField.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mLinkedField.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mMutualLinkedField.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mMutualLinkedField.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mOutLine.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mOutLine.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mTRTexture.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mTRTexture.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mATK.TextureLayer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
-		matManager.mATK.TextureLayer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
+	if(!driver->queryFeature(irr::video::EVDF_TEXTURE_NPOT)) {
+		auto SetClamp = [](irr::video::SMaterialLayer layer[irr::video::MATERIAL_MAX_TEXTURES]) {
+			layer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
+			layer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
+		};
+		SetClamp(matManager.mCard.TextureLayer);
+		SetClamp(matManager.mTexture.TextureLayer);
+		SetClamp(matManager.mBackLine.TextureLayer);
+		SetClamp(matManager.mSelField.TextureLayer);
+		SetClamp(matManager.mLinkedField.TextureLayer);
+		SetClamp(matManager.mMutualLinkedField.TextureLayer);
+		SetClamp(matManager.mOutLine.TextureLayer);
+		SetClamp(matManager.mTRTexture.TextureLayer);
+		SetClamp(matManager.mATK.TextureLayer);
+		SetClamp(matManager.mCard.TextureLayer);
 	}
-#endif
 	if (gGameConfig->fullscreen) {
 		// Synchronize actual fullscreen state with config struct
 		bool currentlyFullscreen = false;
