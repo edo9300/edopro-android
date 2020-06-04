@@ -11,6 +11,7 @@ for i in {0..3}; do
 	fi
 done
 cd $ASSETS
+touch .nomedia
 # Finds all directories, excluding the current directory, and removes the ./ prefix
 find -L . ! -path . -type d | sed -E "s|^\./||" > ../index.txt
 # Finds all files and directories, excluding the current directory, and removes the ./ prefix
