@@ -25,15 +25,16 @@ void DataHandler::LoadDatabases() {
 void DataHandler::LoadArchivesDB() {
 	std::vector<char> buffer;
 	for(auto& archive : Utils::archives) {
-		auto files = Utils::FindFiles(archive, EPRO_TEXT(""), { EPRO_TEXT("cdb") }, 3);
+		std::lock_guard<std::mutex> guard(*archive.mutex);
+		auto files = Utils::FindFiles(archive.archive, EPRO_TEXT(""), { EPRO_TEXT("cdb") }, 3);
 		for(auto& index : files) {
-			auto reader = archive->createAndOpenFile(index);
+			auto reader = archive.archive->createAndOpenFile(index);
 			if(reader == nullptr)
 				continue;
 			buffer.resize(reader->getSize());
 			reader->read(buffer.data(), buffer.size());
-			reader->drop();
 			std::string filename(irr::core::stringc(reader->getFileName()).c_str()); //the zip loader stores the names as utf8
+			reader->drop();
 			dataManager->LoadDBFromBuffer(buffer, filename);
 		}
 	}

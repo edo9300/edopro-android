@@ -30,6 +30,7 @@ std::vector<unsigned char> DuelClient::response_buf;
 unsigned int DuelClient::watching = 0;
 unsigned char DuelClient::selftype = 0;
 bool DuelClient::is_host = false;
+bool DuelClient::is_local_host = false;
 event_base* DuelClient::client_base = nullptr;
 bufferevent* DuelClient::client_bev = nullptr;
 std::vector<uint8_t> DuelClient::duel_client_read;
@@ -1355,17 +1356,20 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 		}
 		case HINT_SKILL_REMOVE: {
 			auto& pcard = mainGame->dField.skills[player];
-			if(mainGame->dField.skills[player]) {
+			if(pcard) {
 				if(!mainGame->dInfo.isCatchingUp) {
 					mainGame->dField.FadeCard(pcard, 5, 20);
 					mainGame->WaitFrameSignal(20);
 					mainGame->gMutex.lock();
-					delete pcard;
-					mainGame->gMutex.unlock();
 					if(pcard == mainGame->dField.hovered_card)
-						mainGame->dField.hovered_card = 0;
-				} else
+						mainGame->dField.hovered_card = nullptr;
 					delete pcard;
+					pcard = nullptr;
+					mainGame->gMutex.unlock();
+				} else {
+					delete pcard;
+					pcard = nullptr;
+				}
 			}
 			break;
 		}
@@ -2921,11 +2925,11 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 				pcard->ClearTarget();
 				pcard->is_showtarget = false;
 				pcard->is_showchaintarget = false;
-				ClientCard* olcard = mainGame->dField.GetCard(current.controler, current.location & (~LOCATION_OVERLAY) & 0xff, current.sequence);
 				if(mainGame->dInfo.isCatchingUp) {
 					if(!mainGame->dInfo.isReplay)
 						mainGame->gMutex.lock();
 					mainGame->dField.RemoveCard(previous.controler, previous.location, previous.sequence);
+					ClientCard* olcard = mainGame->dField.GetCard(current.controler, current.location & (~LOCATION_OVERLAY) & 0xff, current.sequence);
 					olcard->overlayed.push_back(pcard);
 					mainGame->dField.overlay_cards.insert(pcard);
 					pcard->overlayTarget = olcard;
@@ -2936,6 +2940,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 				} else {
 					mainGame->gMutex.lock();
 					mainGame->dField.RemoveCard(previous.controler, previous.location, previous.sequence);
+					ClientCard* olcard = mainGame->dField.GetCard(current.controler, current.location & (~LOCATION_OVERLAY) & 0xff, current.sequence);
 					olcard->overlayed.push_back(pcard);
 					mainGame->dField.overlay_cards.insert(pcard);
 					mainGame->gMutex.unlock();
@@ -4479,7 +4484,7 @@ void DuelClient::ReplayPrompt(bool local_stream) {
 	mainGame->gMutex.unlock();
 	mainGame->replaySignal.Reset();
 	mainGame->replaySignal.Wait();
-	if(mainGame->saveReplay || !is_host) {
+	if(mainGame->saveReplay || !is_local_host) {
 		if(mainGame->saveReplay)
 			last_replay.SaveReplay(Utils::ToPathString(mainGame->ebRSName->getText()));
 		else last_replay.SaveReplay(EPRO_TEXT("_LastReplay"));

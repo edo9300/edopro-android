@@ -6,8 +6,10 @@
 #include <cwctype>
 #include <functional>
 #include <map>
+#include <memory> // unique_ptr
 #include <string>
 #include <vector>
+#include <mutex>
 #include "text_types.h"
 
 namespace irr {
@@ -32,7 +34,34 @@ using unzip_callback = std::function<void(unzip_payload* payload)>;
 namespace ygo {
 	class Utils {
 	public:
-		static std::vector<irr::io::IFileArchive*> archives;
+		// Irrlicht has only one handle open per archive, which does not support concurrency and is not thread-safe.
+		// Thus, we need to own a corresponding mutex that is also used for all files from this archive
+		class SynchronizedIrrArchive {
+		public:
+			std::unique_ptr<std::mutex> mutex;
+			irr::io::IFileArchive* archive;
+			SynchronizedIrrArchive(irr::io::IFileArchive* archive) : mutex(std::make_unique<std::mutex>()), archive(archive) {}
+		};
+		// Mutex should already be locked if not nullptr and takes ownership of the IReadFile if not nullptr
+		// In C++17, use std::optional, since we have either file exists or not found (both nullptr)
+		class MutexLockedIrrArchivedFile {
+		public:
+			std::mutex* mutex; // from SynchronizedIrrArchive
+			irr::io::IReadFile* reader;
+			MutexLockedIrrArchivedFile(std::mutex* mutex = nullptr, irr::io::IReadFile* reader = nullptr) noexcept : mutex(mutex), reader(reader) {}
+			MutexLockedIrrArchivedFile(const MutexLockedIrrArchivedFile& copyFrom) = delete;
+			MutexLockedIrrArchivedFile(MutexLockedIrrArchivedFile&& moveFrom) noexcept {
+				mutex = moveFrom.mutex;
+				reader = moveFrom.reader;
+				moveFrom.mutex = nullptr;
+				moveFrom.reader = nullptr;
+			}
+			~MutexLockedIrrArchivedFile(); // drops reader if not nullptr, then unlocks mutex if not nullptr
+			operator bool() const {
+				return reader;
+			}
+		};
+		static std::vector<SynchronizedIrrArchive> archives;
 		static irr::io::IFileSystem* filesystem;
 		static bool MakeDirectory(const path_string& path);
 		static bool FileCopy(const path_string& source, const path_string& destination);
@@ -50,7 +79,7 @@ namespace ygo {
 		/** Returned subfolder names are prefixed by the provided path */
 		static std::vector<path_string> FindSubfolders(const path_string& path, int subdirectorylayers = 1, bool addparentpath = true);
 		static std::vector<int> FindFiles(irr::io::IFileArchive* archive, const path_string& path, std::vector<path_string> extensions, int subdirectorylayers = 0);
-		static irr::io::IReadFile* FindFileInArchives(const path_string& path, const path_string& name);
+		static MutexLockedIrrArchivedFile FindFileInArchives(const path_string& path, const path_string& name);
 		template<typename T>
 		static T NormalizePath(T path, bool trailing_slash = true);
 		template<typename T>
