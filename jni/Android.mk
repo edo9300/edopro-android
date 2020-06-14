@@ -124,8 +124,6 @@ LOCAL_STATIC_LIBRARIES += clzma
 LOCAL_STATIC_LIBRARIES += sqlite3
 LOCAL_STATIC_LIBRARIES += libft2
 LOCAL_STATIC_LIBRARIES += fmt_static
-LOCAL_STATIC_LIBRARIES += zlib
-LOCAL_STATIC_LIBRARIES += libssl
 LOCAL_STATIC_LIBRARIES += git2
 LOCAL_STATIC_LIBRARIES += curl
 LOCAL_SHARED_LIBRARIES := SDL2
@@ -139,8 +137,6 @@ $(call import-module,sqlite3)
 $(call import-module,freetype)
 $(call import-module,gframe/lzma)
 $(call import-module,fmt)
-$(call import-module,zlib)
-$(call import-module,openssl)
 $(call import-module,libgit2)
 $(call import-module,curl)
 $(call import-module,SDL2)
