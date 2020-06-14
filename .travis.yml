@@ -36,6 +36,8 @@ before_deploy:
 - ./ci/sign-release.sh
 - mkdir -p "$MINIO_UPLOAD"
 - cp release/*.apk "$MINIO_UPLOAD"
+- 7z a obj obj
+- mv obj.7z "$MINIO_UPLOAD"
 deploy:
 - provider: script
   skip_cleanup: true
