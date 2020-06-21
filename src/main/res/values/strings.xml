@@ -6,4 +6,5 @@
 	<string name="toast_dir">Using %s as working directory</string>
 	<string name="folder_prompt">Select the folder used to copy the client\'s files</string>
 	<string name="assets_prompt">Copy internal assets?</string>
+	<string name="no_matching">Couldn\'t find matching storage</string>
 </resources>

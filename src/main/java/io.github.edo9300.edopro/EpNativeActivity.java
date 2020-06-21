@@ -23,6 +23,14 @@ public class EpNativeActivity extends NativeActivity {
 
 	private static native void putComboBoxResult(int index);
 	static {
+		//on 4.2 libraries aren't properly loaded automatically
+		//https://stackoverflow.com/questions/28806373/android-4-2-ndk-library-loading-crash-load-librarylinker-cpp750-soinfo-l/28817942
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP){
+			System.loadLibrary("hidapi");
+			System.loadLibrary("SDL2");
+			System.loadLibrary("mpg123");
+			System.loadLibrary("SDL2_mixer");
+		}
 		System.loadLibrary("EDOProClient");
 	}
 
@@ -44,7 +52,7 @@ public class EpNativeActivity extends NativeActivity {
 
 	@SuppressWarnings("ObsoleteSdkInt")
 	private void makeFullScreen() {
-		if (Build.VERSION.SDK_INT >= 19) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 			this.getWindow().getDecorView().setSystemUiVisibility(
 					View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
 		}

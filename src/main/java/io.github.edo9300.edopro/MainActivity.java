@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import libwindbot.windbot.WindBot;
 import android.Manifest;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
@@ -16,6 +17,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -125,7 +127,7 @@ public class MainActivity extends Activity {
 		switch(requestCode) {
 			case 1: {
 				try {
-					File file = new File(getApplicationContext().getFilesDir(),"assets_copied");
+					File file = new File(getFilesDir(),"assets_copied");
 					file.createNewFile();
 				} catch (Exception e){
 					Log.e("EDOPro", "error when creating assets_copied file: " + e.getMessage());
@@ -136,6 +138,9 @@ public class MainActivity extends Activity {
 			case 2: {
 				if (resultCode == Activity.RESULT_CANCELED) {
 					break;
+				}
+				if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP){
+					return;
 				}
 				Uri uri = data.getData();
 				Log.i("EDOPro", "Result URI " + uri);
@@ -149,8 +154,8 @@ public class MainActivity extends Activity {
 				if(dest_dir.startsWith("/storage/emulated/0"))
 					setWorkingDir(dest_dir);
 				else {
-					File[] paths = getApplicationContext().getExternalFilesDirs("EDOPro");
-					String dirs[] = dest_dir.split("/");
+					File[] paths = getExternalFilesDirs("EDOPro");
+					String[] dirs = dest_dir.split("/");
 					boolean found = false;
 					if(dirs.length>2){
 						String storage = dirs[2];
@@ -168,7 +173,7 @@ public class MainActivity extends Activity {
 						}
 					}
 					if(found) {
-						Toast.makeText(getApplicationContext(),  String.format(getResources().getString(R.string.toast_dir), dest_dir), Toast.LENGTH_LONG).show();
+						Toast.makeText(this,  String.format(getResources().getString(R.string.toast_dir), dest_dir), Toast.LENGTH_LONG).show();
 						final String cbdir = dest_dir;
 						AlertDialog.Builder builder = new AlertDialog.Builder(this);
 						builder.setMessage(String.format(getResources().getString(R.string.default_path), dest_dir))
@@ -181,6 +186,7 @@ public class MainActivity extends Activity {
 						AlertDialog alert = builder.create();
 						alert.show();
 					} else {
+						Toast.makeText(this,  getResources().getString(R.string.no_matching), Toast.LENGTH_LONG).show();
 						Log.e("EDOPro", "couldn't find matching storage");
 						finish();
 					}
@@ -199,7 +205,7 @@ public class MainActivity extends Activity {
 	}
 
 	public void getWorkingDirectory() {
-		File file = new File(getApplicationContext().getFilesDir(),"working_dir");
+		File file = new File(getFilesDir(),"working_dir");
 		if(file.exists()) {
 			try {
 				BufferedReader br = new BufferedReader(new FileReader(file));
@@ -214,9 +220,36 @@ public class MainActivity extends Activity {
 				Log.e("EDOPro", "working directory file found but not read: " + e.getMessage());
 			}
 		}
-		chooseWorkingDir();
+		if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+			getDefaultPath();
+		} else {
+			chooseWorkingDir();
+		}
 	}
 
+	public void getDefaultPath(){
+		File path = new File(Environment.getExternalStorageDirectory() + "/EDOPro");
+		String dest_dir = path.getAbsolutePath();
+		if(!"".equals(dest_dir)) {
+			if (!path.exists()) {
+				path.mkdirs();
+			}
+			Toast.makeText(this, String.format(getResources().getString(R.string.toast_dir), dest_dir), Toast.LENGTH_LONG).show();
+			final String cbdir = dest_dir;
+			AlertDialog.Builder builder = new AlertDialog.Builder(this);
+			builder.setMessage(String.format(getResources().getString(R.string.toast_dir), dest_dir))
+					.setCancelable(false)
+					.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+						public void onClick(DialogInterface dialog, int id) {
+							setWorkingDir(cbdir);
+						}
+					});
+			AlertDialog alert = builder.create();
+			alert.show();
+		}
+	}
+
+	@TargetApi(Build.VERSION_CODES.LOLLIPOP)
 	public void chooseWorkingDir(){
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
 		builder.setMessage(R.string.folder_prompt)
@@ -233,7 +266,7 @@ public class MainActivity extends Activity {
 	}
 
 	public void setWorkingDir(String dest_dir){
-		File file = new File(getApplicationContext().getFilesDir(),"working_dir");
+		File file = new File(getFilesDir(),"working_dir");
 		try {
 			FileOutputStream fOut = new FileOutputStream(file);
 			OutputStreamWriter myOutWriter = new OutputStreamWriter(fOut);
@@ -250,7 +283,7 @@ public class MainActivity extends Activity {
 
 	@SuppressWarnings("ResultOfMethodCallIgnored")
 	public void copyAssetsPrompt(final String working_dir) {
-		File file = new File(getApplicationContext().getFilesDir(),"assets_copied");
+		File file = new File(getFilesDir(),"assets_copied");
 		if(file.exists()){
 			next();
 			return;
@@ -260,7 +293,7 @@ public class MainActivity extends Activity {
 		builder.setMessage(R.string.assets_prompt).setNegativeButton("No", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int id) {
 				try {
-					File file = new File(getApplicationContext().getFilesDir(),"assets_copied");
+					File file = new File(getFilesDir(),"assets_copied");
 					file.createNewFile();
 				} catch (Exception e){
 					Log.e("EDOPro", "error when creating assets_copied file: " + e.getMessage());
@@ -276,7 +309,7 @@ public class MainActivity extends Activity {
 
     public void copyCertificate(){
 		try {
-			File certout = new File(getApplicationContext().getFilesDir(),"cacert.cer");
+			File certout = new File(getFilesDir(),"cacert.cer");
 			if(certout.exists()){
 				Log.i("EDOPro", "Certificate file already copied");
 			} else {
