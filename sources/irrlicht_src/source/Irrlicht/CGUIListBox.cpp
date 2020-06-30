@@ -479,7 +479,7 @@ void CGUIListBox::selectNew(s32 ypos, bool onlyHover)
 
 	gui::EGUI_EVENT_TYPE eventType = selagain ? EGET_LISTBOX_SELECTED_AGAIN : EGET_LISTBOX_CHANGED;
 	// post the news
-	if (Parent)
+	if (Parent && (!onlyHover || !MoveOverSelect))
 	{
 		SEvent event;
 		event.EventType = EET_GUI_EVENT;
