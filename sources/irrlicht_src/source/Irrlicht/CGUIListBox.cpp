@@ -409,11 +409,14 @@ bool CGUIListBox::OnEvent(const SEvent& event)
 				{
 				case EMIE_MOUSE_WHEEL:
 					ScrollBar->setPos(ScrollBar->getPos() + (event.MouseInput.Wheel < 0 ? -1 : 1)*-ItemHeight/2);
+					if(Selecting || MoveOverSelect)
+						selectNew(event.MouseInput.Y, true);
 					return true;
 
 				case EMIE_LMOUSE_PRESSED_DOWN:
 				{
 					Selecting = true;
+					selectNew(event.MouseInput.Y, true);
 					return true;
 				}
 
@@ -456,15 +459,27 @@ void CGUIListBox::selectNew(s32 ypos, bool onlyHover)
 	s32 oldSelected = Selected;
 
 	Selected = getItemAt(AbsoluteRect.UpperLeftCorner.X, ypos);
-	if (Selected<0 && !Items.empty())
-		Selected = 0;
+	if(Selected < 0 && !Items.empty()) {
+		if(onlyHover)
+			Selected = oldSelected;
+		else
+			Selected = 0;
+	}
 
 	recalculateScrollPos();
+	bool selagain = false;
 
-	gui::EGUI_EVENT_TYPE eventType = (Selected == oldSelected && now < selectTime + 500) ? EGET_LISTBOX_SELECTED_AGAIN : EGET_LISTBOX_CHANGED;
-	selectTime = now;
+	if(!onlyHover) {
+		selagain = Selected >= 0 && (Selected == oldSelected && now < selectTime + 500);
+		selectTime = now;
+	}
+
+	if(Selected != oldSelected)
+		selectTime = 0;
+
+	gui::EGUI_EVENT_TYPE eventType = selagain ? EGET_LISTBOX_SELECTED_AGAIN : EGET_LISTBOX_CHANGED;
 	// post the news
-	if (Parent && !onlyHover)
+	if (Parent)
 	{
 		SEvent event;
 		event.EventType = EET_GUI_EVENT;
