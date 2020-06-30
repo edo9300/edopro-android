@@ -1157,6 +1157,7 @@ void GenericDuel::AfterParsing(CoreUtils::Packet& packet, int& return_value, boo
 	case MSG_FLIPSUMMONED:
 	case MSG_NEW_PHASE:
 	case MSG_CHAINED:
+	case MSG_CHAIN_SOLVED:
 	case MSG_CHAIN_END: {
 		if(message == MSG_CHAIN_END){
 			PseudoRefreshDeck(0);
@@ -1222,6 +1223,11 @@ void GenericDuel::AfterParsing(CoreUtils::Packet& packet, int& return_value, boo
 		RefreshSzone(1, 0x30681fff);
 		RefreshHand(0);
 		RefreshHand(1);
+		break;
+	}
+	case MSG_RELOAD_FIELD: {
+		RefreshExtra(0);
+		RefreshExtra(1);
 		break;
 	}
 	case MSG_MATCH_KILL: {
@@ -1355,24 +1361,11 @@ void GenericDuel::RefreshHand(int player, int flag) {
 void GenericDuel::RefreshGrave(int player, int flag) {
 	RefreshLocation(player, flag, LOCATION_GRAVE);
 }
+void GenericDuel::RefreshExtra(int player, int flag) {
+	RefreshLocation(player, flag, LOCATION_EXTRA);
+}
 #undef TO_SEND_BUFFER
 #define TO_SEND_BUFFER (char*)buffer.data(), buffer.size()
-void GenericDuel::RefreshExtra(int player, int flag) {
-	std::vector<uint8_t> buffer;
-	BufferIO::insert_value<uint8_t>(buffer, MSG_UPDATE_DATA);
-	BufferIO::insert_value<uint8_t>(buffer, player);
-	BufferIO::insert_value<uint8_t>(buffer, LOCATION_EXTRA);
-	uint32 len = 0;
-	auto buff = OCG_DuelQueryLocation(pduel, &len, { (uint32_t)flag, (uint8_t)player, LOCATION_EXTRA });
-	if(len == 0)
-		return;
-	buffer.resize(buffer.size() + len);
-	memcpy(&buffer[3], buff, len);
-	SEND(nullptr);
-	for(auto& dueler : (player == 0) ? players.home : players.opposing)
-		NetServer::ReSendToPlayer(dueler.player);
-	replay_stream.emplace_back((char*)buffer.data(), buffer.size() - 1);
-}
 void GenericDuel::RefreshLocation(int player, int flag, int location) {
 	std::vector<uint8_t> buffer;
 	BufferIO::insert_value<uint8_t>(buffer, MSG_UPDATE_DATA);

@@ -1345,14 +1345,14 @@ bool Game::Initialize() {
 	roomListTable->addColumn(gDataManager->GetSysString(2030).c_str());//Players:
 	roomListTable->addColumn(gDataManager->GetSysString(2024).c_str());//Notes:
 	roomListTable->addColumn(gDataManager->GetSysString(1988).c_str());//Status
-	roomListTable->setColumnWidth(0, 30); //lock
-	roomListTable->setColumnWidth(1, 110);//Allowed Cards:
-	roomListTable->setColumnWidth(2, 150);//Duel Mode:
-	roomListTable->setColumnWidth(3, 50);//master rule
-	roomListTable->setColumnWidth(4, 130);//Forbidden List:
-	roomListTable->setColumnWidth(5, 115);//Players:
-	roomListTable->setColumnWidth(6, 355);//Notes:
-	roomListTable->setColumnWidth(7, 60);//Status
+	roomListTable->setColumnWidth(0, Scale(30));  // lock
+	roomListTable->setColumnWidth(1, Scale(110)); // Allowed Cards:
+	roomListTable->setColumnWidth(2, Scale(150)); // Duel Mode:
+	roomListTable->setColumnWidth(3, Scale(50));  // Master Rule
+	roomListTable->setColumnWidth(4, Scale(130)); // Forbidden List:
+	roomListTable->setColumnWidth(5, Scale(115)); // Players:
+	roomListTable->setColumnWidth(6, Scale(355)); // Notes:
+	roomListTable->setColumnWidth(7, Scale(60));  // Status
 	roomListTable->setColumnOrdering(0, irr::gui::EGCO_FLIP_ASCENDING_DESCENDING);
 	roomListTable->setColumnOrdering(1, irr::gui::EGCO_FLIP_ASCENDING_DESCENDING);
 	roomListTable->setColumnOrdering(2, irr::gui::EGCO_FLIP_ASCENDING_DESCENDING);
@@ -2151,27 +2151,30 @@ void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 	}
 }
 void Game::LoadServers() {
-	try {
-		for(auto& _config : { std::ref(gGameConfig->user_configs), std::ref(gGameConfig->configs) }) {
-			auto& config = _config.get();
-			if(config.size() && config["servers"].is_array()) {
-				for(auto& obj : config["servers"].get<std::vector<nlohmann::json>>()) {
-					ServerInfo tmp_server;
-					tmp_server.name = BufferIO::DecodeUTF8s(obj["name"].get<std::string>());
-					tmp_server.address = BufferIO::DecodeUTF8s(obj["address"].get<std::string>());
-					tmp_server.roomaddress = BufferIO::DecodeUTF8s(obj["roomaddress"].get<std::string>());
-					tmp_server.roomlistport = obj["roomlistport"].get<int>();
-					tmp_server.duelport = obj["duelport"].get<int>();
-					int i = serverChoice->addItem(tmp_server.name.c_str());
-					if(gGameConfig->lastServer == tmp_server.name)
-						serverChoice->setSelected(i);
-					ServerLobby::serversVector.push_back(std::move(tmp_server));
+	for(auto& _config : { std::ref(gGameConfig->user_configs), std::ref(gGameConfig->configs) }) {
+		auto& config = _config.get();
+		try {
+			if(config.size() && config.at("servers").is_array()) {
+				try {
+					for(auto& obj : config["servers"].get<std::vector<nlohmann::json>>()) {
+						ServerInfo tmp_server;
+						tmp_server.name = BufferIO::DecodeUTF8s(obj["name"].get<std::string>());
+						tmp_server.address = BufferIO::DecodeUTF8s(obj["address"].get<std::string>());
+						tmp_server.roomaddress = BufferIO::DecodeUTF8s(obj["roomaddress"].get<std::string>());
+						tmp_server.roomlistport = obj["roomlistport"].get<int>();
+						tmp_server.duelport = obj["duelport"].get<int>();
+						int i = serverChoice->addItem(tmp_server.name.c_str());
+						if(gGameConfig->lastServer == tmp_server.name)
+							serverChoice->setSelected(i);
+						ServerLobby::serversVector.push_back(std::move(tmp_server));
+					}
+				}
+				catch(std::exception& e) {
+					ErrorLog(std::string("Exception occurred: ") + e.what());
 				}
 			}
 		}
-	}
-	catch(std::exception& e) {
-		ErrorLog(std::string("Exception occurred: ") + e.what());
+		catch(...) {}
 	}
 }
 void Game::ShowCardInfo(uint32 code, bool resize, ImageManager::imgType type) {
@@ -2987,7 +2990,14 @@ void Game::OnResize() {
 	btnCancelOrFinish->setRelativePosition(Resize(205, 230, 295, 265));
 
 	roomListTable->setRelativePosition(irr::core::recti(ResizeX(1), chkShowActiveRooms->getRelativePosition().LowerRightCorner.Y + ResizeY(10), ResizeX(1024 - 2), btnLanRefresh2->getRelativePosition().UpperLeftCorner.Y - ResizeY(25)));
-	roomListTable->setColumnWidth(0, roomListTable->getColumnWidth(0));
+	roomListTable->setColumnWidth(0, window_scale.X * Scale(30));  // lock
+	roomListTable->setColumnWidth(1, window_scale.X * Scale(110)); // Allowed Cards:
+	roomListTable->setColumnWidth(2, window_scale.X * Scale(150)); // Duel Mode:
+	roomListTable->setColumnWidth(3, window_scale.X * Scale(50));  // Master Rule
+	roomListTable->setColumnWidth(4, window_scale.X * Scale(130)); // Forbidden List:
+	roomListTable->setColumnWidth(5, window_scale.X * Scale(115)); // Players:
+	roomListTable->setColumnWidth(6, window_scale.X * Scale(355)); // Notes:
+	roomListTable->setColumnWidth(7, window_scale.X * Scale(60));  // Status
 	roomListTable->addRow(roomListTable->getRowCount());
 	roomListTable->removeRow(roomListTable->getRowCount() - 1);
 	roomListTable->setSelected(-1);
