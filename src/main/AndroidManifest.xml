@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 	package="io.github.edo9300.edopro"
+	xmlns:tools="http://schemas.android.com/tools"
 	android:installLocation="auto">
 
 	<uses-feature
@@ -11,6 +12,19 @@
 	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+	<uses-sdk tools:overrideLibrary="libwindbot, android.support.v4,
+		android.support.mediacompat, android.support.fragment,
+		android.support.coreui, android.support.coreutils, android.support.loader,
+		android.support.v7.viewpager, android.support.coordinatorlayout,
+		android.support.drawerlayout, android.support.drawerlayout,
+		android.support.slidingpanelayout, android.support.customview,
+		android.support.swiperefreshlayout, android.support.asynclayoutinflater,
+		android.support.compat, androidx.versionedparcelable, android.arch.lifecycle,
+		android.support.documentfile, android.support.localbroadcastmanager,
+		android.support.print, android.support.interpolator, android.support.cursoradapter,
+		android.arch.lifecycle.viewmodel, android.arch.lifecycle.livedata,
+		android.arch.lifecycle.livedata.core, android.arch.core"/>
 
 	<application
 		android:allowBackup="true"

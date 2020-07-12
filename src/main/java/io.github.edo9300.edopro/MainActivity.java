@@ -104,8 +104,8 @@ public class MainActivity extends Activity {
 
 	@Override
 	@SuppressWarnings("SwitchStatementWithTooFewBranches")
-	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-										   @NonNull int[] grantResults) {
+	public void onRequestPermissionsResult(int requestCode, String[] permissions,
+										   int[] grantResults) {
 		switch (requestCode) {
 			case PERMISSIONS:
 				for (int index = 0; index < permissions.length; index++) {
@@ -197,7 +197,9 @@ public class MainActivity extends Activity {
 	}
 
 	public void next() {
-		WindBot.initAndroid(working_directory + "/WindBot");
+	    if(Build.VERSION.SDK_INT>=9){
+		    WindBot.initAndroid(working_directory + "/WindBot");
+	    }
 		Intent intent = new Intent(this, SdlLauncher.class);
 		intent.putStringArrayListExtra("ARGUMENTS", parameter);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);

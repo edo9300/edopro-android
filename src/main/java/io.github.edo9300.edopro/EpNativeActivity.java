@@ -83,9 +83,13 @@ public class EpNativeActivity extends NativeActivity {
 		public void onReceive(Context context, Intent intent) {
 			String action = intent.getAction();
 			if ("RUN_WINDBOT".equals(action)) {
-				String args = intent.getStringExtra("args");
-				Log.i("EDOProWindBotIgnite", "Launching WindBot Ignite with " + args + " as parameters.");
-				WindBot.runAndroid(args);
+				if(Build.VERSION.SDK_INT>=9){
+					String args = intent.getStringExtra("args");
+					Log.i("EDOProWindBotIgnite", "Launching WindBot Ignite with " + args + " as parameters.");
+					WindBot.runAndroid(args);
+				} else {
+					Log.e("EDOProWindBotIgnite", "Android <9, Windbot not supported");
+				}
 			} else if("MAKE_CHOICE".equals(action)){
 				String[] parameters = intent.getStringArrayExtra("args");
 				AlertDialog.Builder builder = new AlertDialog.Builder(EpNativeActivity.this);

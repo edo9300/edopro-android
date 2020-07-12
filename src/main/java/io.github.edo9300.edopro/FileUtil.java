@@ -11,7 +11,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.storage.StorageManager;
 import android.provider.DocumentsContract;
-import android.support.annotation.Nullable;
 
 import java.io.File;
 import java.lang.reflect.Array;
@@ -21,8 +20,7 @@ public final class FileUtil {
     static String TAG="TAG";
     private static final String PRIMARY_VOLUME_NAME = "primary";
 
-    @Nullable
-    public static String getFullPathFromTreeUri(@Nullable final Uri treeUri, Context con) {
+    public static String getFullPathFromTreeUri(final Uri treeUri, Context con) {
         if (treeUri == null) return null;
         try{
             String volumePath = getVolumePath(getVolumeIdFromTreeUri(treeUri),con);
