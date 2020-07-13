@@ -336,7 +336,3 @@ include $(BUILD_STATIC_LIBRARY)
 
 $(call import-module,android/native_app_glue)
 
-all: $(IRRLICHT_LIB_PATH)
-$(IRRLICHT_LIB_PATH) : $(TARGET_OUT)/$(IRRLICHT_LIB_NAME)
-	cp $< $@
-

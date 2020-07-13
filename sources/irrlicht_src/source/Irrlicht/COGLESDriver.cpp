@@ -2585,7 +2585,7 @@ void COGLES1Driver::draw3DLine(const core::vector3df& start,
 
 
 void COGLES1Driver::draw3DLineW(const core::vector3df& start,
-				const core::vector3df& end, SColor color)
+				const core::vector3df& end, SColor color, float width)
 {
 	setRenderStates3DMode();
 
