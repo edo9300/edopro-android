@@ -2287,6 +2287,13 @@ COGLES2Driver::~COGLES2Driver()
 	void COGLES2Driver::draw3DLine(const core::vector3df& start,
 			const core::vector3df& end, SColor color)
 	{
+		draw3DLineW(start, end, color);
+	}
+
+
+	void COGLES2Driver::draw3DLineW(const core::vector3df& start,
+			const core::vector3df& end, SColor color, float width)
+	{
 		IRR_PROFILE(CProfileScope p1(EPID_ES2_DRAW_3DLINE);)
 
 		setRenderStates3DMode();
@@ -2298,6 +2305,7 @@ COGLES2Driver::~COGLES2Driver()
 
 		glEnableVertexAttribArray(EVA_POSITION);
 		glEnableVertexAttribArray(EVA_COLOR);
+		glLineWidth(width > 0.0f ? width : 1.0f);
 		glVertexAttribPointer(EVA_POSITION, 3, GL_FLOAT, false, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Pos);
 		glVertexAttribPointer(EVA_COLOR, 4, GL_UNSIGNED_BYTE, true, sizeof(S3DVertex), &(static_cast<const S3DVertex*>(vertices))[0].Color);
 		glDrawElements(GL_LINES, 2, GL_UNSIGNED_SHORT, indices);

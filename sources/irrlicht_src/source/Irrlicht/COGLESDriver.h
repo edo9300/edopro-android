@@ -154,6 +154,9 @@ namespace video
 		virtual void draw3DLine(const core::vector3df& start,
 					const core::vector3df& end,
 					SColor color = SColor(255,255,255,255)) _IRR_OVERRIDE_;
+				
+		virtual void draw3DLineW(const core::vector3df& start,
+			const core::vector3df& end, SColor color = SColor(255,255,255,255), float width = 0.0f) _IRR_OVERRIDE_;
 
 		//! Returns the name of the video driver.
 		virtual const wchar_t* getName() const _IRR_OVERRIDE_;

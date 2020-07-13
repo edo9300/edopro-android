@@ -162,6 +162,9 @@ namespace video
 		virtual void draw3DLine(const core::vector3df& start,
 				const core::vector3df& end,
 				SColor color = SColor(255, 255, 255, 255)) _IRR_OVERRIDE_;
+				
+		virtual void draw3DLineW(const core::vector3df& start,
+			const core::vector3df& end, SColor color = SColor(255,255,255,255), float width = 0.0f) _IRR_OVERRIDE_;
 
 		//! Draws a pixel
 //			virtual void drawPixel(u32 x, u32 y, const SColor & color);

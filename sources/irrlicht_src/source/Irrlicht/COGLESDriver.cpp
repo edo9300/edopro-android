@@ -2580,12 +2580,20 @@ void COGLES1Driver::setFog(SColor c, E_FOG_TYPE fogType, f32 start,
 void COGLES1Driver::draw3DLine(const core::vector3df& start,
 				const core::vector3df& end, SColor color)
 {
+	draw3DLineW(start, end, color);
+}
+
+
+void COGLES1Driver::draw3DLineW(const core::vector3df& start,
+				const core::vector3df& end, SColor color)
+{
 	setRenderStates3DMode();
 
 	u16 indices[] = {0,1};
 	S3DVertex vertices[2];
 	vertices[0] = S3DVertex(start.X,start.Y,start.Z, 0,0,1, color, 0,0);
 	vertices[1] = S3DVertex(end.X,end.Y,end.Z, 0,0,1, color, 0,0);
+	glLineWidth(width > 0.0f ? width : 1.0f);
 	drawVertexPrimitiveList2d3d(vertices, 2, indices, 1, video::EVT_STANDARD, scene::EPT_LINES);
 }
 
