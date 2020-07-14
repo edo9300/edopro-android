@@ -2587,14 +2587,46 @@ void COGLES1Driver::draw3DLine(const core::vector3df& start,
 void COGLES1Driver::draw3DLineW(const core::vector3df& start,
 				const core::vector3df& end, SColor color, float width)
 {
-	setRenderStates3DMode();
+	if(color.color == 0xffffffff) {
+		setRenderStates3DMode();
 
-	u16 indices[] = {0,1};
-	S3DVertex vertices[2];
-	vertices[0] = S3DVertex(start.X,start.Y,start.Z, 0,0,1, color, 0,0);
-	vertices[1] = S3DVertex(end.X,end.Y,end.Z, 0,0,1, color, 0,0);
+		u16 indices[] = { 0,1 };
+		S3DVertex vertices[2];
+		vertices[0] = S3DVertex(start.X, start.Y, start.Z, 0, 0, 1, color, 0, 0);
+		vertices[1] = S3DVertex(end.X, end.Y, end.Z, 0, 0, 1, color, 0, 0);
+		glLineWidth(width > 0.0f ? width : 1.0f);
+		drawVertexPrimitiveList2d3d(vertices, 2, indices, 1, video::EVT_STANDARD, scene::EPT_LINES);
+		return;
+	}
+
+	core::dimension2d<u32> dim = getCurrentRenderTargetSize();
+	if(dim.Width == 0)
+		dim = ScreenSize;
+
+	dim.Width /= 2;
+	dim.Height /= 2;
+
+	core::matrix4 trans = getTransform(ETS_PROJECTION) * getTransform(ETS_VIEW) * getTransform(ETS_WORLD);
+	
+	auto transform = [&](const core::vector3df & pos3d) -> core::vector2d<s32> {
+
+		f32 transformedPos[4] = { pos3d.X, pos3d.Y, pos3d.Z, 1.0f };
+
+		trans.multiplyWith1x4Matrix(transformedPos);
+
+		if(transformedPos[3] < 0)
+			return core::vector2d<s32>(-10000, -10000);
+
+		const f32 zDiv = transformedPos[3] == 0.0f ? 1.0f :
+			core::reciprocal(transformedPos[3]);
+
+		return core::vector2d<s32>(
+			dim.Width + core::round32(dim.Width * (transformedPos[0] * zDiv)),
+			dim.Height - core::round32(dim.Height * (transformedPos[1] * zDiv)));
+	};
+	
 	glLineWidth(width > 0.0f ? width : 1.0f);
-	drawVertexPrimitiveList2d3d(vertices, 2, indices, 1, video::EVT_STANDARD, scene::EPT_LINES);
+	draw2DLine(transform(start), transform(end), color);
 }
 
 
