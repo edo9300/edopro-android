@@ -709,8 +709,10 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(gSettings.stCoreLogOutput, 1998);
 	gSettings.cbCoreLogOutput = ADDComboBox(Scale(435, 125, 645, 150), sPanel, COMBOBOX_CORE_LOG_OUTPUT);
 	ReloadCBCoreLogOutput();
-	gSettings.chkSaveHandTest = env->addCheckBox(gGameConfig->saveHandTest, Scale(340, 155, 645, 180), sPanel, CHECKBOX_SAVE_HAND_TEST_REPLAY, gDataManager->GetSysString(2077).c_str());
-	defaultStrings.emplace_back(gSettings.chkSaveHandTest, 2077);
+#ifdef UPDATE_URL
+	gSettings.chkUpdates = env->addCheckBox(gGameConfig->noClientUpdates, Scale(340, 155, 645, 180), sPanel, -1, gDataManager->GetSysString(1466).c_str());
+	defaultStrings.emplace_back(gSettings.chkUpdates, 1466);
+#endif
 	// audio
 	gSettings.chkEnableSound = env->addCheckBox(gGameConfig->enablesound, Scale(340, 185, 645, 210), sPanel, CHECKBOX_ENABLE_SOUND, gDataManager->GetSysString(2047).c_str());
 	defaultStrings.emplace_back(gSettings.chkEnableSound, 2047);
@@ -744,10 +746,6 @@ bool Game::Initialize() {
 #endif
 	gSettings.chkHideHandsInReplays = env->addCheckBox(gGameConfig->hideHandsInReplays, Scale(340, 365, 645, 390), sPanel, CHECKBOX_HIDE_HANDS_REPLAY, gDataManager->GetSysString(2080).c_str());
 	defaultStrings.emplace_back(gSettings.chkHideHandsInReplays, 2080);
-#ifdef UPDATE_URL
-	gSettings.chkUpdates = env->addCheckBox(gGameConfig->noClientUpdates, Scale(340, 395, 645, 420), sPanel, -1, gDataManager->GetSysString(1466).c_str());
-	defaultStrings.emplace_back(gSettings.chkUpdates, 1466);
-#endif
 
 	wBtnSettings = env->addWindow(Scale(0, 610, 30, 640));
 	wBtnSettings->getCloseButton()->setVisible(false);
@@ -1008,6 +1006,34 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(btnHandTest, 1297);
 	btnHandTest->setVisible(false);
 	btnHandTest->setEnabled(coreloaded);
+	wHandTest = env->addWindow(Scale(mainMenuLeftX, 200, mainMenuRightX, 450), false, gDataManager->GetSysString(1297).c_str());
+	wHandTest->getCloseButton()->setVisible(false);
+	wHandTest->setVisible(false);
+	defaultStrings.emplace_back(wHandTest, 1297);
+	auto nextHandTestRow = [this](int leftRail, int rightRail, bool increment = true) {
+		static int offset = 0;
+		if (increment) offset += 35;
+		return Scale(leftRail, offset, rightRail, offset + 25);
+	};
+	chkHandTestNoOpponent = env->addCheckBox(true, nextHandTestRow(10, mainMenuWidth - 10), wHandTest, -1, gDataManager->GetSysString(2081).c_str());
+	defaultStrings.emplace_back(chkHandTestNoOpponent, 2081);
+	chkHandTestNoShuffle = env->addCheckBox(false, nextHandTestRow(10, mainMenuWidth - 10), wHandTest, -1, gDataManager->GetSysString(1230).c_str());
+	defaultStrings.emplace_back(chkHandTestNoShuffle, 1230);
+	tmpptr = env->addStaticText(gDataManager->GetSysString(1232).c_str(), nextHandTestRow(10, 90), false, false, wHandTest);
+	defaultStrings.emplace_back(tmpptr, 1232);
+	ebHandTestStartHand = env->addEditBox(L"5", nextHandTestRow(95, 175, false), true, wHandTest, EDITBOX_NUMERIC);
+	ebHandTestStartHand->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
+	tmpptr = env->addStaticText(gDataManager->GetSysString(1236).c_str(), nextHandTestRow(10, 90), false, false, wHandTest);
+	defaultStrings.emplace_back(tmpptr, 1236);
+	cbHandTestDuelRule = ADDComboBox(nextHandTestRow(95, mainMenuWidth - 10, false), wHandTest);
+	ReloadCBDuelRule(cbHandTestDuelRule);
+	cbHandTestDuelRule->setSelected(4);
+	chkHandTestSaveReplay = env->addCheckBox(gGameConfig->saveHandTest, nextHandTestRow(10, mainMenuWidth - 10), wHandTest, CHECKBOX_SAVE_HAND_TEST_REPLAY, gDataManager->GetSysString(2077).c_str());
+	defaultStrings.emplace_back(chkHandTestSaveReplay, 2077);
+	tmpptr = env->addButton(nextHandTestRow(10, mainMenuWidth / 2 - 5), wHandTest, BUTTON_HAND_TEST_CANCEL, gDataManager->GetSysString(1210).c_str()); // cancel
+	defaultStrings.emplace_back(tmpptr, 1210);
+	tmpptr = env->addButton(nextHandTestRow(mainMenuWidth / 2 + 5, mainMenuWidth - 10, false), wHandTest, BUTTON_HAND_TEST_START, gDataManager->GetSysString(1215).c_str()); // start
+	defaultStrings.emplace_back(tmpptr, 1215);
 	//
 	scrFilter = env->addScrollBar(false, Scale(999, 161, 1019, 629), 0, SCROLL_FILTER);
 	scrFilter->setLargeStep(DECK_SEARCH_SCROLL_STEP);
@@ -2699,15 +2725,16 @@ void Game::ReloadCBFilterRule() {
 	for (auto i = 1900; i <= 1904; ++i)
 		cbFilterRule->addItem(gDataManager->GetSysString(i).c_str());
 }
-void Game::ReloadCBDuelRule() {
-	cbDuelRule->clear();
-	cbDuelRule->addItem(gDataManager->GetSysString(1260).c_str());
-	cbDuelRule->addItem(gDataManager->GetSysString(1261).c_str());
-	cbDuelRule->addItem(gDataManager->GetSysString(1262).c_str());
-	cbDuelRule->addItem(gDataManager->GetSysString(1263).c_str());
-	cbDuelRule->addItem(gDataManager->GetSysString(1264).c_str());
-	cbDuelRule->addItem(gDataManager->GetSysString(1258).c_str());
-	cbDuelRule->addItem(gDataManager->GetSysString(1259).c_str());
+void Game::ReloadCBDuelRule(irr::gui::IGUIComboBox* cb) {
+	if (!cb) cb = cbDuelRule;
+	cb->clear();
+	cb->addItem(gDataManager->GetSysString(1260).c_str());
+	cb->addItem(gDataManager->GetSysString(1261).c_str());
+	cb->addItem(gDataManager->GetSysString(1262).c_str());
+	cb->addItem(gDataManager->GetSysString(1263).c_str());
+	cb->addItem(gDataManager->GetSysString(1264).c_str());
+	cb->addItem(gDataManager->GetSysString(1258).c_str());
+	cb->addItem(gDataManager->GetSysString(1259).c_str());
 }
 void Game::ReloadCBRule() {
 	cbRule->clear();
@@ -2798,6 +2825,10 @@ void Game::ReloadElementsStrings() {
 		cbDuelRule->setSelected(prev);
 	}
 
+	prev = cbHandTestDuelRule->getSelected();
+	ReloadCBDuelRule(cbHandTestDuelRule);
+	cbHandTestDuelRule->setSelected(prev);
+
 	prev = cbRule->getSelected();
 	ReloadCBRule();
 	cbRule->setSelected(prev);
@@ -2855,6 +2886,7 @@ void Game::OnResize() {
 	btnClearDeck->setRelativePosition(Resize(155, 95, 220, 120));
 	btnDeleteDeck->setRelativePosition(Resize(225, 95, 290, 120));
 	btnHandTest->setRelativePosition(Resize(205, 90, 295, 130));
+	SetCentered(wHandTest);
 
 	wSort->setRelativePosition(Resize(930, 132, 1020, 156));
 	cbSortType->setRelativePosition(Resize(10, 2, 85, 22));

@@ -182,7 +182,7 @@ public:
 	void ReloadCBAttribute();
 	void ReloadCBRace();
 	void ReloadCBFilterRule();
-	void ReloadCBDuelRule();
+	void ReloadCBDuelRule(irr::gui::IGUIComboBox* cb = nullptr);
 	void ReloadCBRule();
 	void ReloadCBCurrentSkin();
 	void ReloadCBCoreLogOutput();
@@ -565,7 +565,15 @@ public:
 	irr::gui::IGUIStaticText* wDeckEdit;
 	irr::gui::IGUIComboBox* cbDBLFList;
 	irr::gui::IGUIComboBox* cbDBDecks;
+
 	irr::gui::IGUIButton* btnHandTest;
+	irr::gui::IGUIWindow* wHandTest;
+	irr::gui::IGUICheckBox* chkHandTestNoOpponent;
+	irr::gui::IGUICheckBox* chkHandTestNoShuffle;
+	irr::gui::IGUIEditBox* ebHandTestStartHand;
+	irr::gui::IGUIComboBox* cbHandTestDuelRule;
+	irr::gui::IGUICheckBox* chkHandTestSaveReplay;
+
 	irr::gui::IGUIButton* btnClearDeck;
 	irr::gui::IGUIButton* btnSortDeck;
 	irr::gui::IGUIButton* btnShuffleDeck;
