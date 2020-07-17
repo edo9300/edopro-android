@@ -3,8 +3,8 @@ LOCAL_PATH := $(call my-dir)/..
 include $(CLEAR_VARS)
 LOCAL_MODULE := EDOProClient
 
-LOCAL_CFLAGS := -DYGOPRO_USE_SDL_MIXER -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -DYGOPRO_BUILD_DLL -Wc++14-extensions
-LOCAL_CPPFLAGS := -std=c++1y -Wc++14-extensions
+LOCAL_CFLAGS := -DYGOPRO_USE_SDL_MIXER -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -DYGOPRO_BUILD_DLL
+LOCAL_CPPFLAGS := -std=gnu++14
 
 ifndef NDEBUG
 LOCAL_CFLAGS += -g -D_DEBUG 
@@ -115,7 +115,7 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/Android/COSAndroidOperator.cpp \
 				$(GFRAME_PATH)/windbot.cpp \
 				$(GFRAME_PATH)/windbot_panel.cpp 
 
-LOCAL_LDLIBS := -lEGL -llog -lGLESv1_CM -lGLESv2 -landroid -lOpenSLES
+LOCAL_LDLIBS := -lEGL -llog -lGLESv1_CM -lGLESv2 -landroid -lOpenSLES -latomic
 
 LOCAL_STATIC_LIBRARIES := Irrlicht
 LOCAL_STATIC_LIBRARIES += android_native_app_glue

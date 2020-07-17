@@ -5,6 +5,12 @@
 #include <vector>
 #include <cstring>
 
+#if defined(__clang__) && defined(__ANDROID__)
+#define thlocal static
+#else
+#define thlocal thread_local
+#endif
+
 class BufferIO {
 public:
 	static void insert_data(std::vector<uint8_t>& vec, void* val, size_t len) {
@@ -128,14 +134,14 @@ public:
 		return wp - wstr;
 	}
 	static std::string EncodeUTF8s(const std::wstring& source) {
-		thread_local std::vector<char> res;
+		thlocal std::vector<char> res;
 		res.reserve(source.size() * 4 + 1);
 		EncodeUTF8(source.c_str(), const_cast<char*>(res.data()));
 		return res.data();
 	}
 	// UTF-8 to UTF-16/UTF-32
 	static std::wstring DecodeUTF8s(const std::string& source) {
-		thread_local std::vector<wchar_t> res;
+		thlocal std::vector<wchar_t> res;
 		if(sizeof(wchar_t) == 2)
 			res.reserve(source.size() * 2 + 1);
 		else
