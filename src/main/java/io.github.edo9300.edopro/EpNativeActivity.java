@@ -9,14 +9,18 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.support.v4.content.FileProvider;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import libwindbot.windbot.WindBot;
 
 import android.net.wifi.WifiManager;
+
+import java.io.File;
 
 import static android.content.ClipDescription.MIMETYPE_TEXT_PLAIN;
 public class EpNativeActivity extends NativeActivity {
@@ -40,6 +44,7 @@ public class EpNativeActivity extends NativeActivity {
 		IntentFilter filter = new IntentFilter();
 		filter.addAction("RUN_WINDBOT");
 		filter.addAction("MAKE_CHOICE");
+		filter.addAction("INSTALL_UPDATE");
 		registerReceiver(myReceiver, filter);
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 	}
@@ -97,6 +102,14 @@ public class EpNativeActivity extends NativeActivity {
 					}
 				});
 				builder.create().show();
+			} else if("INSTALL_UPDATE".equals(action)){
+				String path = intent.getStringExtra("args");
+				Log.i("EDOProUpdater", "Installing update from: \"" + path + "\".");
+				Intent _intent = new Intent(Intent.ACTION_VIEW);
+				_intent.setDataAndType(FileProvider.getUriForFile(context, context.getApplicationContext().getPackageName() + ".provider", new File(path)), "application/vnd.android.package-archive");
+				_intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+				_intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				startActivity(_intent);
 			}
 		}
 	};
@@ -114,6 +127,22 @@ public class EpNativeActivity extends NativeActivity {
 		Intent intent = new Intent();
 		intent.putExtra("args", parameters);
 		intent.setAction("MAKE_CHOICE");
+		getApplicationContext().sendBroadcast(intent);
+	}
+
+	@SuppressWarnings("unused")
+	public void installUpdate(String path) {
+		try {
+			File file = new File(getFilesDir(),"should_copy_update");
+			if(!file.createNewFile()){
+				Log.e("EDOPro", "error when creating should_copy_update file:");
+			}
+		} catch (Exception e){
+			Log.e("EDOPro", "error when creating should_copy_update file: " + e.getMessage());
+		}
+		Intent intent = new Intent();
+		intent.putExtra("args", path);
+		intent.setAction("INSTALL_UPDATE");
 		getApplicationContext().sendBroadcast(intent);
 	}
 

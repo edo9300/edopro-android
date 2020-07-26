@@ -281,8 +281,12 @@ public class MainActivity extends Activity {
 		copyAssetsPrompt(dest_dir);
 	}
 
-	@SuppressWarnings("ResultOfMethodCallIgnored")
 	public void copyAssetsPrompt(final String working_dir) {
+		File upfile = new File(getFilesDir(),"should_copy_update");
+		if(upfile.exists()){
+			copyAssets(working_dir, true);
+			return;
+		}
 		File file = new File(getFilesDir(),"assets_copied");
 		if(file.exists()){
 			next();
@@ -294,7 +298,9 @@ public class MainActivity extends Activity {
 			public void onClick(DialogInterface dialog, int id) {
 				try {
 					File file = new File(getFilesDir(),"assets_copied");
-					file.createNewFile();
+					if(!file.createNewFile()){
+						Log.e("EDOPro", "error when creating assets_copied file");
+					}
 				} catch (Exception e){
 					Log.e("EDOPro", "error when creating assets_copied file: " + e.getMessage());
 				}
@@ -302,7 +308,7 @@ public class MainActivity extends Activity {
 			}
 		}).setPositiveButton("Yes", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int id) {
-				copyAssets(working_dir);
+				copyAssets(working_dir, false);
 			}
 		}).setCancelable(false).show();
     }
@@ -331,10 +337,11 @@ public class MainActivity extends Activity {
 		}
 	}
 
-    public void copyAssets(String working_dir){
+    public void copyAssets(String working_dir, boolean isUpdate){
 		Intent intent = new Intent(this, AssetCopy.class);
 		Bundle params = new Bundle();
 		params.putString("workingDir", working_dir);
+		params.putBoolean("isUpdate", isUpdate);
 		intent.putExtras(params);
 		startActivityForResult(intent, 1);
     }

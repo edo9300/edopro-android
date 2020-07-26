@@ -27,6 +27,7 @@ public class AssetCopy extends Activity {
     private TextView m_Filename;
     private copyAssetTask m_AssetCopy;
     private String workingDir;
+    private boolean isUpdate;
     //private static native void assetsMutexUnlock();
 
     @Override
@@ -35,8 +36,11 @@ public class AssetCopy extends Activity {
         super.onCreate(savedInstanceState);
         Bundle b = getIntent().getExtras();
         String _workingDir = "_workingDir";
-        if(b != null)
+        boolean _isUpdate = false;
+        if(b != null){
             _workingDir = b.getString("workingDir");
+            _isUpdate = b.getBoolean("isUpdate");
+        }
         setContentView(R.layout.assetcopy);
         m_ProgressBar = findViewById(R.id.progressBar1);
         m_Filename = findViewById(R.id.textView1);
@@ -52,6 +56,7 @@ public class AssetCopy extends Activity {
             m_AssetCopy = prevActivity.m_AssetCopy;
         } else {
             workingDir = _workingDir;
+            isUpdate = _isUpdate;
             m_AssetCopy = new copyAssetTask();
             m_AssetCopy.execute();
         }
@@ -155,9 +160,15 @@ public class AssetCopy extends Activity {
 
                     InputStream src;
                     try {
-                        src = getAssets().open("defaults/" + filename);
+                        if(isUpdate)
+                            src = getAssets().open("update/" + filename);
+                        else
+                            src = getAssets().open("defaults/" + filename);
                     } catch (IOException e) {
-                        Log.e("AssetCopy", "Copying file: defaults/" +  filename + " FAILED (not in assets)");
+                        if(isUpdate)
+                            Log.e("AssetCopy", "Copying file: update/" +  filename + " FAILED (not in assets)");
+                        else
+                            Log.e("AssetCopy", "Copying file: defaults/" +  filename + " FAILED (not in assets)");
                         e.printStackTrace();
                         continue;
                     }
@@ -252,7 +263,10 @@ public class AssetCopy extends Activity {
                         FlashPath=workingDir;
                     }
                     /* store information and update gui */
-                    m_Foldername = "defaults/" + current_path;
+                    if(isUpdate)
+                        m_Foldername = "update/" + current_path;
+                    else
+                        m_Foldername = "defaults/" + current_path;
                     publishProgress(0);
                     /* open file in order to check if it's a folder */
                     File current_folder = new File(FlashPath);
@@ -305,7 +319,7 @@ public class AssetCopy extends Activity {
          */
         void BuildFolderList() {
             try {
-                InputStream is = getAssets().open("index.txt");
+                InputStream is = getAssets().open(isUpdate ? "indexu.txt" : "index.txt");
                 BufferedReader reader = new BufferedReader(new InputStreamReader(is));
 
                 String line = reader.readLine();
@@ -327,7 +341,7 @@ public class AssetCopy extends Activity {
         void BuildFileList() {
             long entrycount = 0;
             try {
-                InputStream is = getAssets().open("filelist.txt");
+                InputStream is = getAssets().open(isUpdate ? "filelistu.txt": "filelist.txt");
                 BufferedReader reader = new BufferedReader(new InputStreamReader(is));
 
                 String line = reader.readLine();
