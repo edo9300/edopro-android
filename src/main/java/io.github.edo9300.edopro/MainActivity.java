@@ -284,7 +284,8 @@ public class MainActivity extends Activity {
 	public void copyAssetsPrompt(final String working_dir) {
 		File upfile = new File(getFilesDir(),"should_copy_update");
 		if(upfile.exists()){
-			copyAssets(working_dir, true);
+			if(upfile.delete())
+				copyAssets(working_dir, true);
 			return;
 		}
 		File file = new File(getFilesDir(),"assets_copied");

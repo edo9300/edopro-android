@@ -292,21 +292,27 @@ public class AssetCopy extends Activity {
                 long stored_filesize;
 
                 if (testme.exists()) {
-                    try {
-                        AssetFileDescriptor fd = getAssets().openFd(current_path);
-                        asset_filesize = fd.getLength();
-                        fd.close();
-                    } catch (IOException e) {
-                        m_asset_size_unknown.add(current_path);
-                        Log.e("AssetCopy", "Failed to open asset file \"" +
-                                FlashPath + "\" for size check");
+                    if(isUpdate) {
+                        if (!testme.delete()) {
+                            Log.e("AssetCopy", "Couldn't delete \"" +
+                                    FlashPath + "\"");
+                        }
+                    } else {
+                        try {
+                            AssetFileDescriptor fd = getAssets().openFd(current_path);
+                            asset_filesize = fd.getLength();
+                            fd.close();
+                        } catch (IOException e) {
+                            m_asset_size_unknown.add(current_path);
+                            Log.e("AssetCopy", "Failed to open asset file \"" +
+                                    FlashPath + "\" for size check; ");
+                        }
+
+                        stored_filesize = testme.length();
+
+                        if (asset_filesize == stored_filesize)
+                            refresh = false;
                     }
-
-                    stored_filesize = testme.length();
-
-                    if (asset_filesize == stored_filesize)
-                        refresh = false;
-
                 }
 
                 if (refresh)
