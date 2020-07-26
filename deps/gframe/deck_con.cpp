@@ -83,6 +83,7 @@ void DeckBuilder::Initialize(bool refresh) {
 	mainGame->btnSideSort->setVisible(false);
 	mainGame->btnSideReload->setVisible(false);
 	mainGame->btnHandTest->setVisible(true);
+	mainGame->btnHandTestSettings->setVisible(true);
 	filterList = &gdeckManager->_lfList[mainGame->cbDBLFList->getSelected()];
 	if(refresh) {
 		ClearSearch();
@@ -124,6 +125,7 @@ void DeckBuilder::Terminate(bool showmenu) {
 		mainGame->ClearCardInfo(0);
 	}
 	mainGame->btnHandTest->setVisible(false);
+	mainGame->btnHandTestSettings->setVisible(false);
 	mainGame->wHandTest->setVisible(false);
 	mainGame->device->setEventReceiver(&mainGame->menuHandler);
 	mainGame->wACMessage->setVisible(false);
@@ -152,13 +154,11 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 		switch(event.GUIEvent.EventType) {
 		case irr::gui::EGET_BUTTON_CLICKED: {
 			switch(id) {
-			case BUTTON_HAND_TEST: {
-				if (mainGame->btnHandTest->getClickShiftState()) {
-					mainGame->PopupElement(mainGame->wHandTest);
-					break;
-				}
-				// intentional case fallthrough
+			case BUTTON_HAND_TEST_SETTINGS: {
+				mainGame->PopupElement(mainGame->wHandTest);
+				break;
 			}
+			case BUTTON_HAND_TEST:
 			case BUTTON_HAND_TEST_START: {
 				Terminate(false);
 				open_file = true;
@@ -169,7 +169,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 				try {
 					options.startingDrawCount = std::stoi(mainGame->ebHandTestStartHand->getText());
 				} catch(...) {}
-#define CHECK(MR) case (MR - 1):{  options.duelFlags |= DUEL_MODE_MR##MR; break; }
+#define CHECK(MR) case (MR - 1):{  options.duelFlags = DUEL_MODE_MR##MR; break; }
 				switch (mainGame->cbHandTestDuelRule->getSelected()) {
 				CHECK(1)
 				CHECK(2)
@@ -177,11 +177,15 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 				CHECK(4)
 				CHECK(5)
 				case 5: {
-					options.duelFlags |= DUEL_MODE_SPEED;
+					options.duelFlags = DUEL_MODE_SPEED;
 					break;
 				}
 				case 6: {
-					options.duelFlags |= DUEL_MODE_RUSH;
+					options.duelFlags = DUEL_MODE_RUSH;
+					break;
+				}
+				case 7: {
+					options.duelFlags = DUEL_MODE_GOAT;
 					break;
 				}
 				}
@@ -192,7 +196,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			}
 			case BUTTON_HAND_TEST_CANCEL: {
 				mainGame->HideElement(mainGame->wHandTest);
-				mainGame->env->setFocus(mainGame->btnHandTest);
+				mainGame->env->setFocus(mainGame->btnHandTestSettings);
 				break;
 			}
 			case BUTTON_CLEAR_DECK: {
@@ -415,7 +419,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 		}
 		case irr::gui::EGET_EDITBOX_CHANGED: {
 			auto caller = event.GUIEvent.Caller;
-			auto StartFilterIfLongerThan = [&](int length) {
+			auto StartFilterIfLongerThan = [&](size_t length) {
 				std::wstring filter = caller->getText();
 				if (filter.size() > length)
 					StartFilter();

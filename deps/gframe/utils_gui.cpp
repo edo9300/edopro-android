@@ -35,7 +35,7 @@ irr::IrrlichtDevice* GUIUtils::CreateDevice(GameConfig* configs) {
 	else
 #endif
 		params.DriverType = irr::video::EDT_OPENGL;
-	params.WindowSize = irr::core::dimension2d<irr::u32>(1024 * configs->dpi_scale, 640 * configs->dpi_scale);
+	params.WindowSize = irr::core::dimension2d<irr::u32>((irr::u32)(1024 * configs->dpi_scale), (irr::u32)(640 * configs->dpi_scale));
 	params.Vsync = configs->vsync;
 #else
 	if(gGameConfig->use_d3d) {
@@ -103,17 +103,22 @@ void GUIUtils::ChangeCursor(irr::IrrlichtDevice* device, /*irr::gui::ECURSOR_ICO
 #endif
 }
 
-void GUIUtils::TakeScreenshot(irr::IrrlichtDevice* device)
+bool GUIUtils::TakeScreenshot(irr::IrrlichtDevice* device)
 {
 	const auto driver = device->getVideoDriver();
 	const auto image = driver->createScreenShot();
-	if (image) {
-		auto now = std::time(nullptr);
-		path_string filename(fmt::format(EPRO_TEXT("screenshots/EDOPro {:%Y-%m-%d %H-%M-%S}.png"), *std::localtime(&now)).c_str());
-		if (!driver->writeImageToFile(image, filename.c_str()))
-			device->getLogger()->log(L"Failed to take screenshot.", irr::ELL_WARNING);
-		image->drop();
+	if (!image) {
+		return false;
 	}
+	auto now = std::time(nullptr);
+	path_string filename(fmt::format(EPRO_TEXT("screenshots/EDOPro {:%Y-%m-%d %H-%M-%S}.png"), *std::localtime(&now)).c_str());
+	if (!driver->writeImageToFile(image, filename.c_str())) {
+		device->getLogger()->log(L"Failed to take screenshot.", irr::ELL_WARNING);
+		image->drop();
+		return false;
+	}
+	image->drop();
+	return true;
 }
 
 void GUIUtils::ToggleFullscreen(irr::IrrlichtDevice* device, bool& fullscreen) {
