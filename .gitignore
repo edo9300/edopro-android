@@ -4,6 +4,7 @@ obj/
 release/
 bugreports/
 src/main/assets/defaults/
+src/main/assets/update/
 .gradle/
 .id*/
 *vs/
