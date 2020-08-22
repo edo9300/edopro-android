@@ -35,6 +35,7 @@
 #include "logging.h"
 #include "utils_gui.h"
 #include "custom_skin_enum.h"
+#include "joystick_wrapper.h"
 
 #ifdef __ANDROID__
 #include "CGUICustomComboBox/CGUICustomComboBox.h"
@@ -478,7 +479,7 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(btnHostPrepOB, 1252);
 	stHostPrepOB = env->addStaticText(fmt::format(L"{} 0", gDataManager->GetSysString(1253)).c_str(), Scale(10, 210, 270, 230), false, false, wHostPrepare);
 	defaultStrings.emplace_back(stHostPrepOB, 1253);
-	stHostPrepRule = irr::gui::CGUICustomText::addCustomText(L"", false, env, wHostPrepare, -1, Scale(280, 30, 460, 230));
+	stHostPrepRule = irr::gui::CGUICustomText::addCustomText(L"", false, env, wHostPrepare, -1, Scale(280, 30, 460, 270));
 #ifdef __ANDROID__
 	((irr::gui::CGUICustomText*)stHostPrepRule)->setTouchControl(!gGameConfig->native_mouse);
 #endif
@@ -607,8 +608,11 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(tabSettings.chkHideChainButtons, 1355);
 	tabSettings.chkAutoChainOrder = env->addCheckBox(gGameConfig->chkAutoChain, Scale(20, 170, 280, 195), tabPanel, -1, gDataManager->GetSysString(1276).c_str());
 	defaultStrings.emplace_back(tabSettings.chkAutoChainOrder, 1276);
-	tabSettings.chkNoChainDelay = env->addCheckBox(gGameConfig->chkWaitChain, Scale(20, 200, 280, 225), tabPanel, -1, gDataManager->GetSysString(1277).c_str());
-	defaultStrings.emplace_back(tabSettings.chkNoChainDelay, 1277);
+	tabSettings.chkDottedLines = env->addCheckBox(gGameConfig->dotted_lines, Scale(20, 200, 280, 225), tabPanel, CHECKBOX_DOTTED_LINES, gDataManager->GetSysString(1376).c_str());
+	defaultStrings.emplace_back(tabSettings.chkDottedLines, 1376);
+#ifdef __ANDROID__
+	tabSettings.chkDottedLines->setEnabled(false);
+#endif
 	// audio
 	tabSettings.chkEnableSound = env->addCheckBox(gGameConfig->enablesound, Scale(20, 230, 280, 255), tabPanel, CHECKBOX_ENABLE_SOUND, gDataManager->GetSysString(2047).c_str());
 	defaultStrings.emplace_back(tabSettings.chkEnableSound, 2047);
@@ -640,6 +644,8 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(tabSettings.chkSTAutoPos, 1278);
 	tabSettings.chkRandomPos = env->addCheckBox(gGameConfig->chkRandomPos, Scale(40, 410, 280, 435), tabPanel, -1, gDataManager->GetSysString(1275).c_str());
 	defaultStrings.emplace_back(tabSettings.chkRandomPos, 1275);
+	tabSettings.chkNoChainDelay = env->addCheckBox(gGameConfig->chkWaitChain, Scale(20, 440, 280, 465), tabPanel, -1, gDataManager->GetSysString(1277).c_str());
+	defaultStrings.emplace_back(tabSettings.chkNoChainDelay, 1277);
 	// Check OnResize for button placement information
 	btnTabShowSettings = env->addButton(Scale(20, 445, 280, 470), tabPanel, BUTTON_SHOW_SETTINGS, gDataManager->GetSysString(2059).c_str());
 	defaultStrings.emplace_back(btnTabShowSettings, 2059);
@@ -1334,8 +1340,8 @@ bool Game::Initialize() {
 	//cbFilterMatchMode->setAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER, irr::gui::EGUIA_UPPERLEFT, irr::gui::EGUIA_UPPERLEFT);
 	cbFilterBanlist->setAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER, irr::gui::EGUIA_UPPERLEFT, irr::gui::EGUIA_UPPERLEFT);
 
-	ReloadCBFilterRule();
 	RefreshLFLists();
+	ReloadCBFilterRule();
 
 	/*cbFilterMatchMode->addItem(fmt::format(L"[{}]", gDataManager->GetSysString(1227)).c_str());
 	cbFilterMatchMode->addItem(gDataManager->GetSysString(1244).c_str());
@@ -1632,6 +1638,7 @@ bool Game::MainLoop() {
 		delta_time = now - prev_time;
 		prev_time = now;
 		cur_time += delta_time;
+		gJWrapper->ProcessEvents();
 		bool resized = false;
 		auto size = driver->getScreenSize();
 #if defined (__linux__) && !defined(__ANDROID__)
@@ -1809,9 +1816,9 @@ bool Game::MainLoop() {
 		int fpsLimit = gGameConfig->maxFPS;
 		if(gGameConfig->maxFPS > 0 && !gGameConfig->vsync) {
 #endif
-			uint32 delta = std::round(fps * (1000.0f / fpsLimit) - cur_time);
+			int64 delta = std::round(fps * (1000.0f / fpsLimit) - cur_time);
 			if(delta > 0) {
-				auto t = timer->getRealTime();
+				int64 t = timer->getRealTime();
 				while((timer->getRealTime() - t) < delta) {
 					std::this_thread::sleep_for(std::chrono::milliseconds(1));
 				}
@@ -2737,23 +2744,30 @@ void Game::ReloadCBCardType2() {
 	}
 }
 void Game::ReloadCBLimit() {
+	bool white = deckBuilder.filterList && deckBuilder.filterList->whitelist;
 	cbLimit->clear();
-	cbLimit->addItem(gDataManager->GetSysString(1310).c_str());
-	cbLimit->addItem(gDataManager->GetSysString(1316).c_str());
-	cbLimit->addItem(gDataManager->GetSysString(1317).c_str());
-	cbLimit->addItem(gDataManager->GetSysString(1318).c_str());
-	cbLimit->addItem(gDataManager->GetSysString(1320).c_str());
-	cbLimit->addItem(gDataManager->GetSysString(1900).c_str());
-	cbLimit->addItem(gDataManager->GetSysString(1901).c_str());
-	cbLimit->addItem(gDataManager->GetSysString(1902).c_str());
-	cbLimit->addItem(gDataManager->GetSysString(1903).c_str());
-	cbLimit->addItem(gDataManager->GetSysString(1910).c_str());
-	cbLimit->addItem(gDataManager->GetSysString(1911).c_str());
-	if (chkAnime->isChecked()) {
-		cbLimit->addItem(gDataManager->GetSysString(1265).c_str());
-		cbLimit->addItem(gDataManager->GetSysString(1266).c_str());
-		cbLimit->addItem(gDataManager->GetSysString(1267).c_str());
-		cbLimit->addItem(gDataManager->GetSysString(1268).c_str());
+	cbLimit->addItem(gDataManager->GetSysString(white ? 1269 : 1310).c_str(), DeckBuilder::LIMITATION_FILTER_NONE);
+	cbLimit->addItem(gDataManager->GetSysString(1316).c_str(), DeckBuilder::LIMITATION_FILTER_BANNED);
+	cbLimit->addItem(gDataManager->GetSysString(1317).c_str(), DeckBuilder::LIMITATION_FILTER_LIMITED);
+	cbLimit->addItem(gDataManager->GetSysString(1318).c_str(), DeckBuilder::LIMITATION_FILTER_SEMI_LIMITED);
+	cbLimit->addItem(gDataManager->GetSysString(1320).c_str(), DeckBuilder::LIMITATION_FILTER_UNLIMITED);
+	if(!white) {
+		chkAnime->setEnabled(true);
+		cbLimit->addItem(gDataManager->GetSysString(1900).c_str(), DeckBuilder::LIMITATION_FILTER_OCG);
+		cbLimit->addItem(gDataManager->GetSysString(1901).c_str(), DeckBuilder::LIMITATION_FILTER_TCG);
+		cbLimit->addItem(gDataManager->GetSysString(1902).c_str(), DeckBuilder::LIMITATION_FILTER_TCG_OCG);
+		cbLimit->addItem(gDataManager->GetSysString(1903).c_str(), DeckBuilder::LIMITATION_FILTER_PRERELEASE);
+		cbLimit->addItem(gDataManager->GetSysString(1910).c_str(), DeckBuilder::LIMITATION_FILTER_SPEED);
+		cbLimit->addItem(gDataManager->GetSysString(1911).c_str(), DeckBuilder::LIMITATION_FILTER_RUSH);
+		if(chkAnime->isChecked()) {
+			cbLimit->addItem(gDataManager->GetSysString(1265).c_str(), DeckBuilder::LIMITATION_FILTER_ANIME);
+			cbLimit->addItem(gDataManager->GetSysString(1266).c_str(), DeckBuilder::LIMITATION_FILTER_ILLEGAL);
+			cbLimit->addItem(gDataManager->GetSysString(1267).c_str(), DeckBuilder::LIMITATION_FILTER_VIDEOGAME);
+			cbLimit->addItem(gDataManager->GetSysString(1268).c_str(), DeckBuilder::LIMITATION_FILTER_CUSTOM);
+		}
+	} else {
+		chkAnime->setEnabled(false);
+		cbLimit->addItem(gDataManager->GetSysString(1310).c_str(), DeckBuilder::LIMITATION_FILTER_ALL);
 	}
 }
 void Game::ReloadCBAttribute() {
@@ -3072,6 +3086,8 @@ void Game::OnResize() {
 	btnChainWhenAvail->setRelativePosition(Resize(205, 180, 295, 215));
 	btnCancelOrFinish->setRelativePosition(Resize(205, 230, 295, 265));
 
+	auto prev = roomListTable->getSelected();
+
 	roomListTable->setRelativePosition(irr::core::recti(ResizeX(1), chkShowActiveRooms->getRelativePosition().LowerRightCorner.Y + ResizeY(10), ResizeX(1024 - 2), btnLanRefresh2->getRelativePosition().UpperLeftCorner.Y - ResizeY(25)));
 	roomListTable->setColumnWidth(0, window_scale.X * Scale(30));  // lock
 	roomListTable->setColumnWidth(1, window_scale.X * Scale(110)); // Allowed Cards:
@@ -3083,7 +3099,7 @@ void Game::OnResize() {
 	roomListTable->setColumnWidth(7, window_scale.X * Scale(60));  // Status
 	roomListTable->addRow(roomListTable->getRowCount());
 	roomListTable->removeRow(roomListTable->getRowCount() - 1);
-	roomListTable->setSelected(-1);
+	roomListTable->setSelected(prev);
 }
 irr::core::recti Game::Resize(irr::s32 x, irr::s32 y, irr::s32 x2, irr::s32 y2) {
 	x = x * window_scale.X;

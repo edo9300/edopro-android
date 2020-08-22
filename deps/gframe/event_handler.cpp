@@ -16,6 +16,7 @@
 #include "CGUIImageButton/CGUIImageButton.h"
 #include "CGUITTFont/CGUITTFont.h"
 #include "custom_skin_enum.h"
+#include "Base64.h"
 #ifdef __ANDROID__
 #include "Android/porting_android.h"
 #endif
@@ -30,6 +31,7 @@
 #include <IGUIContextMenu.h>
 #include <IGUITabControl.h>
 #include <IGUIScrollBar.h>
+#include "joystick_wrapper.h"
 
 namespace ygo {
 
@@ -851,6 +853,10 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 				}
 				break;
 			}
+			case CHECKBOX_DOTTED_LINES: {
+				gGameConfig->dotted_lines = static_cast<irr::gui::IGUICheckBox*>(event.GUIEvent.Caller)->isChecked();
+				break;
+			}
 			}
 			break;
 		}
@@ -1306,6 +1312,10 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 				if (!(hovered_location & LOCATION_ONFIELD))
 					break;
 				unsigned int flag = 1 << (hovered_sequence + (hovered_controler << 4) + ((hovered_location == LOCATION_MZONE) ? 0 : 8));
+				if(hovered_location == LOCATION_MZONE && hovered_sequence == 5 || hovered_sequence == 6) {
+					if((flag & selectable_field) == 0 && selectable_field & 0x600000)
+						flag = 1 << ((11 - hovered_sequence) + (1 << 4));
+				}
 				if (flag & selectable_field) {
 					if (flag & selected_field) {
 						selected_field &= ~flag;
@@ -1775,6 +1785,8 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 	return false;
 }
 bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation) {
+	static irr::u32 buttonstates = 0;
+	static uint8_t resizestate = gGameConfig->fullscreen ? 2 : 0;
 #ifdef __ANDROID__
 	if(porting::transformEvent(event, stopPropagation)) {
 		return true;
@@ -2112,7 +2124,7 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 				auto focus = static_cast<irr::gui::IGUIListBox*>(mainGame->env->getFocus());
 				int sel = focus->getSelected();
 				if(sel != -1) {
-					mainGame->device->getOSOperator()->copyToClipboard(focus->getListItem(sel));
+					mainGame->env->getOSOperator()->copyToClipboard(focus->getListItem(sel));
 					return true;
 				}
 			}
@@ -2150,6 +2162,20 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 			}
 			return true;
 		}
+#ifdef _WIN32
+		case irr::KEY_F10: {
+			if(event.KeyInput.Shift) {
+				gGameConfig->windowStruct = {};
+				break;
+			}
+			HWND hWnd = reinterpret_cast<HWND>(mainGame->driver->getExposedVideoData().D3D9.HWnd);
+			WINDOWPLACEMENT wp;
+			wp.length = sizeof(WINDOWPLACEMENT);
+			GetWindowPlacement(hWnd, &wp);
+			gGameConfig->windowStruct = base64_encode<std::string>(reinterpret_cast<uint8_t*>(&wp), sizeof(wp));
+			return true;
+		}
+#endif
 		case irr::KEY_F11: {
 			if(!event.KeyInput.PressedDown) {
 				GUIUtils::ToggleFullscreen(mainGame->device, gGameConfig->fullscreen);
@@ -2158,8 +2184,8 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 			return true;
 		}
 		case irr::KEY_F12: {
-			if (!event.KeyInput.PressedDown && GUIUtils::TakeScreenshot(mainGame->device))
-				gSoundManager->PlaySoundEffect(SoundManager::SFX::ACTIVATE);
+			if (!event.KeyInput.PressedDown)
+				GUIUtils::TakeScreenshot(mainGame->device);
 			return true;
 		}
 		case irr::KEY_KEY_1: {
@@ -2219,6 +2245,18 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 				}
 				break;
 			}
+			case irr::EMIE_MOUSE_MOVED: {
+				if((buttonstates & 0xffff) && !event.MouseInput.ButtonStates) {
+					auto _event = event;
+					_event.MouseInput.ButtonStates = buttonstates & 0xffff;
+					_event.MouseInput.Control = buttonstates & (1 << 30);
+					_event.MouseInput.Shift = buttonstates & (1 << 29);
+					mainGame->device->postEventFromUser(_event);
+					stopPropagation = true;
+					return true;
+				}
+				break;
+			}
 			default: break;
 		}
 		if(!gGameConfig->ctrlClickIsRMB || !event.MouseInput.Control)
@@ -2232,6 +2270,97 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 #undef REMAP
 			default: break;
 		}
+		break;
+	}
+	case irr::EET_JOYSTICK_INPUT_EVENT: {
+		if(!gGameConfig->controller_input || !mainGame->device->isWindowFocused())
+			break;
+		auto& jevent = event.JoystickEvent;
+		irr::f32 moveHorizontal = 0.f; // Range is -1.f for full left to +1.f for full right
+		irr::f32 moveVertical = 0.f; // -1.f for full down to +1.f for full up.
+		const irr::f32 DEAD_ZONE = 0.07f;
+
+		moveHorizontal = (irr::f32)jevent.Axis[JWrapper::Axis::LEFTX] / 32767.f;
+		if(fabs(moveHorizontal) < DEAD_ZONE)
+			moveHorizontal = 0.f;
+
+		moveVertical = (irr::f32)jevent.Axis[JWrapper::Axis::LEFTY] / 32767.f;
+		if(fabs(moveVertical) < DEAD_ZONE)
+			moveVertical = 0.f;
+		const irr::f32 MOVEMENT_SPEED = 0.001f;
+		auto cursor = mainGame->device->getCursorControl();
+		auto pos = cursor->getRelativePosition();
+		if(!irr::core::equals(moveHorizontal, 0.f) || !irr::core::equals(moveVertical, 0.f)) {
+			pos.X += MOVEMENT_SPEED * mainGame->delta_time * moveHorizontal;
+			pos.Y += MOVEMENT_SPEED * mainGame->delta_time * moveVertical;
+			auto clamp = [](auto& val) { val = (val < 0.f) ? 0.f : (1.f < val) ? 1.f : val;	};
+			clamp(pos.X);
+			clamp(pos.Y);
+			cursor->setPosition(pos.X, pos.Y);
+		}
+		buttonstates = 0;
+		if(jevent.ButtonStates & JWrapper::Buttons::A)
+			buttonstates |= irr::E_MOUSE_BUTTON_STATE_MASK::EMBSM_LEFT;
+		if(jevent.ButtonStates & JWrapper::Buttons::B)
+			buttonstates |= irr::E_MOUSE_BUTTON_STATE_MASK::EMBSM_RIGHT;
+		if(jevent.ButtonStates & JWrapper::Buttons::Y)
+			buttonstates |= irr::E_MOUSE_BUTTON_STATE_MASK::EMBSM_MIDDLE;
+		irr::SEvent simulated{};
+		simulated.EventType = irr::EET_MOUSE_INPUT_EVENT;
+		simulated.MouseInput.ButtonStates = buttonstates;
+		simulated.MouseInput.Control = jevent.ButtonStates & JWrapper::Buttons::LEFTSHOULDER;
+		simulated.MouseInput.Shift = jevent.ButtonStates & JWrapper::Buttons::RIGHTSHOULDER;
+		simulated.MouseInput.X = irr::core::round32(pos.X * mainGame->window_size.Width);
+		simulated.MouseInput.Y = irr::core::round32(pos.Y * mainGame->window_size.Height);
+
+		buttonstates |= (simulated.MouseInput.Control) ? 1 << 30 : 0;
+		buttonstates |= (simulated.MouseInput.Shift) ? 1 << 29 : 0;
+
+		auto& changed = jevent.POV;
+
+		auto CheckAndPost = [device=mainGame->device, &simulated, &changed, &states=jevent.ButtonStates](int button, irr::EMOUSE_INPUT_EVENT type) {
+			if(changed & button) {
+				simulated.MouseInput.Event = (states & button) ? type : (irr::EMOUSE_INPUT_EVENT)(type + 3);
+				device->postEventFromUser(simulated);
+			}
+		};
+
+		CheckAndPost(JWrapper::Buttons::A, irr::EMIE_LMOUSE_PRESSED_DOWN);
+		CheckAndPost(JWrapper::Buttons::B, irr::EMIE_RMOUSE_PRESSED_DOWN);
+		CheckAndPost(JWrapper::Buttons::Y, irr::EMIE_MMOUSE_PRESSED_DOWN);
+
+		moveVertical = (irr::f32)jevent.Axis[JWrapper::Axis::RIGHTY] / -32767.f;
+		if(fabs(moveVertical) < DEAD_ZONE)
+			moveVertical = 0.f;
+
+		if(!irr::core::equals(moveVertical, 0.f)) {
+			simulated.MouseInput.Wheel = moveVertical;
+			simulated.MouseInput.Event = irr::EMIE_MOUSE_WHEEL;
+			mainGame->device->postEventFromUser(simulated);
+		}
+		if(changed & JWrapper::Buttons::X && !(jevent.ButtonStates & JWrapper::Buttons::X)) {
+			resizestate = (resizestate + 1) % 3;
+			switch(resizestate) {
+				case 0: {
+					if(gGameConfig->fullscreen)
+						GUIUtils::ToggleFullscreen(mainGame->device, gGameConfig->fullscreen);
+					mainGame->device->restoreWindow();
+					break;
+				}
+				case 1: {
+					if(gGameConfig->fullscreen)
+						GUIUtils::ToggleFullscreen(mainGame->device, gGameConfig->fullscreen);
+					mainGame->device->maximizeWindow();
+					break;
+				}
+				case 2: {
+					if(!gGameConfig->fullscreen)
+						GUIUtils::ToggleFullscreen(mainGame->device, gGameConfig->fullscreen);
+					break;
+				}
+			}
+		}
+		return true;
 		break;
 	}
 	default: break;

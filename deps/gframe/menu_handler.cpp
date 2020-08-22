@@ -171,7 +171,6 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			}
 			case BUTTON_ROOMPASSWORD_OK: {
 				ServerLobby::JoinServer(false);
-				mainGame->wRoomPassword->setVisible(false);
 				break;
 			}
 			case BUTTON_ROOMPASSWORD_CANCEL: {
@@ -845,9 +844,6 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				int selected = mainGame->cbHostLFList->getSelected();
 				if (selected < 0) break;
 				LFList* lflist = gdeckManager->GetLFList(mainGame->cbHostLFList->getItemData(selected));
-				if (lflist && lflist->whitelist) {
-					mainGame->cbRule->setSelected(static_cast<int>(DuelAllowedCards::ALLOWED_CARDS_ANY));
-				}  // heuristic for general use case of whitelists
 				break;
 			}
 			case COMBOBOX_DUEL_RULE: {

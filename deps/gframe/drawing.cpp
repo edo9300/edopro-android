@@ -456,50 +456,35 @@ void Game::DrawMisc() {
 	im.setRotationRadians(act_rot);
 	matManager.mTexture.setTexture(0, imageManager.tAct);
 	driver->setMaterial(matManager.mTexture);
-	if(dField.deck_act) {
-		im.setTranslation(irr::core::vector3df((matManager.vFieldDeck[0][speed][0].Pos.X + matManager.vFieldDeck[0][speed][1].Pos.X) / 2,
-			(matManager.vFieldDeck[0][speed][0].Pos.Y + matManager.vFieldDeck[0][speed][2].Pos.Y) / 2, dField.deck[0].size() * 0.01f + 0.02f));
+
+	auto drawact = [this, &im](irr::video::S3DVertex vertex[4], float zval) {
+		im.setTranslation(irr::core::vector3df((vertex[0].Pos.X + vertex[1].Pos.X) / 2,
+			(vertex[0].Pos.Y + vertex[2].Pos.Y) / 2, zval));
 		driver->setTransform(irr::video::ETS_WORLD, im);
 		driver->drawVertexPrimitiveList(matManager.vActivate, 4, matManager.iRectangle, 2);
+	};
+
+	int pzseq = dInfo.duel_field == 4 ? (speed) ? 1 : 0 : 6;
+	for(int p = 0; p < 2; p++) {
+		if(dField.deck_act[p])
+			drawact(matManager.vFieldDeck[p][speed], dField.deck[p].size() * 0.01f + 0.02f);
+		if(dField.grave_act[p])
+			drawact(matManager.vFieldGrave[p][field][speed], dField.grave[p].size() * 0.01f + 0.02f);
+		if(dField.remove_act[p])
+			drawact(matManager.vFieldRemove[p][field][speed], dField.remove[p].size() * 0.01f + 0.02f);
+		if(dField.extra_act[p])
+			drawact(matManager.vFieldExtra[p][speed], dField.extra[p].size() * 0.01f + 0.02f);
+		if(dField.pzone_act[p])
+			drawact(matManager.vFieldSzone[p][pzseq][field][speed], 0.03f);
 	}
-	if(dField.grave_act) {
-		im.setTranslation(irr::core::vector3df((matManager.vFieldGrave[0][field][speed][0].Pos.X + matManager.vFieldGrave[0][field][speed][1].Pos.X) / 2,
-			(matManager.vFieldGrave[0][field][speed][0].Pos.Y + matManager.vFieldGrave[0][field][speed][2].Pos.Y) / 2, dField.grave[0].size() * 0.01f + 0.02f));
-		driver->setTransform(irr::video::ETS_WORLD, im);
-		driver->drawVertexPrimitiveList(matManager.vActivate, 4, matManager.iRectangle, 2);
-	}
-	if(dField.remove_act) {
-		im.setTranslation(irr::core::vector3df((matManager.vFieldRemove[0][field][speed][0].Pos.X + matManager.vFieldRemove[0][field][speed][1].Pos.X) / 2,
-			(matManager.vFieldRemove[0][field][speed][0].Pos.Y + matManager.vFieldRemove[0][field][speed][2].Pos.Y) / 2, dField.remove[0].size() * 0.01f + 0.02f));
-		driver->setTransform(irr::video::ETS_WORLD, im);
-		driver->drawVertexPrimitiveList(matManager.vActivate, 4, matManager.iRectangle, 2);
-	}
-	if(dField.extra_act) {
-		im.setTranslation(irr::core::vector3df((matManager.vFieldExtra[0][speed][0].Pos.X + matManager.vFieldExtra[0][speed][1].Pos.X) / 2,
-			(matManager.vFieldExtra[0][speed][0].Pos.Y + matManager.vFieldExtra[0][speed][2].Pos.Y) / 2, dField.extra[0].size() * 0.01f + 0.02f));
-		driver->setTransform(irr::video::ETS_WORLD, im);
-		driver->drawVertexPrimitiveList(matManager.vActivate, 4, matManager.iRectangle, 2);
-	}
-	if(dField.pzone_act[0]) {
-		int seq = dInfo.duel_field == 4 ? (speed) ? 1 : 0 : 6;
-		im.setTranslation(irr::core::vector3df((matManager.vFieldSzone[0][seq][field][speed][0].Pos.X + matManager.vFieldSzone[0][seq][field][speed][1].Pos.X) / 2,
-			(matManager.vFieldSzone[0][seq][field][speed][0].Pos.Y + matManager.vFieldSzone[0][seq][field][speed][2].Pos.Y) / 2, 0.03f));
-		driver->setTransform(irr::video::ETS_WORLD, im);
-		driver->drawVertexPrimitiveList(matManager.vActivate, 4, matManager.iRectangle, 2);
-	}
-	if(dField.pzone_act[1]) {
-		int seq = dInfo.duel_field >= 4 ? (speed) ? 1 : 0 : 6;
-		im.setTranslation(irr::core::vector3df((matManager.vFieldSzone[1][seq][field][speed][0].Pos.X + matManager.vFieldSzone[1][seq][field][speed][1].Pos.X) / 2,
-			(matManager.vFieldSzone[1][seq][field][speed][0].Pos.Y + matManager.vFieldSzone[1][seq][field][speed][2].Pos.Y) / 2, 0.03f));
-		driver->setTransform(irr::video::ETS_WORLD, im);
-		driver->drawVertexPrimitiveList(matManager.vActivate, 4, matManager.iRectangle, 2);
-	}
+
 	if(dField.conti_act) {
 		im.setTranslation(irr::core::vector3df((matManager.vFieldContiAct[speed][0].X + matManager.vFieldContiAct[speed][1].X) / 2,
 			(matManager.vFieldContiAct[speed][0].Y + matManager.vFieldContiAct[speed][2].Y) / 2, 0.03f));
 		driver->setTransform(irr::video::ETS_WORLD, im);
 		driver->drawVertexPrimitiveList(matManager.vActivate, 4, matManager.iRectangle, 2);
 	}
+
 	for(size_t i = 0; i < dField.chains.size(); ++i) {
 		if(dField.chains[i].solved)
 			break;
@@ -1134,9 +1119,16 @@ void Game::WaitFrameSignal(int frame) {
 }
 void Game::DrawThumb(CardDataC* cp, irr::core::vector2di pos, LFList* lflist, bool drag, irr::core::recti* cliprect, bool load_image) {
 	auto code = cp->code;
-	auto lcode = cp->code;
-	if(!lflist->content.count(lcode) && cp->alias)
-		lcode = cp->alias;
+	unsigned int limitcode = cp->code;
+	auto flit = lflist->content.find(limitcode);
+	if(flit == lflist->content.end() && cp->alias)
+		flit = lflist->content.find(cp->alias);
+	int count = 3;
+	if(flit == lflist->content.end()) {
+		if(lflist->whitelist)
+			count = -1;
+	} else
+		count = flit->second;
 	irr::video::ITexture* img = load_image ? imageManager.GetTextureCard(code, ImageManager::THUMB) : imageManager.tUnknown;
 	if (img == NULL)
 		return; //NULL->getSize() will cause a crash
@@ -1151,18 +1143,17 @@ void Game::DrawThumb(CardDataC* cp, irr::core::vector2di pos, LFList* lflist, bo
 	}
 	driver->draw2DImage(img, dragloc, irr::core::recti(0, 0, size.Width, size.Height), cliprect);
 	if(!is_siding) {
-		if(lflist->content.count(lcode) || lflist->whitelist) {
-			switch(lflist->content[lcode]) {
-				case 0:
-					imageManager.draw2DImageFilterScaled(imageManager.tLim, limitloc, irr::core::recti(0, 0, 64, 64), cliprect, 0, true);
-					break;
-				case 1:
-					imageManager.draw2DImageFilterScaled(imageManager.tLim, limitloc, irr::core::recti(64, 0, 128, 64), cliprect, 0, true);
-					break;
-				case 2:
-					imageManager.draw2DImageFilterScaled(imageManager.tLim, limitloc, irr::core::recti(0, 64, 64, 128), cliprect, 0, true);
-					break;
-			}
+		switch(count) {
+			case -1:
+			case 0:
+				imageManager.draw2DImageFilterScaled(imageManager.tLim, limitloc, irr::core::recti(0, 0, 64, 64), cliprect, 0, true);
+				break;
+			case 1:
+				imageManager.draw2DImageFilterScaled(imageManager.tLim, limitloc, irr::core::recti(64, 0, 128, 64), cliprect, 0, true);
+				break;
+			case 2:
+				imageManager.draw2DImageFilterScaled(imageManager.tLim, limitloc, irr::core::recti(0, 64, 64, 128), cliprect, 0, true);
+				break;
 		}
 #define IDX(scope,idx) case SCOPE_##scope:\
 							index = idx;\

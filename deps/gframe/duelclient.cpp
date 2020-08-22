@@ -668,7 +668,7 @@ void DuelClient::HandleSTOCPacketLan(char* data, unsigned int len) {
 		int x = (pkt.info.team1 + pkt.info.team2 >= 5) ? 60 : 0;
 		mainGame->btnHostPrepOB->setRelativePosition(mainGame->Scale<irr::s32>(10, 180 + x, 110, 205 + x));
 		mainGame->stHostPrepOB->setRelativePosition(mainGame->Scale<irr::s32>(10, 210 + x, 270, 230 + x));
-		mainGame->stHostPrepRule->setRelativePosition(mainGame->Scale<irr::s32>(280, 30, 460, 230 + x));
+		mainGame->stHostPrepRule->setRelativePosition(mainGame->Scale<irr::s32>(280, 30, 460, 270 + x));
 		mainGame->stDeckSelect->setRelativePosition(mainGame->Scale<irr::s32>(10, 235 + x, 110, 255 + x));
 		mainGame->cbDeckSelect->setRelativePosition(mainGame->Scale<irr::s32>(120, 230 + x, 270, 255 + x));
 		mainGame->cbDeckSelect2->setRelativePosition(mainGame->Scale<irr::s32>(280, 230 + x, 430, 255 + x));
@@ -1308,7 +1308,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 		case HINT_SKILL: {
 			auto& pcard = mainGame->dField.skills[player];
 			if(!pcard) {
-				pcard = new ClientCard();
+				pcard = new ClientCard{};
 				pcard->controler = player;
 				pcard->sequence = 0;
 				pcard->position = POS_FACEUP;
@@ -1324,7 +1324,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 		case HINT_SKILL_COVER: {
 			auto& pcard = mainGame->dField.skills[player];
 			if(!pcard) {
-				pcard = new ClientCard();
+				pcard = new ClientCard{};
 				pcard->controler = player;
 				pcard->sequence = 0;
 				pcard->position = POS_FACEDOWN;
@@ -1341,7 +1341,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 		case HINT_SKILL_FLIP: {
 			auto& pcard = mainGame->dField.skills[player];
 			if(!pcard) {
-				pcard = new ClientCard();
+				pcard = new ClientCard{};
 				pcard->controler = player;
 				pcard->sequence = 0;
 				pcard->position = POS_FACEDOWN;
@@ -1519,9 +1519,10 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 				code &= 0x7fffffff;
 			}
 			if(!pcard) {
-				pcard = new ClientCard();
+				pcard = new ClientCard{};
 				pcard->code = code;
 				pcard->controler = con;
+				pcard->sequence = mainGame->dField.limbo_temp.size();
 				mainGame->dField.limbo_temp.push_back(pcard);
 			}
 			mainGame->dField.activatable_cards.push_back(pcard);
@@ -1533,9 +1534,9 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			} else {
 				pcard->cmdFlag |= COMMAND_ACTIVATE;
 				if (pcard->location == LOCATION_GRAVE)
-					mainGame->dField.grave_act = true;
+					mainGame->dField.grave_act[pcard->controler] = true;
 				else if (pcard->location == LOCATION_REMOVED)
-					mainGame->dField.remove_act = true;
+					mainGame->dField.remove_act[pcard->controler] = true;
 			}
 		}
 		mainGame->dField.attackable_cards.clear();
@@ -1598,13 +1599,13 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			pcard->cmdFlag |= COMMAND_SPSUMMON;
 			if (pcard->location == LOCATION_DECK) {
 				pcard->SetCode(code);
-				mainGame->dField.deck_act = true;
+				mainGame->dField.deck_act[pcard->controler] = true;
 			} else if (pcard->location == LOCATION_GRAVE)
-				mainGame->dField.grave_act = true;
+				mainGame->dField.grave_act[pcard->controler] = true;
 			else if (pcard->location == LOCATION_REMOVED)
-				mainGame->dField.remove_act = true;
+				mainGame->dField.remove_act[pcard->controler] = true;
 			else if (pcard->location == LOCATION_EXTRA)
-				mainGame->dField.extra_act = true;
+				mainGame->dField.extra_act[pcard->controler] = true;
 			else {
 				int seq = mainGame->dInfo.duel_field == 4 ? (mainGame->dInfo.duel_params & DUEL_3_COLUMNS_FIELD) ? 1 : 0 : 6;
 				if (pcard->location == LOCATION_SZONE && pcard->sequence == seq && (pcard->type & TYPE_PENDULUM) && !pcard->equipTarget)
@@ -1667,9 +1668,10 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 				code &= 0x7fffffff;
 			}
 			if(!pcard) {
-				pcard = new ClientCard();
+				pcard = new ClientCard{};
 				pcard->code = code;
 				pcard->controler = con;
+				pcard->sequence = mainGame->dField.limbo_temp.size();
 				mainGame->dField.limbo_temp.push_back(pcard);
 			}
 			mainGame->dField.activatable_cards.push_back(pcard);
@@ -1681,9 +1683,9 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			} else {
 				pcard->cmdFlag |= COMMAND_ACTIVATE;
 				if (pcard->location == LOCATION_GRAVE)
-					mainGame->dField.grave_act = true;
+					mainGame->dField.grave_act[pcard->controler] = true;
 				else if (pcard->location == LOCATION_REMOVED)
-					mainGame->dField.remove_act = true;
+					mainGame->dField.remove_act[pcard->controler] = true;
 			}
 		}
 		if(BufferIO::Read<uint8_t>(pbuf)) {
@@ -1776,7 +1778,8 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			if ((info.location & LOCATION_OVERLAY) > 0)
 				pcard = mainGame->dField.GetCard(info.controler, info.location & (~LOCATION_OVERLAY) & 0xff, info.sequence)->overlayed[info.position];
 			else if (info.location == 0) {
-				pcard = new ClientCard();
+				pcard = new ClientCard{};
+				pcard->sequence = mainGame->dField.limbo_temp.size();
 				mainGame->dField.limbo_temp.push_back(pcard);
 				panelmode = true;
 			} else
@@ -1833,7 +1836,8 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			if ((info.location & LOCATION_OVERLAY) > 0)
 				pcard = mainGame->dField.GetCard(info.controler, info.location & (~LOCATION_OVERLAY) & 0xff, info.sequence)->overlayed[info.position];
 			else if (info.location == 0) {
-				pcard = new ClientCard();
+				pcard = new ClientCard{};
+				pcard->sequence = mainGame->dField.limbo_temp.size();
 				mainGame->dField.limbo_temp.push_back(pcard);
 				panelmode = true;
 			} else
@@ -1855,7 +1859,8 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			if ((info.location & LOCATION_OVERLAY) > 0)
 				pcard = mainGame->dField.GetCard(info.controler, info.location & (~LOCATION_OVERLAY) & 0xff, info.sequence)->overlayed[info.position];
 			else if (info.location == 0) {
-				pcard = new ClientCard();
+				pcard = new ClientCard{};
+				pcard->sequence = mainGame->dField.limbo_temp.size();
 				mainGame->dField.limbo_temp.push_back(pcard);
 				panelmode = true;
 			} else
@@ -1925,9 +1930,10 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 				flag = BufferIO::Read<uint8_t>(pbuf);
 			pcard = mainGame->dField.GetCard(info.controler, info.location, info.sequence, info.position);
 			if(!pcard) {
-				pcard = new ClientCard();
+				pcard = new ClientCard{};
 				pcard->code = code;
 				pcard->controler = info.controler;
+				pcard->sequence = mainGame->dField.limbo_temp.size();
 				mainGame->dField.limbo_temp.push_back(pcard);
 			}
 			mainGame->dField.activatable_cards.push_back(pcard);
@@ -1946,13 +1952,13 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 					pcard->cmdFlag |= COMMAND_ACTIVATE;
 				if(pcard->location == LOCATION_DECK) {
 					pcard->SetCode(code);
-					mainGame->dField.deck_act = true;
+					mainGame->dField.deck_act[pcard->controler] = true;
 				} else if(info.location == LOCATION_GRAVE)
-					mainGame->dField.grave_act = true;
+					mainGame->dField.grave_act[pcard->controler] = true;
 				else if(info.location == LOCATION_REMOVED)
-					mainGame->dField.remove_act = true;
+					mainGame->dField.remove_act[pcard->controler] = true;
 				else if(info.location == LOCATION_EXTRA)
-					mainGame->dField.extra_act = true;
+					mainGame->dField.extra_act[pcard->controler] = true;
 				else if(info.location == LOCATION_OVERLAY)
 					panelmode = true;
 			}
@@ -2366,7 +2372,8 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			l = BufferIO::Read<uint8_t>(pbuf);
 			s = COMPAT_READ(uint8_t, uint32_t, pbuf);
 			if (l == 0) {
-				pcard = new ClientCard();
+				pcard = new ClientCard{};
+				pcard->sequence = mainGame->dField.limbo_temp.size();
 				mainGame->dField.limbo_temp.push_back(pcard);
 			} else
 				pcard = mainGame->dField.GetCard(c, l, s);
@@ -2817,7 +2824,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			}
 		}
 		if (previous.location == 0) {
-			ClientCard* pcard = new ClientCard();
+			ClientCard* pcard = new ClientCard{};
 			pcard->position = current.position;
 			pcard->SetCode(code);
 			if(!mainGame->dInfo.isCatchingUp) {
@@ -4022,7 +4029,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			}
 		} else {
 			while(mainGame->dField.deck[player].size() < mcount) {
-				ClientCard* ccard = new ClientCard();
+				ClientCard* ccard = new ClientCard{};
 				ccard->controler = player;
 				ccard->location = LOCATION_DECK;
 				ccard->sequence = mainGame->dField.deck[player].size();
@@ -4037,7 +4044,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			}
 		} else {
 			while(mainGame->dField.hand[player].size() < hcount) {
-				ClientCard* ccard = new ClientCard();
+				ClientCard* ccard = new ClientCard{};
 				ccard->controler = player;
 				ccard->location = LOCATION_HAND;
 				ccard->sequence = mainGame->dField.hand[player].size();
@@ -4052,7 +4059,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			}
 		} else {
 			while(mainGame->dField.extra[player].size() < ecount) {
-				ClientCard* ccard = new ClientCard();
+				ClientCard* ccard = new ClientCard{};
 				ccard->controler = player;
 				ccard->location = LOCATION_EXTRA;
 				ccard->sequence = mainGame->dField.extra[player].size();
@@ -4130,13 +4137,13 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			for(int seq = 0; seq < 7; ++seq) {
 				val = BufferIO::Read<uint8_t>(pbuf);
 				if(val) {
-					ClientCard* ccard = new ClientCard;
+					ClientCard* ccard = new ClientCard{};
 					mainGame->dField.AddCard(ccard, p, LOCATION_MZONE, seq);
 					ccard->position = BufferIO::Read<uint8_t>(pbuf);
 					val = COMPAT_READ(uint8_t, uint32_t, pbuf);
 					if(val) {
 						for(uint32_t xyz = 0; xyz < val; ++xyz) {
-							ClientCard* xcard = new ClientCard;
+							ClientCard* xcard = new ClientCard{};
 							ccard->overlayed.push_back(xcard);
 							mainGame->dField.overlay_cards.insert(xcard);
 							xcard->overlayTarget = ccard;
@@ -4151,14 +4158,14 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			for(int seq = 0; seq < 8; ++seq) {
 				val = BufferIO::Read<uint8_t>(pbuf);
 				if(val) {
-					ClientCard* ccard = new ClientCard;
+					ClientCard* ccard = new ClientCard{};
 					mainGame->dField.AddCard(ccard, p, LOCATION_SZONE, seq);
 					ccard->position = BufferIO::Read<uint8_t>(pbuf);
 					if(!mainGame->dInfo.compat_mode) {
 						val = BufferIO::Read<uint32_t>(pbuf);
 						if(val) {
 							for(uint32_t xyz = 0; xyz < val; ++xyz) {
-								ClientCard* xcard = new ClientCard;
+								ClientCard* xcard = new ClientCard{};
 								ccard->overlayed.push_back(xcard);
 								mainGame->dField.overlay_cards.insert(xcard);
 								xcard->overlayTarget = ccard;
@@ -4173,27 +4180,27 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			}
 			val = COMPAT_READ(uint8_t, uint32_t, pbuf);
 			for(uint32_t seq = 0; seq < val; ++seq) {
-				ClientCard* ccard = new ClientCard;
+				ClientCard* ccard = new ClientCard{};
 				mainGame->dField.AddCard(ccard, p, LOCATION_DECK, seq);
 			}
 			val = COMPAT_READ(uint8_t, uint32_t, pbuf);
 			for(uint32_t seq = 0; seq < val; ++seq) {
-				ClientCard* ccard = new ClientCard;
+				ClientCard* ccard = new ClientCard{};
 				mainGame->dField.AddCard(ccard, p, LOCATION_HAND, seq);
 			}
 			val = COMPAT_READ(uint8_t, uint32_t, pbuf);
 			for(uint32_t seq = 0; seq < val; ++seq) {
-				ClientCard* ccard = new ClientCard;
+				ClientCard* ccard = new ClientCard{};
 				mainGame->dField.AddCard(ccard, p, LOCATION_GRAVE, seq);
 			}
 			val = COMPAT_READ(uint8_t, uint32_t, pbuf);
 			for(uint32_t seq = 0; seq < val; ++seq) {
-				ClientCard* ccard = new ClientCard;
+				ClientCard* ccard = new ClientCard{};
 				mainGame->dField.AddCard(ccard, p, LOCATION_REMOVED, seq);
 			}
 			val = COMPAT_READ(uint8_t, uint32_t, pbuf);
 			for(uint32_t seq = 0; seq < val; ++seq) {
-				ClientCard* ccard = new ClientCard;
+				ClientCard* ccard = new ClientCard{};
 				mainGame->dField.AddCard(ccard, p, LOCATION_EXTRA, seq);
 			}
 			val = COMPAT_READ(uint8_t, uint32_t, pbuf);

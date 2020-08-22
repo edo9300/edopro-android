@@ -5,55 +5,6 @@
 
 namespace ygo {
 
-ClientCard::ClientCard() {
-	curAlpha = 255;
-	dAlpha = 0;
-	aniFrame = 0;
-	is_moving = false;
-	refresh_on_stop = false;
-	is_fading = false;
-	is_hovered = false;
-	is_selectable = false;
-	is_selected = false;
-	is_showequip = false;
-	is_showtarget = false;
-	is_showchaintarget = false;
-	is_highlighting = false;
-	status = 0;
-	is_reversed = false;
-	is_public = false;
-	cmdFlag = 0;
-	code = 0;
-	cover = 0;
-	chain_code = 0;
-	location = 0;
-	type = 0;
-	alias = 0;
-	level = 0;
-	rank = 0;
-	link = 0;
-	race = 0;
-	attribute = 0;
-	attack = 0;
-	defense = 0;
-	base_attack = 0;
-	base_defense = 0;
-	lscale = 0;
-	rscale = 0;
-	link_marker = 0;
-	position = 0;
-	cHint = 0;
-	chValue = 0;
-	atkstring = L"";
-	defstring = L"";
-	lvstring = L"";
-	linkstring = L"";
-	rkstring = L"";
-	rscstring = L"";
-	lscstring = L"";
-	overlayTarget = 0;
-	equipTarget = 0;
-}
 void ClientCard::UpdateDrawCoordinates(bool setTrans) {
 	mainGame->dField.GetCardDrawCoordinates(this, &curPos, &curRot, setTrans);
 }
@@ -226,7 +177,7 @@ bool check_skills(CardDataC* p1, CardDataC* p2) {
 	}
 	return is_skill(p2->type);
 }
-bool card_sorter(CardDataC* p1, CardDataC* p2, std::function<bool(CardDataC* p1, CardDataC* p2)> sortoop) {
+bool card_sorter(CardDataC* p1, CardDataC* p2, bool(*sortoop)(CardDataC* p1, CardDataC* p2)) {
 	if(check_either_skills(p1->type, p2->type))
 		return check_skills(p1, p2);
 	if((p1->type & 0x7) != (p2->type & 0x7))
@@ -239,7 +190,7 @@ bool card_sorter(CardDataC* p1, CardDataC* p2, std::function<bool(CardDataC* p1,
 	return p1->code < p2->code;
 }
 bool ClientCard::deck_sort_lv(CardDataC* p1, CardDataC* p2) {
-	return card_sorter(p1, p2, [](CardDataC* p1, CardDataC* p2) {
+	return card_sorter(p1, p2, [](CardDataC* p1, CardDataC* p2)->bool {
 		int type1 = (p1->type & 0x48020c0) ? (p1->type & 0x48020c1) : (p1->type & 0x31);
 		int type2 = (p2->type & 0x48020c0) ? (p2->type & 0x48020c1) : (p2->type & 0x31);
 		if(type1 != type2)
@@ -254,7 +205,7 @@ bool ClientCard::deck_sort_lv(CardDataC* p1, CardDataC* p2) {
 	});
 }
 bool ClientCard::deck_sort_atk(CardDataC* p1, CardDataC* p2) {
-	return card_sorter(p1, p2, [](CardDataC* p1, CardDataC* p2) {
+	return card_sorter(p1, p2, [](CardDataC* p1, CardDataC* p2)->bool {
 		if(p1->attack != p2->attack)
 			return p1->attack > p2->attack;
 		if(p1->defense != p2->defense)
@@ -269,7 +220,7 @@ bool ClientCard::deck_sort_atk(CardDataC* p1, CardDataC* p2) {
 	});
 }
 bool ClientCard::deck_sort_def(CardDataC* p1, CardDataC* p2) {
-	return card_sorter(p1, p2, [](CardDataC* p1, CardDataC* p2) {
+	return card_sorter(p1, p2, [](CardDataC* p1, CardDataC* p2)->bool {
 		if(p1->defense != p2->defense)
 			return p1->defense > p2->defense;
 		if(p1->attack != p2->attack)

@@ -447,10 +447,6 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			switch(id) {
 			case COMBOBOX_DBLFLIST: {
 				filterList = &gdeckManager->_lfList[mainGame->cbDBLFList->getSelected()];
-				if (filterList->whitelist) { // heuristic to help with restricted card pools
-					mainGame->chkAnime->setChecked(true);
-					mainGame->cbLimit->setSelected(4); // unlimited
-				}
 				StartFilter(true);
 				break;
 			}
@@ -561,6 +557,8 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 		bool isroot = mainGame->env->getRootGUIElement()->getElementFromPoint(mouse_pos) == mainGame->env->getRootGUIElement();
 		switch(event.MouseInput.Event) {
 		case irr::EMIE_LMOUSE_PRESSED_DOWN: {
+			if(is_draging)
+				break;
 			if(!isroot)
 				break;
 			if(mainGame->wCategories->isVisible() || mainGame->wQuery->isVisible())
