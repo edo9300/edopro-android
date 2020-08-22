@@ -99,6 +99,7 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/Android/COSAndroidOperator.cpp \
 				$(GFRAME_PATH)/generic_duel.cpp \
 				$(GFRAME_PATH)/gframe.cpp \
 				$(GFRAME_PATH)/image_downloader.cpp \
+				$(GFRAME_PATH)/joystick_wrapper.cpp \
 				$(GFRAME_PATH)/image_manager.cpp \
 				$(GFRAME_PATH)/logging.cpp \
 				$(GFRAME_PATH)/materials.cpp \
