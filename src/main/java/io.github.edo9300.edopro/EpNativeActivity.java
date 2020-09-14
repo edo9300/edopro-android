@@ -45,6 +45,7 @@ public class EpNativeActivity extends NativeActivity {
 		filter.addAction("RUN_WINDBOT");
 		filter.addAction("MAKE_CHOICE");
 		filter.addAction("INSTALL_UPDATE");
+		filter.addAction("OPEN_SCRIPT");
 		registerReceiver(myReceiver, filter);
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 	}
@@ -110,6 +111,15 @@ public class EpNativeActivity extends NativeActivity {
 				_intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 				_intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 				startActivity(_intent);
+			} else if("OPEN_SCRIPT".equals(action)){
+				String path = intent.getStringExtra("args");
+				Log.i("EDOPro", "opening script from: "+path);
+				Intent fileIntent = new Intent(Intent.ACTION_VIEW);
+				Uri uri = FileProvider.getUriForFile(context, context.getApplicationContext().getPackageName() + ".provider", new File(path));
+				fileIntent.setDataAndType(uri, "text/*");
+				fileIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+				fileIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				startActivity(fileIntent);
 			}
 		}
 	};
@@ -150,6 +160,14 @@ public class EpNativeActivity extends NativeActivity {
 	public void openUrl(String url) {
 		Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
 		startActivity(browserIntent);
+	}
+
+	@SuppressWarnings("unused")
+	public void openFile(String path) {
+		Intent intent = new Intent();
+		intent.putExtra("args", path);
+		intent.setAction("OPEN_SCRIPT");
+		getApplicationContext().sendBroadcast(intent);
 	}
 
 	@SuppressWarnings("unused")
