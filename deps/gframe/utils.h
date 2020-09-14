@@ -66,6 +66,7 @@ namespace ygo {
 		static bool MakeDirectory(const path_string& path);
 		static bool FileCopy(const path_string& source, const path_string& destination);
 		static bool FileMove(const path_string& source, const path_string& destination);
+		static bool FileExists(const path_string& path);
 		static path_string ToPathString(const std::wstring& input);
 		static path_string ToPathString(const std::string& input);
 		static std::string ToUTF8IfNeeded(const path_string& input);
@@ -114,15 +115,20 @@ namespace ygo {
 		static const path_string& GetCorePath();
 		static bool UnzipArchive(const path_string& input, unzip_callback callback = nullptr, unzip_payload* payload = nullptr, const path_string& dest = EPRO_TEXT("./"));
 
-		static void SystemOpen(const path_string& url);
+		enum OpenType {
+			OPEN_URL,
+			OPEN_FILE
+		};
+
+		static void SystemOpen(const path_string& url, OpenType type = OPEN_URL);
 	};
 
 #define CHAR_T typename T::value_type
 #define CAST(c) static_cast<CHAR_T>(c)
 template<typename T>
 T Utils::NormalizePath(T path, bool trailing_slash) {
-	const T prev{ CAST('.'), CAST('.') };
-	const T cur{ CAST('.') };
+	static const T prev{ CAST('.'), CAST('.') };
+	static const T cur{ CAST('.') };
 	constexpr auto slash = CAST('/');
 	std::replace(path.begin(), path.end(), CAST('\\'), slash);
 	auto paths = TokenizeString(path, slash);

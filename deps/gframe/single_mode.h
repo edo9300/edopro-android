@@ -17,10 +17,10 @@ private:
 
 public:
 	struct DuelOptions {
-		int startingLP = 8000;
-		int startingDrawCount = 5;
-		int drawCountPerTurn = 1;
-		int duelFlags = 0;
+		uint32_t startingLP = 8000;
+		uint32_t startingDrawCount = 5;
+		uint32_t drawCountPerTurn = 1;
+		uint32_t duelFlags = 0;
 		bool handTestNoOpponent = true;
 		bool handTestNoShuffle = false;
 		DuelOptions() {};
@@ -33,9 +33,9 @@ public:
 	static int SinglePlayThread(DuelOptions duelOptions);
 	static bool SinglePlayAnalyze(CoreUtils::Packet packet);
 	
-	static void SinglePlayRefresh(int player, int location, int flag = 0x2f81fff);
-	static void SinglePlayRefresh(int flag = 0x2f81fff);
-	static void SinglePlayRefreshSingle(int player, int location, int sequence, int flag = 0x2f81fff);
+	static void SinglePlayRefresh(uint8_t player, uint8_t location, uint32_t flag = 0x2f81fff);
+	static void SinglePlayRefresh(uint32_t flag = 0x2f81fff);
+	static void SinglePlayRefreshSingle(uint8_t player, uint8_t location, uint8_t sequence, uint32_t flag = 0x2f81fff);
 	static void SinglePlayReload();
 	static Signal singleSignal;
 

@@ -1,11 +1,13 @@
+#include <algorithm>
+#include <fstream>
+#include <fmt/format.h>
 #include "network.h"
 #include "deck_manager.h"
 #include "data_manager.h"
 #include "game.h"
 #include <IGUIEditBox.h>
-#include <algorithm>
-#include <fstream>
 #include "Base64.h"
+#include "utils.h"
 
 namespace ygo {
 
@@ -42,7 +44,7 @@ bool DeckManager::LoadLFListSingle(const path_string& path) {
 		pos = str.find(" ");
 		if(pos == std::string::npos)
 			continue;
-		uint32 code = 0;
+		uint32_t code = 0;
 		try { code = std::stoul(str.substr(0, pos)); }
 		catch(...){}
 		if(!code)
@@ -92,15 +94,15 @@ void DeckManager::RefreshLFList() {
 		null_lflist_index = _lfList.size() - 1;
 	}
 }
-LFList* DeckManager::GetLFList(int lfhash) {
-	auto it = std::find_if(_lfList.begin(), _lfList.end(), [lfhash](LFList list) {return list.hash == (unsigned int)lfhash; });
+LFList* DeckManager::GetLFList(uint32_t lfhash) {
+	auto it = std::find_if(_lfList.begin(), _lfList.end(), [lfhash](LFList list) {return list.hash == lfhash; });
 	return it != _lfList.end() ? &*it : nullptr;
 }
-std::wstring DeckManager::GetLFListName(int lfhash) {
+std::wstring DeckManager::GetLFListName(uint32_t lfhash) {
 	auto lflist = GetLFList(lfhash);
 	return lflist ? lflist->listName.c_str() : gDataManager->unknown_string;
 }
-int DeckManager::TypeCount(std::vector<CardDataC*> cards, int type) {
+int DeckManager::TypeCount(std::vector<CardDataC*> cards, uint32_t type) {
 	int count = 0;
 	for(auto card : cards) {
 		if(card->type & type)
@@ -108,9 +110,9 @@ int DeckManager::TypeCount(std::vector<CardDataC*> cards, int type) {
 	}
 	return count;
 }
-inline DeckError CheckCards(const std::vector<CardDataC*> &cards, LFList* curlist, std::unordered_map<uint32_t, int>* list,
+inline DeckError CheckCards(const std::vector<CardDataC*> &cards, LFList* curlist, banlist_content_t* list,
 					  DuelAllowedCards allowedCards,
-					  std::unordered_map<int, int> &ccount,
+					  banlist_content_t &ccount,
 					  DeckError(*additionalCheck)(CardDataC*) = nullptr) {
 	DeckError ret{ DeckError::NONE };
 	for (const auto cit : cards) {
@@ -143,7 +145,7 @@ inline DeckError CheckCards(const std::vector<CardDataC*> &cards, LFList* curlis
 		if (additional.type) {
 			return additional;
 		}
-		int code = cit->alias ? cit->alias : cit->code;
+		uint32_t code = cit->alias ? cit->alias : cit->code;
 		ccount[code]++;
 		int dc = ccount[code];
 		if (dc > 3)
@@ -156,11 +158,11 @@ inline DeckError CheckCards(const std::vector<CardDataC*> &cards, LFList* curlis
 	}
 	return { DeckError::NONE };
 }
-DeckError DeckManager::CheckDeck(Deck& deck, int lfhash, DuelAllowedCards allowedCards, bool doubled, int forbiddentypes) {
-	std::unordered_map<int, int> ccount;
+DeckError DeckManager::CheckDeck(Deck& deck, uint32_t lfhash, DuelAllowedCards allowedCards, bool doubled, uint32_t forbiddentypes) {
+	banlist_content_t ccount;
 	LFList* curlist = nullptr;
 	for(auto& list : _lfList) {
-		if(list.hash == (unsigned int)lfhash) {
+		if(list.hash == lfhash) {
 			curlist = &list;
 			break;
 		}
@@ -222,11 +224,11 @@ DeckError DeckManager::CheckDeck(Deck& deck, int lfhash, DuelAllowedCards allowe
 	if (ret.type) return ret;
 	return CheckCards(deck.side, curlist, list, allowedCards, ccount);
 }
-int DeckManager::LoadDeck(Deck& deck, int* dbuf, int mainc, int sidec, int mainc2, int sidec2) {
-	std::vector<int> mainvect(mainc + mainc2);
-	std::vector<int> sidevect(sidec + sidec2);
-	auto copy = [&dbuf](int* vec, int count) {
-		memcpy(vec, dbuf, count * sizeof(int));
+uint32_t DeckManager::LoadDeck(Deck& deck, uint32_t* dbuf, uint32_t mainc, uint32_t sidec, uint32_t mainc2, uint32_t sidec2) {
+	cardlist_type mainvect(mainc + mainc2);
+	cardlist_type sidevect(sidec + sidec2);
+	auto copy = [&dbuf](uint32_t* vec, uint32_t count) {
+		memcpy(vec, dbuf, count * sizeof(uint32_t));
 		dbuf += count;
 	};
 	copy(&mainvect[0], mainc);
@@ -235,9 +237,9 @@ int DeckManager::LoadDeck(Deck& deck, int* dbuf, int mainc, int sidec, int mainc
 	copy(&sidevect[sidec], sidec2);
 	return LoadDeck(deck, mainvect, sidevect);
 }
-int DeckManager::LoadDeck(Deck& deck, std::vector<int> mainlist, std::vector<int> sidelist) {
+uint32_t DeckManager::LoadDeck(Deck& deck, cardlist_type mainlist, cardlist_type sidelist) {
 	deck.clear();
-	int errorcode = 0;
+	uint32_t errorcode = 0;
 	CardDataC* cd = nullptr;
 	for(auto code : mainlist) {
 		if(!(cd = gDataManager->GetCardData(code))) {
@@ -263,14 +265,14 @@ int DeckManager::LoadDeck(Deck& deck, std::vector<int> mainlist, std::vector<int
 	}
 	return errorcode;
 }
-bool LoadCardList(const path_string& name, std::vector<int>* mainlist = nullptr, std::vector<int>* sidelist = nullptr, int* retmainc = nullptr, int* retsidec = nullptr) {
+bool LoadCardList(const path_string& name, cardlist_type* mainlist = nullptr, cardlist_type* sidelist = nullptr, uint32_t* retmainc = nullptr, uint32_t* retsidec = nullptr) {
 	std::ifstream deck(name, std::ifstream::in);
 	if(!deck.is_open())
 		return false;
-	std::vector<int> res;
+	cardlist_type res;
 	std::string str;
 	bool is_side = false;
-	int sidec = 0;
+	uint32_t sidec = 0;
 	while(std::getline(deck, str)) {
 		auto pos = str.find_first_of("\n\r");
 		if(str.size() && pos != std::string::npos)
@@ -282,9 +284,9 @@ bool LoadCardList(const path_string& name, std::vector<int>* mainlist = nullptr,
 			continue;
 		}
 		if(str.find_first_of("0123456789") != std::string::npos) {
-			int code = 0;
+			uint32_t code = 0;
 			try {
-				code = std::stoul(str);
+				code = static_cast<uint32_t>(std::stoul(str));
 			} catch (...){
 				continue;
 			}
@@ -306,9 +308,9 @@ bool LoadCardList(const path_string& name, std::vector<int>* mainlist = nullptr,
 		*retsidec = sidec;
 	return true;
 }
-bool DeckManager::LoadSide(Deck& deck, int* dbuf, int mainc, int sidec) {
-	std::map<int, int> pcount;
-	std::map<int, int> ncount;
+bool DeckManager::LoadSide(Deck& deck, uint32_t* dbuf, uint32_t mainc, uint32_t sidec) {
+	std::map<uint32_t, int> pcount;
+	std::map<uint32_t, int> ncount;
 	for(auto& card: deck.main)
 		pcount[card->code]++;
 	for(auto& card : deck.extra)
@@ -331,8 +333,8 @@ bool DeckManager::LoadSide(Deck& deck, int* dbuf, int mainc, int sidec) {
 	return true;
 }
 bool DeckManager::LoadDeck(const path_string& file, Deck* deck) {
-	std::vector<int> mainlist;
-	std::vector<int> sidelist;
+	cardlist_type mainlist;
+	cardlist_type sidelist;
 	if(!LoadCardList(fmt::format(EPRO_TEXT("./deck/{}.ydk"), file.c_str()), &mainlist, &sidelist)) {
 		if(!LoadCardList(file, &mainlist, &sidelist))
 			return false;
@@ -344,8 +346,8 @@ bool DeckManager::LoadDeck(const path_string& file, Deck* deck) {
 	return true;
 }
 bool DeckManager::LoadDeckDouble(const path_string& file, const path_string& file2, Deck* deck) {
-	std::vector<int> mainlist;
-	std::vector<int> sidelist;
+	cardlist_type mainlist;
+	cardlist_type sidelist;
 	LoadCardList(fmt::format(EPRO_TEXT("./deck/{}.ydk"), file.c_str()), &mainlist, &sidelist);
 	LoadCardList(fmt::format(EPRO_TEXT("./deck/{}.ydk"), file2.c_str()), &mainlist, &sidelist);
 	if(deck)
@@ -370,7 +372,7 @@ bool DeckManager::SaveDeck(Deck& deck, const path_string& name) {
 	deckfile.close();
 	return true;
 }
-bool DeckManager::SaveDeck(const path_string& name, std::vector<int> mainlist, std::vector<int> extralist, std::vector<int> sidelist) {
+bool DeckManager::SaveDeck(const path_string& name, cardlist_type mainlist, cardlist_type extralist, cardlist_type sidelist) {
 	std::ofstream deckfile(fmt::format(EPRO_TEXT("./deck/{}.ydk"), name.c_str()), std::ofstream::out);
 	if(!deckfile.is_open())
 		return false;
@@ -389,17 +391,18 @@ bool DeckManager::SaveDeck(const path_string& name, std::vector<int> mainlist, s
 const wchar_t* DeckManager::ExportDeckBase64(Deck& deck) {
 	static std::wstring res;
 	auto decktobuf = [&res=res](const auto& src) {
-		static std::vector<int> cards(src.size());
+		static cardlist_type cards;
+		cards.resize(src.size());
 		for(size_t i = 0; i < src.size(); i++) {
 			cards[i] = src[i]->code;
 		}
-		res += base64_encode((uint8_t*)cards.data(), cards.size() * 4) + L"!";
+		res += base64_encode((uint8_t*)cards.data(), cards.size() * 4) + L'!';
 	};
 	res = L"ydke://";
 	decktobuf(deck.main);
 	decktobuf(deck.extra);
 	decktobuf(deck.side);
-	return res.data();
+	return res.c_str();
 }
 const wchar_t* DeckManager::ExportDeckCardNames(Deck deck) {
 	static std::wstring res;
@@ -408,8 +411,8 @@ const wchar_t* DeckManager::ExportDeckCardNames(Deck deck) {
 	std::sort(deck.extra.begin(), deck.extra.end(), ClientCard::deck_sort_lv);
 	std::sort(deck.side.begin(), deck.side.end(), ClientCard::deck_sort_lv);
 	auto serialize = [&res=res](const auto& list) {
-		uint32 prev = 0;
-		uint32 count = 0;
+		uint32_t prev = 0;
+		uint32_t count = 0;
 		for(const auto& card : list) {
 			auto code = card->code;
 			if(card->alias && abs((int)(card->alias - card->code)) < 10) {
@@ -451,7 +454,7 @@ const wchar_t* DeckManager::ExportDeckCardNames(Deck deck) {
 	return res.c_str();
 }
 void DeckManager::ImportDeckBase64(Deck& deck, const wchar_t* buffer) {
-	static std::vector<uint8_t> deck_data;
+	std::vector<uint8_t> deck_data;
 	buffer += (sizeof(L"ydke://") / sizeof(wchar_t)) - 1;
 	auto buf = buffer;
 	size_t delimiters[3];
@@ -463,14 +466,14 @@ void DeckManager::ImportDeckBase64(Deck& deck, const wchar_t* buffer) {
 	}
 	if(delim != 3)
 		return;
-	deck_data = base64_decode(buf, wcslen(buf));
+	deck_data = base64_decode(buf, delimiters[0]);
 	auto tmpbuf = base64_decode(buf + delimiters[0] + 1, delimiters[1] - delimiters[0]);
 	deck_data.insert(deck_data.end(), tmpbuf.begin(), tmpbuf.end());
-	int mainc = deck_data.size() / 4;
+	uint32_t mainc = deck_data.size() / 4;
 	tmpbuf = base64_decode(buf + delimiters[1] + 1, delimiters[2] - delimiters[1]);
 	deck_data.insert(deck_data.end(), tmpbuf.begin(), tmpbuf.end());
-	int sidec = (deck_data.size() / 4) - mainc;
-	LoadDeck(deck, (int*)deck_data.data(), mainc, sidec);
+	uint32_t sidec = (deck_data.size() / 4) - mainc;
+	LoadDeck(deck, (uint32_t*)deck_data.data(), mainc, sidec);
 }
 bool DeckManager::DeleteDeck(Deck& deck, const path_string& name) {
 	return Utils::FileDelete(fmt::format(EPRO_TEXT("./deck/{}.ydk"), name.c_str()));

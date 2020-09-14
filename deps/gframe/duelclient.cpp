@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <fmt/printf.h>
 #include <fmt/chrono.h>
 #if !defined(_WIN32) && !defined(__ANDROID__)
 #include <sys/types.h>
@@ -18,6 +19,7 @@
 #include "sound_manager.h"
 #include "CGUIImageButton/CGUIImageButton.h"
 #include "progressivebuffer.h"
+#include "utils.h"
 #ifdef __ANDROID__
 #include "Android/porting_android.h"
 #endif
@@ -163,12 +165,12 @@ void DuelClient::StopClient(bool is_exiting) {
 void DuelClient::ClientRead(bufferevent* bev, void* ctx) {
 	evbuffer* input = bufferevent_get_input(bev);
 	size_t len = evbuffer_get_length(input);
-	unsigned short packet_len = 0;
+	uint16_t packet_len = 0;
 	while(true) {
 		if(len < 2)
 			return;
 		evbuffer_copyout(input, &packet_len, 2);
-		if(len < (size_t)packet_len + 2)
+		if(len < packet_len + 2u)
 			return;
 		duel_client_read.resize(packet_len + 2);
 		evbuffer_remove(input, duel_client_read.data(), packet_len + 2);
@@ -1027,12 +1029,9 @@ void DuelClient::HandleSTOCPacketLan(char* data, unsigned int len) {
 		break;
 	}
 	case STOC_NEW_REPLAY: {
-		char* prep = pdata;
-		memcpy(&last_replay.pheader, prep, sizeof(ReplayHeader));
-		prep += sizeof(ReplayHeader);
+		last_replay.pheader = getStruct<ReplayHeader>(pdata, len);
 		last_replay.comp_data.resize(len - sizeof(ReplayHeader) - 1);
-		memcpy(last_replay.comp_data.data(), prep, len - sizeof(ReplayHeader) - 1);
-		last_replay.comp_size = len - sizeof(ReplayHeader) - 1;
+		memcpy(last_replay.comp_data.data(), pdata + sizeof(ReplayHeader), len - sizeof(ReplayHeader) - 1);
 		break;
 	}
 	case STOC_CATCHUP: {
@@ -1047,7 +1046,7 @@ void DuelClient::HandleSTOCPacketLan(char* data, unsigned int len) {
 	case STOC_REMATCH: {
 		mainGame->gMutex.lock();
 		mainGame->dInfo.checkRematch = true;
-		mainGame->stQMessage->setText((wchar_t*)gDataManager->GetSysString(1989).c_str());
+		mainGame->stQMessage->setText(gDataManager->GetSysString(1989).c_str());
 		mainGame->PopupElement(mainGame->wQuery);
 		mainGame->gMutex.unlock();
 		break;
@@ -1743,7 +1742,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 		uint64_t desc = COMPAT_READ(uint32_t, uint64_t, pbuf);
 		mainGame->dField.highlighting_card = 0;
 		mainGame->gMutex.lock();
-		mainGame->stQMessage->setText((wchar_t*)gDataManager->GetDesc(desc, mainGame->dInfo.compat_mode).c_str());
+		mainGame->stQMessage->setText(gDataManager->GetDesc(desc, mainGame->dInfo.compat_mode).c_str());
 		mainGame->PopupElement(mainGame->wQuery);
 		mainGame->gMutex.unlock();
 		return false;
@@ -2214,7 +2213,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 		mainGame->dField.selected_cards.clear();
 		mainGame->dField.must_select_cards.clear();
 		mainGame->dField.selectsum_cards.clear();
-		for (int i = 0; i < mainGame->dField.must_select_count; ++i) {
+		for (uint32_t i = 0; i < mainGame->dField.must_select_count; ++i) {
 			uint32_t code = BufferIO::Read<uint32_t>(pbuf);
 			uint8_t c = mainGame->LocalPlayer(BufferIO::Read<uint8_t>(pbuf));
 			uint8_t l = BufferIO::Read<uint8_t>(pbuf);
@@ -2401,16 +2400,20 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 						panel_confirm.push_back(pcard);
 				}
 			} else {
-				if(!mainGame->dInfo.isReplay || (l & LOCATION_ONFIELD))
+				if(!mainGame->dInfo.isReplay || (l & LOCATION_ONFIELD) | (l & LOCATION_HAND && gGameConfig->hideHandsInReplays))
 					field_confirm.push_back(pcard);
 			}
 		}
 		if (field_confirm.size() > 0) {
+			std::map<ClientCard*, bool> public_status;
 			mainGame->WaitFrameSignal(5);
 			for(auto& pcard : field_confirm) {
-				c = pcard->controler;
 				l = pcard->location;
 				if (l == LOCATION_HAND) {
+					if(mainGame->dInfo.isReplay) {
+						public_status[pcard] = pcard->is_public;
+						pcard->is_public = true;
+					}
 					mainGame->dField.MoveCard(pcard, 5);
 					pcard->is_highlighting = true;
 				} else if (l == LOCATION_MZONE) {
@@ -2439,6 +2442,8 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 			else
 				mainGame->WaitFrameSignal(90);
 			for(auto& pcard : field_confirm) {
+				if(mainGame->dInfo.isReplay && pcard->location & LOCATION_HAND)
+					pcard->is_public = public_status[pcard];
 				mainGame->dField.MoveCard(pcard, 5);
 				pcard->is_highlighting = false;
 			}
@@ -3958,7 +3963,7 @@ int DuelClient::ClientAnalyze(char * msg, unsigned int len) {
 				if(loc.location & LOCATION_OVERLAY) {
 					auto olcard = mainGame->dField.GetCard(loc.controler, (loc.location & (~LOCATION_OVERLAY)) & 0xff, loc.sequence);
 					pcard = *(olcard->overlayed.begin() + loc.position);
-				}else
+				} else
 					pcard = mainGame->dField.GetCard(loc.controler, loc.location, loc.sequence);
 			}
 			if(!mainGame->dInfo.isCatchingUp) {
@@ -4398,9 +4403,9 @@ void DuelClient::BeginRefreshHost() {
 		SOCKET sSend = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 		if(sSend == INVALID_SOCKET)
 			continue;
-		BOOL opt = TRUE;
+		socklen_t opt = true;
 		setsockopt(sSend, SOL_SOCKET, SO_BROADCAST, (const char*)&opt,
-				   sizeof(BOOL));
+				   sizeof(socklen_t));
 		if(bind(sSend, (sockaddr*)&local, sizeof(sockaddr)) == SOCKET_ERROR) {
 			closesocket(sSend);
 			continue;
@@ -4420,7 +4425,7 @@ int DuelClient::RefreshThread(event_base* broadev) {
 	is_refreshing = false;
 	return 0;
 }
-void DuelClient::BroadcastReply(evutil_socket_t fd, short events, void * arg) {
+void DuelClient::BroadcastReply(evutil_socket_t fd, short events, void* arg) {
 	if(events & EV_TIMEOUT) {
 		evutil_closesocket(fd);
 		event_base_loopbreak((event_base*)arg);

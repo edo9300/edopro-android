@@ -64,7 +64,7 @@ void GenericDuel::Chat(DuelPlayer* dp, void* pdata, int len) {
 	scc.player = dp->type;
 	unsigned short* msg = (unsigned short*)pdata;
 	int msglen = BufferIO::CopyWStr(msg, scc.msg, 256);
-	IteratePlayersAndObs([&](DuelPlayer* dueler) {
+	IteratePlayersAndObs([&scc,&msglen](DuelPlayer* dueler) {
 		NetServer::SendBufferToPlayer(dueler, STOC_CHAT, &scc, 4 + msglen * 2);
 	});
 }
@@ -168,7 +168,7 @@ GenericDuel::duelist& GenericDuel::GetAtPos(int pos) {
 		return players.opposing[pos - players.home_size];
 	}
 }
-void GenericDuel::Catchup(DuelPlayer * dp) {
+void GenericDuel::Catchup(DuelPlayer* dp) {
 	if(!pduel) {
 		observers.insert(dp);
 		return;
@@ -181,7 +181,7 @@ void GenericDuel::Catchup(DuelPlayer * dp) {
 	NetServer::SendPacketToPlayer(dp, STOC_CATCHUP, buf);
 	observers.insert(dp);
 }
-void GenericDuel::JoinGame(DuelPlayer* dp, void* pdata, bool is_creater) {
+void GenericDuel::JoinGame(DuelPlayer* dp, CTOS_JoinGame* pkt, bool is_creater) {
 	static constexpr ClientVersion serverversion{ EXPAND_VERSION(CLIENT_VERSION) };
 	if(!is_creater) {
 		if(dp->game && dp->type != 0xff) {
@@ -189,7 +189,6 @@ void GenericDuel::JoinGame(DuelPlayer* dp, void* pdata, bool is_creater) {
 			NetServer::SendPacketToPlayer(dp, STOC_ERROR_MSG, scem);
 			return;
 		}
-		CTOS_JoinGame* pkt = (CTOS_JoinGame*)pdata;
 		if(pkt->version2 != serverversion) {
 			VersionError scem{ serverversion };
 			NetServer::SendPacketToPlayer(dp, STOC_ERROR_MSG, scem);
@@ -215,7 +214,7 @@ void GenericDuel::JoinGame(DuelPlayer* dp, void* pdata, bool is_creater) {
 		dp->state = CTOS_LEAVE_GAME;
 		if(swapped)
 			std::swap(players.home, players.opposing);
-		IteratePlayers([&](duelist& dueler) {
+		IteratePlayers([this,&dp](duelist& dueler) {
 			STOC_HS_PlayerEnter scpe;
 			BufferIO::CopyWStr(dueler.player->name, scpe.name, 20);
 			scpe.pos = GetPos(dueler.player);
@@ -260,7 +259,7 @@ void GenericDuel::JoinGame(DuelPlayer* dp, void* pdata, bool is_creater) {
 	}
 	NetServer::SendPacketToPlayer(dp, STOC_JOIN_GAME, scjg);
 	NetServer::SendPacketToPlayer(dp, STOC_TYPE_CHANGE, sctc);
-	IteratePlayers([&](duelist& dueler) {
+	IteratePlayers([this,&dp](duelist& dueler) {
 		STOC_HS_PlayerEnter scpe;
 		BufferIO::CopyWStr(dueler.player->name, scpe.name, 20);
 		scpe.pos = GetPos(dueler.player);
@@ -311,10 +310,10 @@ void GenericDuel::LeaveGame(DuelPlayer* dp) {
 						NetServer::SendPacketToPlayer(dueler.player, STOC_DUEL_START);
 				});
 			}
-			uint32 player = type < players.home_size ? 0 : 1;
+			uint32_t player = type < players.home_size ? 0 : 1;
 			if(duel_stage != DUEL_STAGE_END) {
 				if(!seeking_rematch) {
-					unsigned char wbuf[3];
+					uint8_t wbuf[3];
 					wbuf[0] = MSG_WIN;
 					wbuf[1] = 1 - player;
 					wbuf[2] = 0x4;
@@ -430,7 +429,7 @@ void GenericDuel::PlayerKick(DuelPlayer* dp, unsigned char pos) {
 		return;
 	LeaveGame(dueler.player);
 }
-void GenericDuel::UpdateDeck(DuelPlayer* dp, void* pdata, unsigned int len) {
+void GenericDuel::UpdateDeck(DuelPlayer* dp, void* pdata, uint32_t len) {
 	auto& dueler = GetAtPos(dp->type);
 	if(dp->type >= (players.home_size + players.opposing_size) || dueler.ready)
 		return;
@@ -444,10 +443,10 @@ void GenericDuel::UpdateDeck(DuelPlayer* dp, void* pdata, unsigned int len) {
 		return;
 	}
 	if(match_result.empty()) {
-		dueler.deck_error = gdeckManager->LoadDeck(dueler.pdeck, (int*)deckbuf, mainc, sidec);
+		dueler.deck_error = gdeckManager->LoadDeck(dueler.pdeck, (uint32_t*)deckbuf, mainc, sidec);
 		dueler.odeck = dueler.pdeck;
 	} else {
-		if(gdeckManager->LoadSide(dueler.pdeck, (int*)deckbuf, mainc, sidec)) {
+		if(gdeckManager->LoadSide(dueler.pdeck, (uint32_t*)deckbuf, mainc, sidec)) {
 			dueler.ready = true;
 			NetServer::SendPacketToPlayer(dp, STOC_DUEL_START);
 			if(CheckReady()) {
@@ -542,7 +541,7 @@ void GenericDuel::HandResult(DuelPlayer* dp, unsigned char res) {
 		}
 	}
 }
-void GenericDuel::RematchResult(DuelPlayer * dp, unsigned char rematch) {
+void GenericDuel::RematchResult(DuelPlayer* dp, unsigned char rematch) {
 	if(seeking_rematch) {
 		if(!rematch) {
 			dp->type = NETPLAYER_TYPE_OBSERVER;
@@ -604,11 +603,10 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 	rh.id = REPLAY_YRP1;
 	rh.version = CLIENT_VERSION;
 	rh.flag = REPLAY_LUA64 | REPLAY_NEWREPLAY;
-	time_t seed = time(0);
-	rh.seed = seed;
+	rh.seed = static_cast<uint32_t>(time(0));
 	last_replay.BeginRecord(true, EPRO_TEXT("./replay/_LastReplay.yrp"));
 	last_replay.WriteHeader(rh);
-	randengine rnd(seed);
+	randengine rnd(rh.seed);
 	//records the replay with the new system
 	new_replay.BeginRecord();
 	rh.id = REPLAY_YRPX;
@@ -626,13 +624,12 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 		new_replay.WriteData(dueler.player->name, 40, false);
 	}
 	replay_stream.clear();
-	time_limit[0] = host_info.time_limit;
-	time_limit[1] = host_info.time_limit;
-	int opt = host_info.duel_flag;
+	time_limit[0] = time_limit[1] = host_info.time_limit ? (host_info.time_limit + 5) : 0;
+	uint32_t opt = host_info.duel_flag;
 	if(host_info.no_shuffle_deck)
 		opt |= DUEL_PSEUDO_SHUFFLE;
-	OCG_Player team = { (int)host_info.start_lp, host_info.start_hand, host_info.draw_count };
-	pduel = mainGame->SetupDuel({ (uint32_t)rnd(), opt, team, team });
+	OCG_Player team = { host_info.start_lp, host_info.start_hand, host_info.draw_count };
+	pduel = mainGame->SetupDuel({ rnd(), opt, team, team });
 	if(!host_info.no_shuffle_deck) {
 		IteratePlayers([&rnd](duelist& dueler) {
 			std::shuffle(dueler.pdeck.main.begin(), dueler.pdeck.main.end(), rnd);
@@ -671,23 +668,23 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 	if(host_info.extra_rules & ACTION_DUEL)
 		extracards.push_back(151999999);
 	OCG_NewCardInfo card_info = { 0, 0, 0, 0, 0, 0, POS_FACEDOWN_DEFENSE };
-	for(int32 i = (int32)extracards.size() - 1; i >= 0; --i) {
+	for(int32_t i = (int32_t)extracards.size() - 1; i >= 0; --i) {
 		card_info.code = extracards[i];
 		OCG_DuelNewCard(pduel, card_info);
 	}
-	for(int32 j = 0; j < (int32)players.home.size(); j++) {
+	for(int32_t j = 0; j < (int32_t)players.home.size(); j++) {
 		auto& dueler = players.home[j];
 		card_info.duelist = j;
 		card_info.loc = LOCATION_DECK;
 		last_replay.Write<uint32_t>(dueler.pdeck.main.size(), false);
-		for(int32 i = (int32)dueler.pdeck.main.size() - 1; i >= 0; --i) {
+		for(int32_t i = (int32_t)dueler.pdeck.main.size() - 1; i >= 0; --i) {
 			card_info.code = dueler.pdeck.main[i]->code;
 			OCG_DuelNewCard(pduel, card_info);
 			last_replay.Write<uint32_t>(dueler.pdeck.main[i]->code, false);
 		}
 		card_info.loc = LOCATION_EXTRA;
 		last_replay.Write<uint32_t>(dueler.pdeck.extra.size(), false);
-		for(int32 i = (int32)dueler.pdeck.extra.size() - 1; i >= 0; --i) {
+		for(int32_t i = (int32_t)dueler.pdeck.extra.size() - 1; i >= 0; --i) {
 			card_info.code = dueler.pdeck.extra[i]->code;
 			OCG_DuelNewCard(pduel, card_info);
 			last_replay.Write<uint32_t>(dueler.pdeck.extra[i]->code, false);
@@ -700,26 +697,26 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 			return i;
 		return (i + size - 1) % size;
 	};
-	for(int32 j = 0; j < (int32)players.opposing.size(); j++) {
+	for(int32_t j = 0; j < (int32_t)players.opposing.size(); j++) {
 		auto& dueler = players.opposing[idxinc(j)];
 		card_info.duelist = j;
 		card_info.loc = LOCATION_DECK;
 		last_replay.Write<uint32_t>(dueler.pdeck.main.size(), false);
-		for(int32 i = (int32)dueler.pdeck.main.size() - 1; i >= 0; --i) {
+		for(int32_t i = (int32_t)dueler.pdeck.main.size() - 1; i >= 0; --i) {
 			card_info.code = dueler.pdeck.main[i]->code;
 			OCG_DuelNewCard(pduel, card_info);
 			last_replay.Write<uint32_t>(dueler.pdeck.main[i]->code, false);
 		}
 		card_info.loc = LOCATION_EXTRA;
 		last_replay.Write<uint32_t>(dueler.pdeck.extra.size(), false);
-		for(int32 i = (int32)dueler.pdeck.extra.size() - 1; i >= 0; --i) {
+		for(int32_t i = (int32_t)dueler.pdeck.extra.size() - 1; i >= 0; --i) {
 			card_info.code = dueler.pdeck.extra[i]->code;
 			OCG_DuelNewCard(pduel, card_info);
 			last_replay.Write<uint32_t>(dueler.pdeck.extra[i]->code, false);
 		}
 	}
 	last_replay.Write<uint32_t>(extracards.size(), false);
-	for(int32 i = (int32)extracards.size() - 1; i >= 0; --i) {
+	for(int32_t i = (int32_t)extracards.size() - 1; i >= 0; --i) {
 		last_replay.Write<uint32_t>(extracards[i], false);
 	}
 	last_replay.Flush();
@@ -732,16 +729,19 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 	BufferIO::Write<uint16_t>(pbuf, OCG_DuelQueryCount(pduel, 0, LOCATION_EXTRA));
 	BufferIO::Write<uint16_t>(pbuf, OCG_DuelQueryCount(pduel, 1, LOCATION_DECK));
 	BufferIO::Write<uint16_t>(pbuf, OCG_DuelQueryCount(pduel, 1, LOCATION_EXTRA));
-	for (auto& dueler : players.home)
-		NetServer::SendBufferToPlayer(dueler.player, STOC_GAME_MSG, startbuf, 18);
+	NetServer::SendBufferToPlayer(nullptr, STOC_GAME_MSG, startbuf, 18);
+	for(auto& dueler : players.home)
+		NetServer::ReSendToPlayer(dueler.player);
 	startbuf[1] = 1;
+	NetServer::SendBufferToPlayer(nullptr, STOC_GAME_MSG, startbuf, 18);
 	for(auto& dueler : players.opposing)
-		NetServer::SendBufferToPlayer(dueler.player, STOC_GAME_MSG, startbuf, 18);
+		NetServer::ReSendToPlayer(dueler.player);
 	if(!swapped)
 		startbuf[1] = 0x10;
 	else startbuf[1] = 0x11;
+	NetServer::SendBufferToPlayer(nullptr, STOC_GAME_MSG, startbuf, 18);
 	for(auto& obs : observers)
-		NetServer::SendBufferToPlayer(obs, STOC_GAME_MSG, startbuf, 18);
+		NetServer::ReSendToPlayer(obs);
 	packets_cache.emplace_back(startbuf, 18);
 	startbuf[1] = 0;
 	replay_stream.emplace_back(startbuf, 17);
@@ -754,7 +754,7 @@ void GenericDuel::TPResult(DuelPlayer* dp, unsigned char tp) {
 	Process();
 }
 void GenericDuel::Process() {
-	std::vector<uint8> duelBuffer;
+	std::vector<uint8_t> duelBuffer;
 	unsigned int engFlag = 0, message_len = 0;
 	int stop = 0;
 	do {
@@ -796,8 +796,9 @@ void GenericDuel::DuelEndProc() {
 			dueler.player->state = CTOS_UPDATE_DECK;
 			NetServer::SendPacketToPlayer(dueler.player, STOC_CHANGE_SIDE);
 		});
+		NetServer::SendPacketToPlayer(nullptr, STOC_WAITING_SIDE);
 		for(auto& obs : observers)
-			NetServer::SendPacketToPlayer(obs, STOC_WAITING_SIDE);
+			NetServer::ReSendToPlayer(obs);
 		duel_stage = DUEL_STAGE_SIDING;
 	}
 }
@@ -806,7 +807,7 @@ void GenericDuel::Surrender(DuelPlayer* dp) {
 		return;*/
 	if(pduel) {
 		unsigned char wbuf[3];
-		uint32 player = dp->type < players.home_size ? 0 : 1;
+		uint32_t player = dp->type < players.home_size ? 0 : 1;
 		wbuf[0] = MSG_WIN;
 		wbuf[1] = 1 - player;
 		wbuf[2] = 0;
@@ -834,7 +835,7 @@ void GenericDuel::BeforeParsing(CoreUtils::Packet& packet, int& return_value, bo
 		RefreshSzone(1);
 		RefreshHand(0);
 		RefreshHand(1);
-		record_last = false;
+		record_last = true;
 		break;
 	}
 	case MSG_SELECT_CHAIN:
@@ -843,14 +844,14 @@ void GenericDuel::BeforeParsing(CoreUtils::Packet& packet, int& return_value, bo
 		RefreshMzone(1);
 		RefreshSzone(0);
 		RefreshSzone(1);
-		record_last = false;
+		record_last = true;
 		break;
 	}
 	case MSG_FLIPSUMMONING: {
 		pbuf += 4;
 		CoreUtils::loc_info info = CoreUtils::ReadLocInfo(pbuf, false);
 		RefreshSingle(info.controler, info.location, info.sequence);
-		record_last = false;
+		record_last = true;
 		break;
 	}
 	default:
@@ -891,8 +892,8 @@ void GenericDuel::Sending(CoreUtils::Packet& packet, int& return_value, bool& re
 		case 9:
 		case 11: {
 			SEND(nullptr);
-			IteratePlayersAndObs([&](DuelPlayer* dueler) {
-				if(dueler != cur_player[player])
+			IteratePlayersAndObs([&player=cur_player[player]](DuelPlayer* dueler) {
+				if(dueler != player)
 					NetServer::ReSendToPlayer(dueler);
 			});
 			break;
@@ -1023,10 +1024,10 @@ void GenericDuel::Sending(CoreUtils::Packet& packet, int& return_value, bool& re
 	}
 	case MSG_CONFIRM_CARDS: {
 		player = BufferIO::Read<uint8_t>(pbuf);
-		int count = BufferIO::Read<uint32>(pbuf);
+		uint32_t count = BufferIO::Read<uint32_t>(pbuf);
 		if(count > 0) {
-			/*uint32 code = */BufferIO::Read<uint32>(pbuf);
-			/*uint32 controler = */BufferIO::Read<uint8_t>(pbuf);
+			/*uint32_t code = */BufferIO::Read<uint32_t>(pbuf);
+			/*uint32_t controler = */BufferIO::Read<uint8_t>(pbuf);
 			uint8_t location = BufferIO::Read<uint8_t>(pbuf);
 			if(location != LOCATION_DECK) {
 				SEND(nullptr);
@@ -1199,8 +1200,7 @@ void GenericDuel::AfterParsing(CoreUtils::Packet& packet, int& return_value, boo
 		break;
 	}
 	case MSG_NEW_TURN: {
-		time_limit[0] = host_info.time_limit;
-		time_limit[1] = host_info.time_limit;
+		time_limit[0] = time_limit[1] = host_info.time_limit ? (host_info.time_limit + 5) : 0;
 		turn_count++;
 		break;
 	}
@@ -1298,24 +1298,14 @@ int GenericDuel::Analyze(CoreUtils::Packet packet) {
 	replay_stream.clear();
 	bool record = true;
 	bool record_last = false;
-	unsigned char message = packet.message;
 	auto packetcpy = packet;
 	BeforeParsing(packet, return_value, record, record_last);
 	Sending(packet, return_value, record, record_last);
 	AfterParsing(packet, return_value, record, record_last);
-	if(record) {
-		if(!record_last) {
-			new_replay.WritePacket(packetcpy);
-			new_replay.WriteStream(replay_stream);
-		} else {
-			new_replay.WriteStream(replay_stream);
-			new_replay.WritePacket(packetcpy);
-		}
-		new_replay.Flush();
-	} else {
-		new_replay.WriteStream(replay_stream);
-		new_replay.Flush();
-	}
+	if(record)
+		replay_stream.insert(record_last ? replay_stream.end() : replay_stream.begin(), std::move(packetcpy));
+	new_replay.WriteStream(replay_stream);
+	new_replay.Flush();
 	return return_value;
 }
 void GenericDuel::GetResponse(DuelPlayer* dp, void* pdata, unsigned int len) {
@@ -1336,48 +1326,49 @@ void GenericDuel::EndDuel() {
 	if(!pduel)
 		return;
 	last_replay.EndRecord(0x1000);
-	std::vector<unsigned char> oldreplay;
-	oldreplay.insert(oldreplay.end(),(unsigned char*)&last_replay.pheader, ((unsigned char*)&last_replay.pheader) + sizeof(ReplayHeader));
-	oldreplay.insert(oldreplay.end(), last_replay.comp_data.begin(), last_replay.comp_data.end());
-
-	replay_stream.emplace_back(OLD_REPLAY_MODE, (char*)oldreplay.data(), sizeof(ReplayHeader) + last_replay.comp_size);
 
 	//in case of remaining packets, e.g. MSG_WIN
+	auto oldbuffer = last_replay.GetSerializedBuffer();
+
+	ReplayPacket tmp{};
+
+	tmp.message = OLD_REPLAY_MODE;
+	tmp.data.swap(oldbuffer);
+	replay_stream.push_back(std::move(tmp));
+
 	new_replay.WriteStream(replay_stream);
 	new_replay.EndRecord();
 
-	std::vector<unsigned char> newreplay;
-	newreplay.insert(newreplay.end(), (unsigned char*)&new_replay.pheader, ((unsigned char*)&new_replay.pheader) + sizeof(ReplayHeader));
-	newreplay.insert(newreplay.end(), new_replay.comp_data.begin(), new_replay.comp_data.end());
-
-	NetServer::SendBufferToPlayer(nullptr, STOC_NEW_REPLAY, newreplay.data(), newreplay.size());
+	auto newbuffer = new_replay.GetSerializedBuffer();
+	
+	NetServer::SendBufferToPlayer(nullptr, STOC_NEW_REPLAY, newbuffer.data(), newbuffer.size());
 	IteratePlayersAndObs([](DuelPlayer* dueler) {
 		NetServer::ReSendToPlayer(dueler);
 	});
 
-	NetServer::SendBufferToPlayer(nullptr, STOC_REPLAY, oldreplay.data(), oldreplay.size());
+	NetServer::SendPacketToPlayer(nullptr, STOC_REPLAY);
 	IteratePlayersAndObs([](DuelPlayer* dueler) {
 		NetServer::ReSendToPlayer(dueler);
 	});
 	OCG_DestroyDuel(pduel);
 	pduel = nullptr;
 }
-void GenericDuel::WaitforResponse(int playerid) {
+void GenericDuel::WaitforResponse(uint8_t playerid) {
 	last_response = playerid;
-	unsigned char msg = MSG_WAITING;
-	IteratePlayers([&](duelist& dueler) {
-		if(dueler.player != cur_player[playerid])
+	IteratePlayers([&player=cur_player[playerid]](duelist& dueler) {
+		static const unsigned char msg = MSG_WAITING;
+		if(dueler.player != player)
 			NetServer::SendPacketToPlayer(dueler.player, STOC_GAME_MSG, msg);
 	});
 	if(host_info.time_limit) {
 		STOC_TimeLimit sctl;
 		sctl.player = playerid;
-		sctl.left_time = time_limit[playerid];
+		sctl.left_time = std::max<int32_t>(time_limit[playerid] - 5, 0);
 		NetServer::SendPacketToPlayer(nullptr, STOC_TIME_LIMIT, sctl);
 		IteratePlayers([](duelist& dueler) {
 			NetServer::ReSendToPlayer(dueler.player);
 		});
-		grace_period = 5;
+		grace_period = 0;
 	}
 	cur_player[playerid]->state = CTOS_RESPONSE;
 }
@@ -1392,30 +1383,30 @@ void GenericDuel::TimeConfirm(DuelPlayer* dp) {
 	timeval timeout = {1, 0};
 	event_add(etimer, &timeout);*/
 }
-void GenericDuel::RefreshMzone(int player, int flag) {
+void GenericDuel::RefreshMzone(uint8_t player, uint32_t flag) {
 	RefreshLocation(player, flag, LOCATION_MZONE);
 }
-void GenericDuel::RefreshSzone(int player, int flag) {
+void GenericDuel::RefreshSzone(uint8_t player, uint32_t flag) {
 	RefreshLocation(player, flag, LOCATION_SZONE);
 }
-void GenericDuel::RefreshHand(int player, int flag) {
+void GenericDuel::RefreshHand(uint8_t player, uint32_t flag) {
 	RefreshLocation(player, flag, LOCATION_HAND);
 }
-void GenericDuel::RefreshGrave(int player, int flag) {
+void GenericDuel::RefreshGrave(uint8_t player, uint32_t flag) {
 	RefreshLocation(player, flag, LOCATION_GRAVE);
 }
-void GenericDuel::RefreshExtra(int player, int flag) {
+void GenericDuel::RefreshExtra(uint8_t player, uint32_t flag) {
 	RefreshLocation(player, flag, LOCATION_EXTRA);
 }
 #undef TO_SEND_BUFFER
 #define TO_SEND_BUFFER (char*)buffer.data(), buffer.size()
-void GenericDuel::RefreshLocation(int player, int flag, int location) {
+void GenericDuel::RefreshLocation(uint8_t player, uint32_t flag, uint8_t location) {
 	std::vector<uint8_t> buffer;
 	BufferIO::insert_value<uint8_t>(buffer, MSG_UPDATE_DATA);
 	BufferIO::insert_value<uint8_t>(buffer, player);
 	BufferIO::insert_value<uint8_t>(buffer, location);
-	uint32 len = 0;
-	auto buff = OCG_DuelQueryLocation(pduel, &len, { (uint32_t)flag, (uint8_t)player, (uint32)location });
+	uint32_t len = 0;
+	auto buff = OCG_DuelQueryLocation(pduel, &len, { flag, player, location });
 	if(len == 0)
 		return;
 	char* a = (char*)buff;
@@ -1436,14 +1427,14 @@ void GenericDuel::RefreshLocation(int player, int flag, int location) {
 		NetServer::ReSendToPlayer(*pit);
 	packets_cache.emplace_back((char*)buffer.data(), buffer.size());
 }
-void GenericDuel::RefreshSingle(int player, int location, int sequence, int flag) {
+void GenericDuel::RefreshSingle(uint8_t player, uint8_t location, uint8_t sequence, uint32_t flag) {
 	std::vector<uint8_t> buffer;
 	BufferIO::insert_value<uint8_t>(buffer, MSG_UPDATE_CARD);
 	BufferIO::insert_value<uint8_t>(buffer, player);
 	BufferIO::insert_value<uint8_t>(buffer, location);
 	BufferIO::insert_value<uint8_t>(buffer, sequence);
-	uint32 len = 0;
-	auto buff = OCG_DuelQuery(pduel, &len, { (uint32_t)flag, (uint8_t)player, (uint32_t)location, (uint32_t)sequence });
+	uint32_t len = 0;
+	auto buff = OCG_DuelQuery(pduel, &len, { flag, player, location, sequence });
 	if(buff == nullptr)
 		return;
 	char* a = (char*)buff;
@@ -1466,13 +1457,13 @@ void GenericDuel::RefreshSingle(int player, int location, int sequence, int flag
 }
 #undef SEND
 #undef TO_SEND_BUFFER
-void GenericDuel::PseudoRefreshDeck(int player, int flag) {
+void GenericDuel::PseudoRefreshDeck(uint8_t player, uint32_t flag) {
 	std::vector<uint8_t> buffer;
 	BufferIO::insert_value<uint8_t>(buffer, MSG_UPDATE_DATA);
 	BufferIO::insert_value<uint8_t>(buffer, player);
 	BufferIO::insert_value<uint8_t>(buffer, LOCATION_DECK);
-	uint32 len = 0;
-	auto buff = OCG_DuelQueryLocation(pduel, &len, { (uint32_t)flag, (uint8_t)player, LOCATION_DECK });
+	uint32_t len = 0;
+	auto buff = OCG_DuelQueryLocation(pduel, &len, { flag, player, LOCATION_DECK });
 	if(len == 0)
 		return;
 	buffer.resize(buffer.size() + len);
@@ -1483,20 +1474,17 @@ void GenericDuel::GenericTimer(evutil_socket_t fd, short events, void* arg) {
 	GenericDuel* sd = static_cast<GenericDuel*>(arg);
 	if(sd->last_response < 2 && sd->cur_player[sd->last_response]->state == CTOS_RESPONSE) {
 		if(sd->grace_period >= 0) {
-			//fmt::printf("Grace period, remaining %d\n", sd->grace_period);
 			sd->grace_period--;
 			return;
 		}
-		//fmt::printf("No more grace period, remaining %d\n", sd->time_limit[sd->last_response]);
 		sd->time_limit[sd->last_response]--;
 		if(sd->time_limit[sd->last_response] <= 0) {
-			unsigned char wbuf[3];
-			uint32 player = sd->last_response;
+			uint8_t wbuf[3];
+			uint8_t player = sd->last_response;
 			wbuf[0] = MSG_WIN;
 			wbuf[1] = 1 - player;
 			wbuf[2] = 0x3;
 			NetServer::SendBufferToPlayer(nullptr, STOC_GAME_MSG, wbuf, 3);
-			auto& players = sd->players;
 			sd->IteratePlayers([](duelist& dueler) {
 				NetServer::ReSendToPlayer(dueler.player);
 			});

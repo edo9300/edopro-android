@@ -9,6 +9,8 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
+using Stat = struct stat;
+using Dirent = struct dirent;
 #endif
 #ifdef __ANDROID__
 #include "Android/porting_android.h"
@@ -31,6 +33,9 @@ namespace ygo {
 	bool Utils::FileCopy(const path_string& source, const path_string& destination) {
 		if(source == destination)
 			return false;
+#ifdef _WIN32
+		return CopyFile(source.c_str(), destination.c_str(), false);
+#else
 		std::ifstream src(source, std::ios::binary);
 		if(!src.is_open())
 			return false;
@@ -41,6 +46,7 @@ namespace ygo {
 		src.close();
 		dst.close();
 		return true;
+#endif
 	}
 	bool Utils::FileMove(const path_string& source, const path_string& destination) {
 #ifdef _WIN32
@@ -49,6 +55,17 @@ namespace ygo {
 		return rename(source.c_str(), destination.c_str()) == 0;
 #endif
 		return false;
+	}
+	bool Utils::FileExists(const path_string& path) {
+#ifdef _WIN32
+		auto dwAttrib = GetFileAttributes(path.c_str());
+		return (dwAttrib != INVALID_FILE_ATTRIBUTES && !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
+#else
+		Stat sb;
+		if(stat(path.c_str(), &sb) == -1)
+			return false;
+		return S_ISREG(sb.st_mode) != 0;
+#endif
 	}
 	bool Utils::FileDelete(const path_string& source) {
 #ifdef _WIN32
@@ -78,10 +95,10 @@ namespace ygo {
 		}
 		return true;
 #else
-		DIR * dir;
-		struct dirent * dirp = nullptr;
+		DIR* dir;
+		Dirent* dirp = nullptr;
 		if((dir = opendir(path.c_str())) != nullptr) {
-			struct stat fileStat;
+			Stat fileStat;
 			while((dirp = readdir(dir)) != nullptr) {
 				stat((path + dirp->d_name).c_str(), &fileStat);
 				std::string name = dirp->d_name;
@@ -132,11 +149,11 @@ namespace ygo {
 			FindClose(fh);
 		}
 #else
-		DIR * dir;
-		struct dirent * dirp = nullptr;
+		DIR* dir;
+		Dirent* dirp = nullptr;
 		auto _path = NormalizePath(path);
 		if((dir = opendir(_path.c_str())) != nullptr) {
-			struct stat fileStat;
+			Stat fileStat;
 			while((dirp = readdir(dir)) != nullptr) {
 				stat((_path + dirp->d_name).c_str(), &fileStat);
 				cb(dirp->d_name, !!S_ISDIR(fileStat.st_mode), payload);
@@ -416,9 +433,9 @@ namespace ygo {
 		return true;
 	}
 
-	void Utils::SystemOpen(const path_string& url) {
+	void Utils::SystemOpen(const path_string& url, OpenType type) {
 #ifdef _WIN32
-		ShellExecute(NULL, EPRO_TEXT("open"), url.c_str(), NULL, NULL, SW_SHOWNORMAL);
+		ShellExecute(NULL, EPRO_TEXT("open"), (type == OPEN_FILE) ? filesystem->getAbsolutePath(url.c_str()).c_str() : url.c_str(), NULL, NULL, SW_SHOWNORMAL);
 		// system("start URL") opens a shell
 #elif !defined(__ANDROID__)
 		auto pid = fork();
@@ -433,7 +450,10 @@ namespace ygo {
 			perror("Failed to fork:");
 		}
 #else
-		porting::openUrl(url);
+		if(type == OPEN_FILE)
+			porting::openFile(url);
+		else
+			porting::openUrl(url);
 #endif
 	}
 }

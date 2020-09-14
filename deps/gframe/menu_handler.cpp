@@ -33,16 +33,16 @@ void UpdateDeck() {
 	char deckbuf[0xf000];
 	char* pdeck = deckbuf;
 	const auto totsize = gdeckManager->current_deck.main.size() + gdeckManager->current_deck.extra.size() + gdeckManager->current_deck.side.size();
-	if(totsize > (sizeof(deckbuf) - 2 * sizeof(int32_t)))
+	if(totsize > (sizeof(deckbuf) - 2 * sizeof(uint32_t)))
 		return;
-	BufferIO::Write<int32_t>(pdeck, gdeckManager->current_deck.main.size() + gdeckManager->current_deck.extra.size());
-	BufferIO::Write<int32_t>(pdeck, gdeckManager->current_deck.side.size());
+	BufferIO::Write<uint32_t>(pdeck, gdeckManager->current_deck.main.size() + gdeckManager->current_deck.extra.size());
+	BufferIO::Write<uint32_t>(pdeck, gdeckManager->current_deck.side.size());
 	for(size_t i = 0; i < gdeckManager->current_deck.main.size(); ++i)
-		BufferIO::Write<int32_t>(pdeck, gdeckManager->current_deck.main[i]->code);
+		BufferIO::Write<uint32_t>(pdeck, gdeckManager->current_deck.main[i]->code);
 	for(size_t i = 0; i < gdeckManager->current_deck.extra.size(); ++i)
-		BufferIO::Write<int32_t>(pdeck, gdeckManager->current_deck.extra[i]->code);
+		BufferIO::Write<uint32_t>(pdeck, gdeckManager->current_deck.extra[i]->code);
 	for(size_t i = 0; i < gdeckManager->current_deck.side.size(); ++i)
-		BufferIO::Write<int32_t>(pdeck, gdeckManager->current_deck.side[i]->code);
+		BufferIO::Write<uint32_t>(pdeck, gdeckManager->current_deck.side[i]->code);
 	DuelClient::SendBufferToServer(CTOS_UPDATE_DECK, deckbuf, pdeck - deckbuf);
 }
 void LoadReplay() {
@@ -291,7 +291,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					if(i == 3)
 						mainGame->chkCustomRules[4]->setEnabled(set);
 				}
-				const uint32 limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
+				constexpr uint32_t limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
 				for (int i = 0; i < (sizeof(mainGame->chkTypeLimit) / sizeof(irr::gui::IGUICheckBox*)); ++i)
 						mainGame->chkTypeLimit[i]->setChecked(mainGame->forbiddentypes & limits[i]);
 				mainGame->PopupElement(mainGame->wCustomRules);
@@ -510,7 +510,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					break;
 				auto replay_name = Utils::GetFileName(ReplayMode::cur_replay.GetReplayName());
 				for(size_t i = 0; i < decks.size(); i++) {
-					gdeckManager->SaveDeck(sanitize(fmt::format(EPRO_TEXT("{} player{:02} {}"), replay_name, i, Utils::ToPathString(players[i]))), decks[i].main_deck, decks[i].extra_deck, std::vector<int>());
+					gdeckManager->SaveDeck(sanitize(fmt::format(EPRO_TEXT("{} player{:02} {}"), replay_name, i, Utils::ToPathString(players[i]))), decks[i].main_deck, decks[i].extra_deck, cardlist_type());
 				}
 				mainGame->stACMessage->setText(gDataManager->GetSysString(1367).c_str());
 				mainGame->PopupElement(mainGame->wACMessage, 20);
@@ -662,7 +662,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				if(replay.GetTurnsCount())
 					repinfo.append(fmt::format(L"\n{}: {}", gDataManager->GetSysString(2009), replay.GetTurnsCount()));
 				mainGame->ebRepStartTurn->setText(L"1");
-				mainGame->stReplayInfo->setText((wchar_t*)repinfo.c_str());
+				mainGame->stReplayInfo->setText(repinfo.c_str());
 				mainGame->chkYrp->setChecked(false);
 				mainGame->chkYrp->setEnabled(has_yrp && mainGame->coreloaded);
 				break;
@@ -899,7 +899,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					if(i == 3)
 						mainGame->chkCustomRules[4]->setEnabled(set);
 				}
-				const uint32 limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
+				constexpr uint32_t limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
 				for(int i = 0; i < (sizeof(mainGame->chkTypeLimit) / sizeof(irr::gui::IGUICheckBox*)); ++i)
 					mainGame->chkTypeLimit[i]->setChecked(mainGame->forbiddentypes & limits[i]);
 				break;

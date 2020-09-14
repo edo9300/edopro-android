@@ -54,7 +54,7 @@ void SingleMode::SetResponse(unsigned char* resp, unsigned int len) {
 	OCG_DuelSetResponse(pduel, resp, len);
 }
 int SingleMode::SinglePlayThread(DuelOptions duelOptions) {
-	int opt = duelOptions.duelFlags;
+	uint32_t opt = duelOptions.duelFlags;
 	std::string script_name = "";
 	auto InitReplay = [&]() {
 		unsigned short buffer[20];
@@ -77,7 +77,7 @@ int SingleMode::SinglePlayThread(DuelOptions duelOptions) {
 	is_continuing = false;
 	is_restarting = false;
 restart:
-	time_t seed = time(0);
+	uint32_t seed = static_cast<uint32_t>(time(0));;
 	DuelClient::rnd.seed(seed);
 	mainGame->dInfo.isSingleMode = true;
 	OCG_Player team = { duelOptions.startingLP, duelOptions.startingDrawCount, duelOptions.drawCountPerTurn };
@@ -85,7 +85,7 @@ restart:
 	if(hand_test) {
 		opt |= DUEL_ATTACK_FIRST_TURN;
 	}
-	pduel = mainGame->SetupDuel({ (uint32_t)DuelClient::rnd(), opt, team, team });
+	pduel = mainGame->SetupDuel({ DuelClient::rnd(), opt, team, team });
 	mainGame->dInfo.compat_mode = false;
 	mainGame->dInfo.lp[0] = duelOptions.startingLP;
 	mainGame->dInfo.lp[1] = duelOptions.startingLP;
@@ -121,18 +121,18 @@ restart:
 		if (!duelOptions.handTestNoShuffle) {
 			std::shuffle(playerdeck.main.begin(), playerdeck.main.end(), DuelClient::rnd);
 		}
-		auto LoadDeck = [&](uint8 team) {
+		auto LoadDeck = [&](uint8_t team) {
 			OCG_NewCardInfo card_info = { team, 0, 0, team, 0, 0, POS_FACEDOWN_DEFENSE };
 			card_info.loc = LOCATION_DECK;
 			last_replay.Write<uint32_t>(playerdeck.main.size(), false);
-			for (int32 i = (int32)playerdeck.main.size() - 1; i >= 0; --i) {
+			for (int32_t i = (int32_t)playerdeck.main.size() - 1; i >= 0; --i) {
 				card_info.code = playerdeck.main[i]->code;
 				OCG_DuelNewCard(pduel, card_info);
 				last_replay.Write<uint32_t>(playerdeck.main[i]->code, false);
 			}
 			card_info.loc = LOCATION_EXTRA;
 			last_replay.Write<uint32_t>(playerdeck.extra.size(), false);
-			for (int32 i = (int32)playerdeck.extra.size() - 1; i >= 0; --i) {
+			for (int32_t i = (int32_t)playerdeck.extra.size() - 1; i >= 0; --i) {
 				card_info.code = playerdeck.extra[i]->code;
 				OCG_DuelNewCard(pduel, card_info);
 				last_replay.Write<uint32_t>(playerdeck.extra[i]->code, false);
@@ -142,8 +142,7 @@ restart:
 		if (duelOptions.handTestNoOpponent) {
 			last_replay.Write<uint32_t>(0, false);
 			last_replay.Write<uint32_t>(0, false);
-		}
-		else {
+		} else {
 			LoadDeck(1);
 		}
 		last_replay.Flush();
@@ -154,13 +153,11 @@ restart:
 			script_name = Utils::ToUTF8IfNeeded(open_file_name);
 			if(!mainGame->LoadScript(pduel, script_name)) {
 				script_name = Utils::ToUTF8IfNeeded(EPRO_TEXT("./puzzles/") + open_file_name);
-				if(!mainGame->LoadScript(pduel, script_name))
-					loaded = false;
+				loaded = mainGame->LoadScript(pduel, script_name);
 			}
 		} else {
 			script_name = BufferIO::EncodeUTF8s(mainGame->lstSinglePlayList->getListItem(mainGame->lstSinglePlayList->getSelected(), true));
-			if(!mainGame->LoadScript(pduel, script_name))
-				loaded = false;
+			loaded = mainGame->LoadScript(pduel, script_name);
 		}
 		InitReplay();
 	}
@@ -262,10 +259,11 @@ restart:
 	pduel = nullptr;
 	if(saveReplay && !is_restarting) {
 		last_replay.EndRecord(0x1000);
-		std::vector<unsigned char> oldreplay;
-		oldreplay.insert(oldreplay.end(), (unsigned char*)&last_replay.pheader, ((unsigned char*)&last_replay.pheader) + sizeof(ReplayHeader));
-		oldreplay.insert(oldreplay.end(), last_replay.comp_data.begin(), last_replay.comp_data.end());
-		new_replay.WritePacket(ReplayPacket(OLD_REPLAY_MODE, (char*)oldreplay.data(), oldreplay.size()));
+		auto oldbuffer = last_replay.GetSerializedBuffer();
+		ReplayPacket tmp{};
+		tmp.message = OLD_REPLAY_MODE;
+		tmp.data.swap(oldbuffer);
+		new_replay.WritePacket(tmp);
 		new_replay.EndRecord();
 	}
 	if(is_closing) {
@@ -369,7 +367,7 @@ bool SingleMode::SinglePlayAnalyze(CoreUtils::Packet packet) {
 	if(is_closing || !is_continuing)
 		return false;
 	mainGame->dInfo.curMsg = packet.message;
-	bool record = CoreUtils::MessageBeRecorded(packet.message);
+	bool record = true;
 	bool record_last = false;
 	switch(mainGame->dInfo.curMsg) {
 		case MSG_RETRY:	{
@@ -386,7 +384,6 @@ bool SingleMode::SinglePlayAnalyze(CoreUtils::Packet packet) {
 			int type = BufferIO::Read<uint8_t>(pbuf);
 			int player = BufferIO::Read<uint8_t>(pbuf);
 			/*uint64_t data = BufferIO::Read<uint64_t>(pbuf);*/
-			record = true;
 			if(player == 0 || type >= HINT_SKILL)
 				ANALYZE;
 			if(type > 0 && type < 6 && type != 4)
@@ -451,11 +448,12 @@ bool SingleMode::SinglePlayAnalyze(CoreUtils::Packet packet) {
 		case MSG_ANNOUNCE_CARD:
 		case MSG_ANNOUNCE_NUMBER: {
 			record = false;
-			if(mainGame->dInfo.curMsg == MSG_SELECT_CHAIN) {
+			if(mainGame->dInfo.curMsg == MSG_SELECT_CHAIN || mainGame->dInfo.curMsg == MSG_NEW_TURN) {
 				SinglePlayRefresh(0, LOCATION_MZONE);
 				SinglePlayRefresh(1, LOCATION_MZONE);
 				SinglePlayRefresh(0, LOCATION_SZONE);
 				SinglePlayRefresh(1, LOCATION_SZONE);
+				record_last = true;
 			}
 			if(!ANALYZE) {
 				singleSignal.Reset();
@@ -524,22 +522,16 @@ bool SingleMode::SinglePlayAnalyze(CoreUtils::Packet packet) {
 			break;
 		}
 	}
-	if(record) {
-		if(!record_last) {
-			new_replay.WritePacket(packet);
-			new_replay.WriteStream(replay_stream);
-		} else {
-			new_replay.WriteStream(replay_stream);
-			new_replay.WritePacket(packet);
-		}
-		new_replay.Flush();
-	}
+	if(record)
+		replay_stream.insert(record_last ? replay_stream.end() : replay_stream.begin(), std::move(packet));
+	new_replay.WriteStream(replay_stream);
+	new_replay.Flush();
 	return is_continuing;
 }
-void SingleMode::SinglePlayRefresh(int player, int location, int flag) {
+void SingleMode::SinglePlayRefresh(uint8_t player, uint8_t location, uint32_t flag) {
 	std::vector<uint8_t> buffer;
-	uint32 len = 0;
-	auto buff = OCG_DuelQueryLocation(pduel, &len, { (uint32_t)flag, (uint8_t)player, (uint32_t)location });
+	uint32_t len = 0;
+	auto buff = OCG_DuelQueryLocation(pduel, &len, { flag, player, location });
 	if(len == 0)
 		return;
 	buffer.resize(buffer.size() + len);
@@ -551,10 +543,10 @@ void SingleMode::SinglePlayRefresh(int player, int location, int flag) {
 	buffer.insert(buffer.begin(), player);
 	replay_stream.emplace_back(MSG_UPDATE_DATA, (char*)buffer.data(), buffer.size());
 }
-void SingleMode::SinglePlayRefreshSingle(int player, int location, int sequence, int flag) {
+void SingleMode::SinglePlayRefreshSingle(uint8_t player, uint8_t location, uint8_t sequence, uint32_t flag) {
 	std::vector<uint8_t> buffer;
-	uint32 len = 0;
-	auto buff = OCG_DuelQuery(pduel, &len, { (uint32_t)flag, (uint8_t)player, (uint32_t)location, (uint32_t)sequence });
+	uint32_t len = 0;
+	auto buff = OCG_DuelQuery(pduel, &len, { flag, player, location, sequence });
 	if(buff == nullptr)
 		return;
 	buffer.resize(buffer.size() + len);
@@ -567,7 +559,7 @@ void SingleMode::SinglePlayRefreshSingle(int player, int location, int sequence,
 	buffer.insert(buffer.begin(), player);
 	replay_stream.emplace_back(MSG_UPDATE_CARD, (char*)buffer.data(), buffer.size());
 }
-void SingleMode::SinglePlayRefresh(int flag) {
+void SingleMode::SinglePlayRefresh(uint32_t flag) {
 	for(int p = 0; p < 2; p++)
 		for(int loc = LOCATION_HAND; loc != LOCATION_GRAVE; loc *= 2)
 			SinglePlayRefresh(p, loc, flag);
