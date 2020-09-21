@@ -14,6 +14,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.content.FileProvider;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import libwindbot.windbot.WindBot;
@@ -70,6 +71,11 @@ public class EpNativeActivity extends NativeActivity {
 		if (hasFocus)
 			makeFullScreen();
 	}
+
+	@Override
+    public boolean onKeyDown(int keyCode, KeyEvent event){
+	    return (keyCode == KeyEvent.KEYCODE_BACK || super.onKeyDown(keyCode, event));
+    }
 
 	@SuppressWarnings("unused")
 	public void showDialog(String acceptButton, String hint, String current,
