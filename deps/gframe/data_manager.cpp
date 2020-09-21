@@ -1,6 +1,7 @@
 #include "data_manager.h"
 #include <fstream>
 #include <fmt/format.h>
+#include "bufferio.h"
 #include "sqlite3.h"
 #include "readonlymemvfs.h"
 #include "logging.h"
@@ -50,7 +51,7 @@ bool DataManager::LoadDBFromBuffer(const std::vector<char>& buffer, const std::s
 		return Error(pDB);
 	return ParseDB(pDB);
 }
-bool DataManager::ParseDB(sqlite3 * pDB) {
+bool DataManager::ParseDB(sqlite3* pDB) {
 	sqlite3_stmt* pStmt;
 	const char* sql = "select * from datas,texts where datas.id=texts.id ORDER BY texts.id";
 	if(sqlite3_prepare_v2(pDB, sql, -1, &pStmt, 0) != SQLITE_OK)
@@ -247,11 +248,10 @@ void DataManager::ClearLocaleStrings() {
 	_setnameStrings.ClearLocales();
 }
 bool DataManager::Error(sqlite3* pDB, sqlite3_stmt* pStmt) {
-	std::string errorstring(fmt::format("Error when loading database ({}): {}", cur_database, sqlite3_errmsg(pDB)));
+	ErrorLog(fmt::format("Error when loading database ({}): {}", cur_database, sqlite3_errmsg(pDB)));
 	if(pStmt)
 		sqlite3_finalize(pStmt);
 	sqlite3_close(pDB);
-	ErrorLog(errorstring);
 	return false;
 }
 bool DataManager::GetData(uint32_t code, CardData* pData) {
@@ -278,19 +278,19 @@ bool DataManager::GetString(uint32_t code, CardString* pStr) {
 	*pStr = *csit->second.GetStrings();
 	return true;
 }
-std::wstring DataManager::GetName(uint32_t code) {
+epro_wstringview DataManager::GetName(uint32_t code) {
 	auto csit = cards.find(code);
 	if(csit == cards.end() || csit->second.GetStrings()->name.empty())
 		return unknown_string;
 	return csit->second.GetStrings()->name;
 }
-std::wstring DataManager::GetText(uint32_t code) {
+epro_wstringview DataManager::GetText(uint32_t code) {
 	auto csit = cards.find(code);
 	if(csit == cards.end() || csit->second.GetStrings()->text.empty())
 		return unknown_string;
 	return csit->second.GetStrings()->text;
 }
-std::wstring DataManager::GetDesc(uint64_t strCode, bool compat) {
+epro_wstringview DataManager::GetDesc(uint64_t strCode, bool compat) {
 	uint32_t code = 0;
 	uint32_t stringid = 0;
 	if(compat) {
@@ -309,32 +309,32 @@ std::wstring DataManager::GetDesc(uint64_t strCode, bool compat) {
 		return unknown_string;
 	return csit->second.GetStrings()->desc[stringid];
 }
-std::wstring DataManager::GetSysString(uint32_t code) {
+epro_wstringview DataManager::GetSysString(uint32_t code) {
 	auto csit = _sysStrings.GetLocale(code);
 	if(!csit)
 		return unknown_string;
 	return csit;
 }
-std::wstring DataManager::GetVictoryString(int code) {
+epro_wstringview DataManager::GetVictoryString(int code) {
 	auto csit = _victoryStrings.GetLocale(code);
 	if(!csit)
 		return unknown_string;
 	return csit;
 }
-std::wstring DataManager::GetCounterName(int code) {
+epro_wstringview DataManager::GetCounterName(uint32_t code) {
 	auto csit = _counterStrings.GetLocale(code);
 	if(!csit)
 		return unknown_string;
 	return csit;
 }
-std::wstring DataManager::GetSetName(int code) {
+epro_wstringview DataManager::GetSetName(uint32_t code) {
 	auto csit = _setnameStrings.GetLocale(code);
 	if(!csit)
 		return L"";
 	return csit;
 }
-std::vector<unsigned int> DataManager::GetSetCode(std::vector<std::wstring>& setname) {
-	std::vector<unsigned int> res;
+std::vector<uint32_t> DataManager::GetSetCode(std::vector<std::wstring>& setname) {
+	std::vector<uint32_t> res;
 	for(auto& string : _setnameStrings.map) {
 		if(string.second.first.empty())
 			continue;
@@ -358,7 +358,7 @@ std::wstring DataManager::GetNumString(int num, bool bracket) {
 		return fmt::to_wstring(num);
 	return fmt::format(L"({})", num);
 }
-std::wstring DataManager::FormatLocation(int location, int sequence) {
+epro_wstringview DataManager::FormatLocation(uint32_t location, int sequence) {
 	if(location == 0x8) {
 		if(sequence < 5)
 			return GetSysString(1003);
@@ -367,7 +367,7 @@ std::wstring DataManager::FormatLocation(int location, int sequence) {
 		else
 			return GetSysString(1009);
 	}
-	unsigned filter = 1;
+	uint32_t filter = 1;
 	int i = 1000;
 	for(; filter != 0x100 && filter != location; filter <<= 1)
 		++i;
@@ -376,57 +376,57 @@ std::wstring DataManager::FormatLocation(int location, int sequence) {
 	else
 		return unknown_string;
 }
-std::wstring DataManager::FormatAttribute(int attribute) {
+std::wstring DataManager::FormatAttribute(uint32_t attribute) {
 	std::wstring res;
-	unsigned filter = 1;
+	uint32_t filter = 1;
 	int i = 1010;
 	for(; filter != 0x80; filter <<= 1, ++i) {
 		if(attribute & filter) {
 			if(!res.empty())
 				res += L"|";
-			res += GetSysString(i);
+			res += GetSysString(i).data();
 		}
 	}
 	if(res.empty())
 		return unknown_string;
 	return res;
 }
-std::wstring DataManager::FormatRace(int race, bool isSkill) {
+std::wstring DataManager::FormatRace(uint32_t race, bool isSkill) {
 	std::wstring res;
-	unsigned filter = 1;
+	uint32_t filter = 1;
 	for(int i = isSkill ? 2100 : 1020; filter != 0x2000000; filter <<= 1, ++i) {
 		if(race & filter) {
 			if(!res.empty())
 				res += L"|";
-			res += GetSysString(i);
+			res += GetSysString(i).data();
 		}
 	}
 	if(res.empty())
 		return unknown_string;
 	return res;
 }
-std::wstring DataManager::FormatType(int type) {
+std::wstring DataManager::FormatType(uint32_t type) {
 	std::wstring res;
 	if(type & TYPE_SKILL)
-		res += GetSysString(1077);
+		res += GetSysString(1077).data();
 	if(type & TYPE_ACTION) {
 		if (!res.empty())
 			res += L"|";
-		res += GetSysString(1078);
+		res += GetSysString(1078).data();
 	}
 	int i = 1050;
-	for(unsigned filter = 1; filter != TYPE_SKILL; filter <<= 1, ++i) {
+	for(uint32_t filter = 1; filter != TYPE_SKILL; filter <<= 1, ++i) {
 		if(type & filter) {
 			if(!res.empty())
 				res += L"|";
-			res += GetSysString(i);
+			res += GetSysString(i).data();
 		}
 	}
 	if(res.empty())
 		return unknown_string;
 	return res;
 }
-std::wstring DataManager::FormatScope(int scope, bool hideOCGTCG) {
+std::wstring DataManager::FormatScope(uint32_t scope, bool hideOCGTCG) {
 	static const std::map<int, int> SCOPES = {
 		{SCOPE_OCG, 1900},
 		{SCOPE_TCG, 1901},
@@ -443,9 +443,9 @@ std::wstring DataManager::FormatScope(int scope, bool hideOCGTCG) {
 	for (const auto& tuple : SCOPES) {
 		if (scope & tuple.first) {
 			if (!buffer.empty()) {
-				buffer += L"/";
+				buffer += L'/';
 			}
-			buffer += GetSysString(tuple.second);
+			buffer += GetSysString(tuple.second).data();
 		}
 	}
 	return buffer;
@@ -456,7 +456,7 @@ std::wstring DataManager::FormatSetName(uint64_t setcode) {
 		auto name = GetSetName((setcode >> i * 16) & 0xffff);
 		if(!res.empty() && !name.empty())
 			res += L"|";
-		res += name;
+		res += name.data();
 	}
 	if(res.empty())
 		return unknown_string;
@@ -468,13 +468,13 @@ std::wstring DataManager::FormatSetName(std::vector<uint16_t> setcodes) {
 		auto name = GetSetName(setcode);
 		if(!res.empty() && !name.empty())
 			res += L"|";
-		res += name;
+		res += name.data();
 	}
 	if(res.empty())
 		return unknown_string;
 	return res;
 }
-std::wstring DataManager::FormatLinkMarker(int link_marker) {
+std::wstring DataManager::FormatLinkMarker(uint32_t link_marker) {
 	std::wstring res;
 	if(link_marker & LINK_MARKER_TOP_LEFT)
 		res += L"[\u2196]";
@@ -497,6 +497,88 @@ std::wstring DataManager::FormatLinkMarker(int link_marker) {
 void DataManager::CardReader(void* payload, uint32_t code, CardData* data) {
 	if(!static_cast<DataManager*>(payload)->GetData(code, (CardData*)data))
 		memset(data, 0, sizeof(CardData));
+}
+bool is_skill(uint32_t type) {
+	return (type & (TYPE_SKILL | TYPE_ACTION));
+}
+bool check_both_skills(uint32_t type1, uint32_t type2) {
+	return is_skill(type1) && is_skill(type2);
+}
+bool check_either_skills(uint32_t type1, uint32_t type2) {
+	return is_skill(type1) || is_skill(type2);
+}
+bool check_skills(CardDataC* p1, CardDataC* p2) {
+	if(check_both_skills(p1->type, p2->type)) {
+		if((p1->type & 0xfffffff8) == (p2->type & 0xfffffff8)) {
+			return p1->code < p2->code;
+		} else {
+			return (p1->type & 0xfffffff8) < (p2->type & 0xfffffff8);
+		}
+	}
+	return is_skill(p2->type);
+}
+bool card_sorter(CardDataC* p1, CardDataC* p2, bool(*sortoop)(CardDataC* p1, CardDataC* p2)) {
+	if(check_either_skills(p1->type, p2->type))
+		return check_skills(p1, p2);
+	if((p1->type & 0x7) != (p2->type & 0x7))
+		return (p1->type & 0x7) < (p2->type & 0x7);
+	if((p1->type & 0x7) == 1) {
+		return sortoop(p1, p2);
+	}
+	if((p1->type & 0xfffffff8) != (p2->type & 0xfffffff8))
+		return (p1->type & 0xfffffff8) < (p2->type & 0xfffffff8);
+	return p1->code < p2->code;
+}
+bool DataManager::deck_sort_lv(CardDataC* p1, CardDataC* p2) {
+	return card_sorter(p1, p2, [](CardDataC* p1, CardDataC* p2)->bool {
+		int type1 = (p1->type & 0x48020c0) ? (p1->type & 0x48020c1) : (p1->type & 0x31);
+		int type2 = (p2->type & 0x48020c0) ? (p2->type & 0x48020c1) : (p2->type & 0x31);
+		if(type1 != type2)
+			return type1 < type2;
+		if(p1->level != p2->level)
+			return p1->level > p2->level;
+		if(p1->attack != p2->attack)
+			return p1->attack > p2->attack;
+		if(p1->defense != p2->defense)
+			return p1->defense > p2->defense;
+		return p1->code < p2->code;
+	});
+}
+bool DataManager::deck_sort_atk(CardDataC* p1, CardDataC* p2) {
+	return card_sorter(p1, p2, [](CardDataC* p1, CardDataC* p2)->bool {
+		if(p1->attack != p2->attack)
+			return p1->attack > p2->attack;
+		if(p1->defense != p2->defense)
+			return p1->defense > p2->defense;
+		if(p1->level != p2->level)
+			return p1->level > p2->level;
+		int type1 = (p1->type & 0x48020c0) ? (p1->type & 0x48020c1) : (p1->type & 0x31);
+		int type2 = (p2->type & 0x48020c0) ? (p2->type & 0x48020c1) : (p2->type & 0x31);
+		if(type1 != type2)
+			return type1 < type2;
+		return p1->code < p2->code;
+	});
+}
+bool DataManager::deck_sort_def(CardDataC* p1, CardDataC* p2) {
+	return card_sorter(p1, p2, [](CardDataC* p1, CardDataC* p2)->bool {
+		if(p1->defense != p2->defense)
+			return p1->defense > p2->defense;
+		if(p1->attack != p2->attack)
+			return p1->attack > p2->attack;
+		if(p1->level != p2->level)
+			return p1->level > p2->level;
+		int type1 = (p1->type & 0x48020c0) ? (p1->type & 0x48020c1) : (p1->type & 0x31);
+		int type2 = (p2->type & 0x48020c0) ? (p2->type & 0x48020c1) : (p2->type & 0x31);
+		if(type1 != type2)
+			return type1 < type2;
+		return p1->code < p2->code;
+	});
+}
+bool DataManager::deck_sort_name(CardDataC* p1, CardDataC* p2) {
+	int res = gDataManager->GetName(p1->code).compare(gDataManager->GetName(p2->code));
+	if(res != 0)
+		return res < 0;
+	return p1->code < p2->code;
 }
 
 }

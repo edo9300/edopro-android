@@ -80,7 +80,7 @@ void LoadReplay() {
 	mainGame->dField.Clear();
 	mainGame->HideElement(mainGame->wReplay);
 	mainGame->device->setEventReceiver(&mainGame->dField);
-	unsigned int start_turn;
+	int start_turn;
 	try { start_turn = std::stoi(mainGame->ebRepStartTurn->getText());  }
 	catch(...) { start_turn = 0; }
 	if(start_turn == 1)
@@ -155,7 +155,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			}
 			case BUTTON_JOIN_HOST2: {
 				if(wcslen(mainGame->ebNickNameOnline->getText()) <= 0) {
-					mainGame->PopupMessage(gDataManager->GetSysString(1257).c_str(), gDataManager->GetSysString(1256).c_str());
+					mainGame->PopupMessage(gDataManager->GetSysString(1257), gDataManager->GetSysString(1256));
 					break;
 				}
 				if(mainGame->roomListTable->getSelected() >= 0) {
@@ -275,7 +275,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				}
 				}
 #undef CHECK
-				for (int i = 0; i < schkCustomRules; ++i) {
+				for (int i = 0; i < sizeofarr(mainGame->chkCustomRules); ++i) {
 					bool set = false;
 					if(i == 19)
 						set = mainGame->duel_param & DUEL_USE_TRAPS_IN_NEW_CHAIN;
@@ -292,7 +292,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 						mainGame->chkCustomRules[4]->setEnabled(set);
 				}
 				constexpr uint32_t limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
-				for (int i = 0; i < (sizeof(mainGame->chkTypeLimit) / sizeof(irr::gui::IGUICheckBox*)); ++i)
+				for (int i = 0; i < sizeofarr(mainGame->chkTypeLimit); ++i)
 						mainGame->chkTypeLimit[i]->setChecked(mainGame->forbiddentypes & limits[i]);
 				mainGame->PopupElement(mainGame->wCustomRules);
 				break;
@@ -307,9 +307,9 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				if(mainGame->isHostingOnline) {
 					ServerLobby::JoinServer(true);
 				} else {
-					unsigned int host_port;
+					uint16_t host_port;
 					try {
-						host_port = std::stoi(mainGame->ebHostPort->getText());
+						host_port = static_cast<uint16_t>(std::stoul(mainGame->ebHostPort->getText()));
 					}
 					catch(...) {
 						break;
@@ -450,7 +450,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				if(sel == -1)
 					break;
 				mainGame->gMutex.lock();
-				mainGame->stQMessage->setText(fmt::format(L"{}\n{}", mainGame->lstReplayList->getListItem(sel), gDataManager->GetSysString(1363)).c_str());
+				mainGame->stQMessage->setText(fmt::format(L"{}\n{}", mainGame->lstReplayList->getListItem(sel), gDataManager->GetSysString(1363)).data());
 				mainGame->PopupElement(mainGame->wQuery);
 				mainGame->gMutex.unlock();
 				prev_operation = id;
@@ -462,7 +462,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				if(sel == -1)
 					break;
 				mainGame->gMutex.lock();
-				mainGame->wReplaySave->setText(gDataManager->GetSysString(1362).c_str());
+				mainGame->wReplaySave->setText(gDataManager->GetSysString(1362).data());
 				mainGame->ebRSName->setText(mainGame->lstReplayList->getListItem(sel));
 				mainGame->PopupElement(mainGame->wReplaySave);
 				mainGame->gMutex.unlock();
@@ -510,9 +510,9 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					break;
 				auto replay_name = Utils::GetFileName(ReplayMode::cur_replay.GetReplayName());
 				for(size_t i = 0; i < decks.size(); i++) {
-					gdeckManager->SaveDeck(sanitize(fmt::format(EPRO_TEXT("{} player{:02} {}"), replay_name, i, Utils::ToPathString(players[i]))), decks[i].main_deck, decks[i].extra_deck, cardlist_type());
+					gdeckManager->SaveDeck(fmt::format(EPRO_TEXT("{} player{:02} {}"), replay_name, i, sanitize(Utils::ToPathString(players[i]))), decks[i].main_deck, decks[i].extra_deck, cardlist_type());
 				}
-				mainGame->stACMessage->setText(gDataManager->GetSysString(1367).c_str());
+				mainGame->stACMessage->setText(gDataManager->GetSysString(1367).data());
 				mainGame->PopupElement(mainGame->wACMessage, 20);
 				break;
 			}
@@ -538,7 +538,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->RefreshDeck(mainGame->cbDBDecks);
 				if(open_file && gdeckManager->LoadDeck(open_file_name)) {
 					auto name = Utils::GetFileName(open_file_name);
-					mainGame->ebDeckname->setText(Utils::ToUnicodeIfNeeded(name).c_str());
+					mainGame->ebDeckname->setText(Utils::ToUnicodeIfNeeded(name).data());
 					mainGame->cbDBDecks->setSelected(-1);
 					open_file = false;
 				} else if(mainGame->cbDBDecks->getSelected() != -1) {
@@ -620,8 +620,8 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					break;
 				int addr = DuelClient::hosts[sel].ipaddr;
 				int port = DuelClient::hosts[sel].port;
-				mainGame->ebJoinHost->setText(fmt::format(L"{}.{}.{}.{}", addr & 0xff, (addr >> 8) & 0xff, (addr >> 16) & 0xff, (addr >> 24) & 0xff).c_str());
-				mainGame->ebJoinPort->setText(fmt::to_wstring(port).c_str());
+				mainGame->ebJoinHost->setText(fmt::format(L"{}.{}.{}.{}", addr & 0xff, (addr >> 8) & 0xff, (addr >> 16) & 0xff, (addr >> 24) & 0xff).data());
+				mainGame->ebJoinPort->setText(fmt::to_wstring(port).data());
 				break;
 			}
 			case LISTBOX_REPLAY_LIST: {
@@ -631,11 +631,11 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->btnDeleteReplay->setEnabled(false);
 				mainGame->btnRenameReplay->setEnabled(false);
 				mainGame->btnExportDeck->setEnabled(false);
-				mainGame->btnLoadReplay->setText(gDataManager->GetSysString(1348).c_str());
+				mainGame->btnLoadReplay->setText(gDataManager->GetSysString(1348).data());
 				if(sel == -1)
 					break;
 				if(mainGame->lstReplayList->isDirectory(sel)) {
-					mainGame->btnLoadReplay->setText(gDataManager->GetSysString(1359).c_str());
+					mainGame->btnLoadReplay->setText(gDataManager->GetSysString(1359).data());
 					mainGame->btnLoadReplay->setEnabled(true);
 					break;
 				}
@@ -662,7 +662,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				if(replay.GetTurnsCount())
 					repinfo.append(fmt::format(L"\n{}: {}", gDataManager->GetSysString(2009), replay.GetTurnsCount()));
 				mainGame->ebRepStartTurn->setText(L"1");
-				mainGame->stReplayInfo->setText(repinfo.c_str());
+				mainGame->stReplayInfo->setText(repinfo.data());
 				mainGame->chkYrp->setChecked(false);
 				mainGame->chkYrp->setEnabled(has_yrp && mainGame->coreloaded);
 				break;
@@ -671,17 +671,17 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->btnLoadSinglePlay->setEnabled(false);
 				int sel = mainGame->lstSinglePlayList->getSelected();
 				mainGame->stSinglePlayInfo->setText(L"");
-				mainGame->btnLoadSinglePlay->setText(gDataManager->GetSysString(1357).c_str());
+				mainGame->btnLoadSinglePlay->setText(gDataManager->GetSysString(1357).data());
 				if(sel == -1)
 					break;
 				if(mainGame->lstSinglePlayList->isDirectory(sel)) {
-					mainGame->btnLoadSinglePlay->setText(gDataManager->GetSysString(1359).c_str());
+					mainGame->btnLoadSinglePlay->setText(gDataManager->GetSysString(1359).data());
 					mainGame->btnLoadSinglePlay->setEnabled(true);
 					break;
 				}
 				mainGame->btnLoadSinglePlay->setEnabled(mainGame->coreloaded);
 				const wchar_t* name = mainGame->lstSinglePlayList->getListItem(mainGame->lstSinglePlayList->getSelected(), true);
-				mainGame->stSinglePlayInfo->setText(mainGame->ReadPuzzleMessage(name).c_str());
+				mainGame->stSinglePlayInfo->setText(mainGame->ReadPuzzleMessage(name).data());
 				break;
 			}
 			}
@@ -883,7 +883,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->UpdateExtraRules();
 				}
 #undef CHECK
-				for(int i = 0; i < schkCustomRules; ++i) {
+				for(int i = 0; i < sizeofarr(mainGame->chkCustomRules); ++i) {
 					bool set = false;
 					if(i == 19)
 						set = mainGame->duel_param & DUEL_USE_TRAPS_IN_NEW_CHAIN;
@@ -900,7 +900,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 						mainGame->chkCustomRules[4]->setEnabled(set);
 				}
 				constexpr uint32_t limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
-				for(int i = 0; i < (sizeof(mainGame->chkTypeLimit) / sizeof(irr::gui::IGUICheckBox*)); ++i)
+				for(int i = 0; i < sizeofarr(mainGame->chkTypeLimit); ++i)
 					mainGame->chkTypeLimit[i]->setChecked(mainGame->forbiddentypes & limits[i]);
 				break;
 			}
@@ -979,7 +979,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					if(extension == L"ydk" && isMenu && gdeckManager->LoadDeck(Utils::ToPathString(to_open_file))) {
 						mainGame->RefreshDeck(mainGame->cbDBDecks);
 						auto name = Utils::GetFileName(to_open_file);
-						mainGame->ebDeckname->setText(name.c_str());
+						mainGame->ebDeckname->setText(name.data());
 						mainGame->cbDBDecks->setSelected(-1);
 						mainGame->HideElement(mainGame->wMainMenu);
 						mainGame->deckBuilder.Initialize();

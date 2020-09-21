@@ -8,6 +8,7 @@
 #include <IGUIEditBox.h>
 #include "Base64.h"
 #include "utils.h"
+#include "client_card.h"
 
 namespace ygo {
 
@@ -68,7 +69,7 @@ bool DeckManager::LoadLFListSingle(const path_string& path) {
 bool DeckManager::LoadLFListFolder(path_string path) {
 	path = Utils::NormalizePath(path);
 	bool loaded = false;
-	auto lflists = Utils::FindFiles(path, std::vector<path_string>({ EPRO_TEXT("conf") }));
+	auto lflists = Utils::FindFiles(path, { EPRO_TEXT("conf") });
 	for (const auto& lflist : lflists) {
 		loaded = LoadLFListSingle(path + lflist);
 	}
@@ -98,7 +99,7 @@ LFList* DeckManager::GetLFList(uint32_t lfhash) {
 	auto it = std::find_if(_lfList.begin(), _lfList.end(), [lfhash](LFList list) {return list.hash == lfhash; });
 	return it != _lfList.end() ? &*it : nullptr;
 }
-std::wstring DeckManager::GetLFListName(uint32_t lfhash) {
+epro_wstringview DeckManager::GetLFListName(uint32_t lfhash) {
 	auto lflist = GetLFList(lfhash);
 	return lflist ? lflist->listName.c_str() : gDataManager->unknown_string;
 }
@@ -407,9 +408,9 @@ const wchar_t* DeckManager::ExportDeckBase64(Deck& deck) {
 const wchar_t* DeckManager::ExportDeckCardNames(Deck deck) {
 	static std::wstring res;
 	res.clear();
-	std::sort(deck.main.begin(), deck.main.end(), ClientCard::deck_sort_lv);
-	std::sort(deck.extra.begin(), deck.extra.end(), ClientCard::deck_sort_lv);
-	std::sort(deck.side.begin(), deck.side.end(), ClientCard::deck_sort_lv);
+	std::sort(deck.main.begin(), deck.main.end(), DataManager::deck_sort_lv);
+	std::sort(deck.extra.begin(), deck.extra.end(), DataManager::deck_sort_lv);
+	std::sort(deck.side.begin(), deck.side.end(), DataManager::deck_sort_lv);
 	auto serialize = [&res=res](const auto& list) {
 		uint32_t prev = 0;
 		uint32_t count = 0;
@@ -422,7 +423,7 @@ const wchar_t* DeckManager::ExportDeckCardNames(Deck deck) {
 				prev = code;
 				count = 1;
 			} else if(prev && code != prev) {
-				res.append(gDataManager->GetName(prev)).append(L" x").append(fmt::to_wstring(count)).append(L"\n");
+				res.append(fmt::format(L"{} x{}\n", gDataManager->GetName(prev), count));
 				count = 1;
 				prev = code;
 			} else {
@@ -430,7 +431,7 @@ const wchar_t* DeckManager::ExportDeckCardNames(Deck deck) {
 			}
 		}
 		if(prev)
-			res.append(gDataManager->GetName(prev)).append(L" x").append(fmt::to_wstring(count)).append(L"\n");
+			res.append(fmt::format(L"{} x{}\n", gDataManager->GetName(prev), count));
 	};
 	bool prev = false;
 	if(deck.main.size()) {
