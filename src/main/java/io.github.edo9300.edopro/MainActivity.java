@@ -198,6 +198,12 @@ public class MainActivity extends Activity {
 
 	public void next() {
 		WindBot.initAndroid(working_directory + "/WindBot");
+		/*
+		    pass the working directory via parameters, rather than making
+		    the app read the working_dir file
+		*/
+        parameter.add(0, working_directory + "/");
+        parameter.add(0, "-C");
 		Intent intent = new Intent(this, SdlLauncher.class);
 		intent.putStringArrayListExtra("ARGUMENTS", parameter);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
