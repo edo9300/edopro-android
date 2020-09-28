@@ -20,7 +20,7 @@ void WindBotPanel::Refresh(int filterMasterRule, int lastIndex) {
 	for (size_t i = 0; i < bots.size(); i++) {
 		const auto& bot = bots[i];
 		if (filterMasterRule == 0 || bot.masterRules.find(filterMasterRule) != bot.masterRules.end()) {
-			int newIndex = cbBotDeck->addItem(bot.name.c_str(), i);
+			int newIndex = cbBotDeck->addItem(bot.name.data(), i);
 			if (i == lastBot)
 				cbBotDeck->setSelected(newIndex);
 		}
@@ -46,12 +46,12 @@ void WindBotPanel::UpdateDescription() {
 		for (auto rule : bot.masterRules) {
 			if (mr.size())
 				mr.append(L",");
-			mr.append(std::to_wstring(rule));
+			mr.append(fmt::to_wstring(rule));
 		}
-		params << fmt::format(gDataManager->GetSysString(2057), mr.c_str());
+		params << fmt::format(gDataManager->GetSysString(2057), mr);
 		params << L"\n";
 	}
-	deckProperties->setText(params.str().c_str());
+	deckProperties->setText(params.str().data());
 }
 
 bool WindBotPanel::LaunchSelected(int port, const std::wstring& pass) {

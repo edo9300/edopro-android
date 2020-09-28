@@ -64,6 +64,7 @@ namespace ygo {
 		};
 		static std::vector<SynchronizedIrrArchive> archives;
 		static irr::io::IFileSystem* filesystem;
+		static path_string working_dir;
 		static bool MakeDirectory(path_stringview path);
 		static bool FileCopy(path_stringview source, path_stringview destination);
 		static bool FileMove(path_stringview source, path_stringview destination);
@@ -72,6 +73,7 @@ namespace ygo {
 		static inline path_string ToPathString(epro_stringview input);
 		static inline std::string ToUTF8IfNeeded(path_stringview input);
 		static inline std::wstring ToUnicodeIfNeeded(path_stringview input);
+		static bool ChangeDirectory(path_stringview newpath);
 		static bool FileDelete(path_stringview source);
 		static bool ClearDirectory(path_stringview path);
 		static bool DeleteDirectory(path_stringview source);
@@ -289,7 +291,7 @@ inline bool Utils::KeepOnlyDigits(T& input, bool negative) {
 
 path_string Utils::ToPathString(epro_wstringview input) {
 #ifdef UNICODE
-	return input.data();
+	return { input.data(), input.size() };
 #else
 	return BufferIO::EncodeUTF8s(input);
 #endif
@@ -298,19 +300,19 @@ path_string Utils::ToPathString(epro_stringview input) {
 #ifdef UNICODE
 	return BufferIO::DecodeUTF8s(input);
 #else
-	return input.data();
+	return { input.data(), input.size() };
 #endif
 }
 std::string Utils::ToUTF8IfNeeded(path_stringview input) {
 #ifdef UNICODE
 	return BufferIO::EncodeUTF8s(input);
 #else
-	return input.data();
+	return { input.data(), input.size() };
 #endif
 }
 std::wstring Utils::ToUnicodeIfNeeded(path_stringview input) {
 #ifdef UNICODE
-	return input.data();
+	return { input.data(), input.size() };
 #else
 	return BufferIO::DecodeUTF8s(input);
 #endif

@@ -1,5 +1,6 @@
 #include "game_config.h"
 #include <fstream>
+#include <fmt/format.h>
 #include "bufferio.h"
 #include "utils.h"
 #include "config.h"
@@ -64,8 +65,6 @@ bool GameConfig::Load(const path_char* filename)
 				gamename = BufferIO::DecodeUTF8s(str);
 			else if (type == "lastdeck")
 				lastdeck = BufferIO::DecodeUTF8s(str);
-			else if (type == "lastDuelParam")
-				lastDuelParam = std::stoi(str);
 			else if (type == "lastExtraRules")
 				lastExtraRules = std::stoi(str);
 			else if (type == "lastDuelForbidden")
@@ -81,6 +80,7 @@ bool GameConfig::Load(const path_char* filename)
 				uint32_t val = static_cast<uint32_t>(std::stoul(str)); \
 				name = val; \
 			}
+			DESERIALIZE_UNSIGNED(lastDuelParam)
 			DESERIALIZE_UNSIGNED(coreLogOutput)
 			DESERIALIZE_UNSIGNED(lastlflist)
 			DESERIALIZE_UNSIGNED(lastallowedcards)
@@ -219,7 +219,7 @@ inline void Serialize(std::ofstream& conf_file, const char* name, T value) {
 }
 template<>
 inline void Serialize(std::ofstream& conf_file, const char* name, float value) {
-	conf_file << name << " = " << std::to_string(value) << "\n"; // Forces float to show decimals
+	conf_file << name << " = " << fmt::to_string(value) << "\n"; // Forces float to show decimals
 }
 template<>
 inline void Serialize(std::ofstream& conf_file, const char* name, std::wstring value) {

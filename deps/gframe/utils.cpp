@@ -12,6 +12,9 @@
 using Stat = struct stat;
 using Dirent = struct dirent;
 #endif
+#ifdef __APPLE__
+#import <CoreFoundation/CoreFoundation.h>
+#endif
 #ifdef __ANDROID__
 #include "Android/porting_android.h"
 #endif
@@ -23,6 +26,7 @@ using Dirent = struct dirent;
 namespace ygo {
 	std::vector<Utils::SynchronizedIrrArchive> Utils::archives;
 	irr::io::IFileSystem* Utils::filesystem;
+	path_string Utils::working_dir;
 
 	bool Utils::MakeDirectory(path_stringview path) {
 #ifdef _WIN32
@@ -68,6 +72,13 @@ namespace ygo {
 		return S_ISREG(sb.st_mode) != 0;
 #endif
 	}
+	bool Utils::ChangeDirectory(path_stringview newpath) {
+#ifdef _WIN32
+		return SetCurrentDirectory(newpath.data());
+#else
+		return chdir(newpath.data()) == 0;
+#endif
+	}
 	bool Utils::FileDelete(path_stringview source) {
 #ifdef _WIN32
 		return DeleteFile(source.data());
@@ -78,7 +89,7 @@ namespace ygo {
 	bool Utils::ClearDirectory(path_stringview path) {
 #ifdef _WIN32
 		WIN32_FIND_DATA fdata;
-		HANDLE fh = FindFirstFile(fmt::format(EPRO_TEXT("{}*.*"), path).c_str(), &fdata);
+		HANDLE fh = FindFirstFile(fmt::format(EPRO_TEXT("{}*.*"), path).data(), &fdata);
 		if(fh != INVALID_HANDLE_VALUE) {
 			do {
 				path_stringview name = fdata.cFileName;
@@ -98,7 +109,7 @@ namespace ygo {
 			Stat fileStat;
 			while((dirp = readdir(dir)) != nullptr) {
 				path_stringview name = dirp->d_name;
-				stat(fmt::format("{}{}", path, name).c_str(), &fileStat);
+				stat(fmt::format("{}{}", path, name).data(), &fileStat);
 				if(S_ISDIR(fileStat.st_mode) && name != ".." && name != ".")
 					DeleteDirectory(fmt::format("{}{}/", path, name));
 				else
@@ -231,7 +242,7 @@ namespace ygo {
 			archive.mutex->lock();
 			int res = -1;
 			auto list = archive.archive->getFileList();
-			res = list->findFile(fmt::format(EPRO_TEXT("{}{}"), path, name).c_str());
+			res = list->findFile(fmt::format(EPRO_TEXT("{}{}"), path, name).data());
 			if(res != -1) {
 				auto reader = archive.archive->createAndOpenFile(res);
 				if(reader)
@@ -306,20 +317,36 @@ namespace ygo {
 #elif defined(__linux__) && !defined(__ANDROID__)
 			char buff[PATH_MAX];
 			ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
-			if(len != -1) {
+			if(len != -1)
 				buff[len] = '\0';
-			}
-			// We could do NormalizePath but it returns the same thing anyway
 			return buff;
+#elif defined(__APPLE__)
+			CFURLRef bundle_url = CFBundleCopyBundleURL(CFBundleGetMainBundle());
+			CFStringRef bundle_path = CFURLCopyFileSystemPath(bundle_url, kCFURLPOSIXPathStyle);
+			CFURLRef bundle_base_url = CFURLCreateCopyDeletingLastPathComponent(NULL, bundle_url);
+			CFRelease(bundle_url);
+			CFStringRef path = CFURLCopyFileSystemPath(bundle_base_url, kCFURLPOSIXPathStyle);
+			CFRelease(bundle_base_url);
+			/*
+			#ifdef MAC_OS_DISCORD_LAUNCHER
+				system(fmt::format("open {}/Contents/MacOS/discord-launcher.app --args random", CFStringGetCStringPtr(bundle_path, kCFStringEncodingUTF8)).c_str());
+			#endif
+			*/
+			path_string res = CFStringGetCStringPtr(path, kCFStringEncodingUTF8);
+			CFRelease(path);
+			CFRelease(bundle_path);
+			return res;
 #else
-			return EPRO_TEXT(""); // Unused on macOS
+			return EPRO_TEXT("");
 #endif
 		}();
 		return binarypath;
 	}
 
 	path_stringview Utils::GetExeFolder() {
-		static path_string binarypath = GetFilePath<path_string>(GetExePath().data());
+		static path_string binarypath = GetFilePath([]()->path_string {
+			return GetExePath().to_string();
+		}());
 		return binarypath;
 	}
 
@@ -403,7 +430,7 @@ namespace ygo {
 
 	void Utils::SystemOpen(path_stringview url, OpenType type) {
 #ifdef _WIN32
-		ShellExecute(NULL, EPRO_TEXT("open"), (type == OPEN_FILE) ? filesystem->getAbsolutePath(url.data()).c_str() : url.data(), NULL, NULL, SW_SHOWNORMAL);
+		ShellExecute(NULL, EPRO_TEXT("open"), (type == OPEN_FILE) ? fmt::format(EPRO_TEXT("{}/{}"), working_dir, url).data() : url.data(), NULL, NULL, SW_SHOWNORMAL);
 		// system("start URL") opens a shell
 #elif !defined(__ANDROID__)
 		auto pid = fork();
@@ -419,7 +446,7 @@ namespace ygo {
 		}
 #else
 		if(type == OPEN_FILE)
-			porting::openFile(fmt::format("{}{}", porting::working_directory, url));
+			porting::openFile(fmt::format("{}/{}", working_dir, url));
 		else
 			porting::openUrl(url);
 #endif
