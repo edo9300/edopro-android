@@ -11,7 +11,7 @@ import android.view.View.OnKeyListener;
 import android.widget.EditText;
 
 public class TextEntry extends Activity {
-	private static native void putMessageBoxResult(String text);
+	private static native void putMessageBoxResult(String text, boolean isenter);
 
     private AlertDialog mTextInputDialog;
     private EditText mTextInputWidget;
@@ -65,7 +65,7 @@ public class TextEntry extends Activity {
 
 		builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
 			public void onCancel(DialogInterface dialog) {
-				cancelDialog();
+				cancelDialog(mTextInputWidget.getText().toString());
 			}
 		});
 
@@ -86,12 +86,13 @@ public class TextEntry extends Activity {
 	}
 
     private void pushResult(String text) {
-		putMessageBoxResult(text);
+		putMessageBoxResult(text, true);
 		mTextInputDialog.dismiss();
 		finish();
 	}
 
-    private void cancelDialog() {
+    private void cancelDialog(String text) {
+		putMessageBoxResult(text, false);
 		mTextInputDialog.dismiss();
 		finish();
 	}

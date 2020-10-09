@@ -783,7 +783,10 @@ void Game::DrawGUI() {
 							for(int i = 0; i < 5; ++i)
 								btnCardDisplay[i]->setDrawImage(true);
 						}
+						const auto prevfocused = env->getFocus();
 						env->setFocus(fu.guiFading);
+						if(prevfocused && (prevfocused->getType() == irr::gui::EGUIET_EDIT_BOX))
+							env->setFocus(prevfocused);
 					} else
 						fu.guiFading->setRelativePosition(irr::core::recti(fu.fadingUL, fu.fadingLR));
 				}
@@ -1136,15 +1139,17 @@ void Game::PopupElement(irr::gui::IGUIElement * element, int hideframe) {
 	element->getParent()->bringToFront(element);
 	if(!is_building)
 		dField.panel = element;
+	const auto prevfocused = env->getFocus();
 	env->setFocus(element);
+	if(prevfocused && (prevfocused->getType() == irr::gui::EGUIET_EDIT_BOX))
+		env->setFocus(prevfocused);
 	if(!hideframe)
 		ShowElement(element);
 	else ShowElement(element, hideframe);
 }
-void Game::WaitFrameSignal(int frame) {
-	frameSignal.Reset();
+void Game::WaitFrameSignal(int frame, std::unique_lock<std::mutex>& _lck) {
 	signalFrame = (gGameConfig->quick_animation && frame >= 12) ? 12 * 1000 / 60 : frame * 1000 / 60;
-	frameSignal.Wait();
+	frameSignal.Wait(_lck);
 }
 void Game::DrawThumb(CardDataC* cp, irr::core::position2di pos, LFList* lflist, bool drag, const irr::core::recti* cliprect, bool load_image) {
 	auto code = cp->code;
@@ -1187,7 +1192,7 @@ void Game::DrawThumb(CardDataC* cp, irr::core::position2di pos, LFList* lflist, 
 #define IDX(scope,idx) case SCOPE_##scope:\
 							index = idx;\
 							goto draw;
-		if(gGameConfig->showScopeLabel) {
+		if(gGameConfig->showScopeLabel && !lflist->whitelist) {
 			// Label display logic:
 			// If it contains exactly one bit between Anime, Illegal, irr::video:: Game, Custom, and Prerelease, display that.
 			// Else, if it contains exactly one bit between OCG and TCG, display that.

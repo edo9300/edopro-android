@@ -96,7 +96,7 @@ void NetServer::BroadcastEvent(evutil_socket_t fd, short events, void* arg) {
 		return;
 	HostRequest* pHR = (HostRequest*)buf;
 	if(pHR->identifier == NETWORK_CLIENT_ID) {
-		SOCKADDR_IN sockTo;
+		sockaddr_in sockTo;
 		sockTo.sin_addr.s_addr = bc_addr.sin_addr.s_addr;
 		sockTo.sin_family = AF_INET;
 		sockTo.sin_port = htons(7921);
@@ -148,6 +148,7 @@ void NetServer::ServerEchoEvent(bufferevent* bev, short events, void* ctx) {
 	}
 }
 int NetServer::ServerThread() {
+	Utils::SetThreadName("GameServer");
 	event_base_dispatch(net_evbase);
 	for(auto bit = users.begin(); bit != users.end(); ++bit) {
 		bufferevent_disable(bit->first, EV_READ);

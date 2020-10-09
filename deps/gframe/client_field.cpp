@@ -197,7 +197,7 @@ void ClientField::AddCard(ClientCard* pcard, uint8_t controler, uint8_t location
 			for(int i = deck[controler].size() - 1; i > 0; --i) {
 				deck[controler][i] = deck[controler][i - 1];
 				deck[controler][i]->sequence++;
-				deck[controler][i]->curPos += irr::core::vector3df(0, 0, 0.01f);
+				deck[controler][i]->curPos.Z += 0.01f;
 				deck[controler][i]->mTransform.setTranslation(deck[controler][i]->curPos);
 			}
 			deck[controler][0] = pcard;
@@ -239,7 +239,7 @@ void ClientField::AddCard(ClientCard* pcard, uint8_t controler, uint8_t location
 			for(int i = extra[controler].size() - 1; i > p; --i) {
 				extra[controler][i] = extra[controler][i - 1];
 				extra[controler][i]->sequence++;
-				extra[controler][i]->curPos += irr::core::vector3df(0, 0, 0.01f);
+				extra[controler][i]->curPos.Z += 0.01f;
 				extra[controler][i]->mTransform.setTranslation(extra[controler][i]->curPos);
 			}
 			extra[controler][p] = pcard;
@@ -259,7 +259,7 @@ ClientCard* ClientField::RemoveCard(uint8_t controler, uint8_t location, uint32_
 		for (size_t i = sequence; i < deck[controler].size() - 1; ++i) {
 			deck[controler][i] = deck[controler][i + 1];
 			deck[controler][i]->sequence--;
-			deck[controler][i]->curPos -= irr::core::vector3df(0, 0, 0.01f);
+			deck[controler][i]->curPos.Z -= 0.01f;
 			deck[controler][i]->mTransform.setTranslation(deck[controler][i]->curPos);
 		}
 		deck[controler].erase(deck[controler].end() - 1);
@@ -289,7 +289,7 @@ ClientCard* ClientField::RemoveCard(uint8_t controler, uint8_t location, uint32_
 		for (size_t i = sequence; i < grave[controler].size() - 1; ++i) {
 			grave[controler][i] = grave[controler][i + 1];
 			grave[controler][i]->sequence--;
-			grave[controler][i]->curPos -= irr::core::vector3df(0, 0, 0.01f);
+			grave[controler][i]->curPos.Z -= 0.01f;
 			grave[controler][i]->mTransform.setTranslation(grave[controler][i]->curPos);
 		}
 		grave[controler].erase(grave[controler].end() - 1);
@@ -300,7 +300,7 @@ ClientCard* ClientField::RemoveCard(uint8_t controler, uint8_t location, uint32_
 		for (size_t i = sequence; i < remove[controler].size() - 1; ++i) {
 			remove[controler][i] = remove[controler][i + 1];
 			remove[controler][i]->sequence--;
-			remove[controler][i]->curPos -= irr::core::vector3df(0, 0, 0.01f);
+			remove[controler][i]->curPos.Z -= 0.01f;
 			remove[controler][i]->mTransform.setTranslation(remove[controler][i]->curPos);
 		}
 		remove[controler].erase(remove[controler].end() - 1);
@@ -311,7 +311,7 @@ ClientCard* ClientField::RemoveCard(uint8_t controler, uint8_t location, uint32_
 		for (size_t i = sequence; i < extra[controler].size() - 1; ++i) {
 			extra[controler][i] = extra[controler][i + 1];
 			extra[controler][i]->sequence--;
-			extra[controler][i]->curPos -= irr::core::vector3df(0, 0, 0.01f);
+			extra[controler][i]->curPos.Z -= 0.01f;
 			extra[controler][i]->mTransform.setTranslation(extra[controler][i]->curPos);
 		}
 		extra[controler].erase(extra[controler].end() - 1);
@@ -608,11 +608,11 @@ void ClientField::ShowLocationCard() {
 	mainGame->btnDisplayOK->setVisible(true);
 	mainGame->PopupElement(mainGame->wCardDisplay);
 }
-void ClientField::ShowSelectOption(uint64_t select_hint) {
+void ClientField::ShowSelectOption(uint64_t select_hint, bool should_lock) {
+	std::unique_lock<std::mutex> lock = (should_lock ? std::unique_lock<std::mutex>(mainGame->gMutex) : std::unique_lock<std::mutex>());
 	selected_option = 0;
 	int count = select_options.size();
 	bool quickmode = true;// (count <= 5);
-	mainGame->gMutex.lock();
 	for(auto option : select_options) {
 		if(mainGame->guiFont->getDimension(gDataManager->GetDesc(option, mainGame->dInfo.compat_mode).data()).Width > 310) {
 			quickmode = false;
@@ -655,7 +655,6 @@ void ClientField::ShowSelectOption(uint64_t select_hint) {
 	}
 	mainGame->wOptions->setText(gDataManager->GetDesc(select_hint ? select_hint : 555, mainGame->dInfo.compat_mode).data());
 	mainGame->PopupElement(mainGame->wOptions);
-	mainGame->gMutex.unlock();
 }
 void ClientField::ReplaySwap() {
 	auto reset = [](ClientCard* pcard)->void {
