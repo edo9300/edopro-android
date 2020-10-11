@@ -27,6 +27,8 @@ import static android.content.ClipDescription.MIMETYPE_TEXT_PLAIN;
 public class EpNativeActivity extends NativeActivity {
 
 	private static native void putComboBoxResult(int index);
+	public static native void putMessageBoxResult(String text, boolean isenter);
+
 	static {
 		//on 4.2 libraries aren't properly loaded automatically
 		//https://stackoverflow.com/questions/28806373/android-4-2-ndk-library-loading-crash-load-librarylinker-cpp750-soinfo-l/28817942
@@ -44,6 +46,7 @@ public class EpNativeActivity extends NativeActivity {
 		super.onCreate(savedInstanceState);
 		IntentFilter filter = new IntentFilter();
 		filter.addAction("RUN_WINDBOT");
+        filter.addAction("INPUT_TEXT");
 		filter.addAction("MAKE_CHOICE");
 		filter.addAction("INSTALL_UPDATE");
 		filter.addAction("OPEN_SCRIPT");
@@ -77,19 +80,6 @@ public class EpNativeActivity extends NativeActivity {
 	    return (keyCode == KeyEvent.KEYCODE_BACK || super.onKeyDown(keyCode, event));
     }
 
-	@SuppressWarnings("unused")
-	public void showDialog(String acceptButton, String hint, String current,
-						   int editType) {
-
-		Intent intent = new Intent(this, TextEntry.class);
-		Bundle params = new Bundle();
-		params.putString("acceptButton", acceptButton);
-		params.putString("hint", hint);
-		params.putString("current", current);
-		params.putInt("editType", editType);
-		intent.putExtras(params);
-		startActivity(intent);
-	}
 	private final BroadcastReceiver myReceiver = new BroadcastReceiver() {
 		@Override
 		public void onReceive(Context context, Intent intent) {
@@ -98,7 +88,9 @@ public class EpNativeActivity extends NativeActivity {
 				String args = intent.getStringExtra("args");
 				Log.i("EDOProWindBotIgnite", "Launching WindBot Ignite with " + args + " as parameters.");
 				WindBot.runAndroid(args);
-			} else if("MAKE_CHOICE".equals(action)){
+            } else if("INPUT_TEXT".equals(action)){
+				new TextEntry().Show(context, intent.getStringExtra("current"));
+            } else if("MAKE_CHOICE".equals(action)){
 				String[] parameters = intent.getStringArrayExtra("args");
 				AlertDialog.Builder builder = new AlertDialog.Builder(EpNativeActivity.this);
 				// Add the buttons
@@ -135,6 +127,14 @@ public class EpNativeActivity extends NativeActivity {
 		Intent intent = new Intent();
 		intent.putExtra("args", parameters);
 		intent.setAction("RUN_WINDBOT");
+		getApplicationContext().sendBroadcast(intent);
+	}
+
+	@SuppressWarnings("unused")
+	public void showDialog(String current) {
+		Intent intent = new Intent();
+		intent.putExtra("current", current);
+		intent.setAction("INPUT_TEXT");
 		getApplicationContext().sendBroadcast(intent);
 	}
 
