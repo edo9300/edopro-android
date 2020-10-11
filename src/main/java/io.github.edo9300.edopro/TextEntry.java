@@ -34,7 +34,6 @@ public class TextEntry {
 		});
 
 		mTextInputWidget.setOnKeyListener(new OnKeyListener() {
-			@Override
 			public boolean onKey(View view, int KeyCode, KeyEvent event) {
 				if (KeyCode == KeyEvent.KEYCODE_ENTER) {
 					pushResult(mTextInputWidget.getText().toString(), true);
