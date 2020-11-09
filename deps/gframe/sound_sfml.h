@@ -1,16 +1,20 @@
-#ifndef SOUND_SDL_MIXER_H
-#define SOUND_SDL_MIXER_H
 #include "sound_backend.h"
+#include <vector>
+#include <memory>
 #include <map>
 #include <string>
-struct _Mix_Music;
-typedef struct _Mix_Music Mix_Music;
-struct Mix_Chunk;
 
-class SoundMixer : public SoundBackend {
+namespace sf
+{
+	class Music;
+	class Sound;
+	class SoundBuffer;
+}
+
+class SoundSFML : public SoundBackend {
 public:
-	SoundMixer();
-	~SoundMixer();
+	SoundSFML();
+	~SoundSFML();
 	virtual void SetSoundVolume(double volume) override;
 	virtual void SetMusicVolume(double volume) override;
 	virtual bool PlayMusic(const std::string& name, bool loop) override;
@@ -21,10 +25,9 @@ public:
 	virtual bool MusicPlaying() override;
 	virtual void Tick() override;
 private:
-	std::string cur_music;
-	std::map<int, Mix_Chunk*> sounds;
-	Mix_Music* music;
-	int sound_volume, music_volume;
+	std::unique_ptr<sf::Music> music;
+	std::vector<std::unique_ptr<sf::Sound>> sounds;
+	float music_volume, sound_volume;
+	std::map<std::string,std::unique_ptr<sf::SoundBuffer>> buffers;
+	const sf::SoundBuffer& LookupSound(const std::string& name);
 };
-
-#endif //SOUND_SDL_MIXER_H

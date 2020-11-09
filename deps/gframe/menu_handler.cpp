@@ -534,13 +534,13 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			}
 			case BUTTON_DECK_EDIT: {
 				mainGame->RefreshDeck(mainGame->cbDBDecks);
-				if(open_file && gdeckManager->LoadDeck(open_file_name)) {
+				if(open_file && gdeckManager->LoadDeck(open_file_name, nullptr, true)) {
 					auto name = Utils::GetFileName(open_file_name);
 					mainGame->ebDeckname->setText(Utils::ToUnicodeIfNeeded(name).data());
 					mainGame->cbDBDecks->setSelected(-1);
 					open_file = false;
 				} else if(mainGame->cbDBDecks->getSelected() != -1) {
-					gdeckManager->LoadDeck(Utils::ToPathString(mainGame->cbDBDecks->getItem(mainGame->cbDBDecks->getSelected())));
+					gdeckManager->LoadDeck(Utils::ToPathString(mainGame->cbDBDecks->getItem(mainGame->cbDBDecks->getSelected())), nullptr, true);
 					mainGame->ebDeckname->setText(L"");
 				}
 				mainGame->HideElement(mainGame->wMainMenu);
@@ -581,17 +581,15 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->HideElement(mainGame->wReplaySave);
 				if(prev_operation == BUTTON_RENAME_REPLAY) {
 					auto oldname = Utils::ToPathString(mainGame->lstReplayList->getListItem(prev_sel, true));
-					auto oldpath = oldname.substr(0, oldname.find_last_of(EPRO_TEXT("/"))) + EPRO_TEXT("/");
-					auto extension = oldname.substr(oldname.find_last_of(EPRO_TEXT(".")));
+					auto oldpath = Utils::GetFilePath(oldname);
+					auto extension = Utils::GetFileExtension(oldname, false);
 					auto newname = Utils::ToPathString(mainGame->ebRSName->getText());
-					if (newname.rfind(extension) != newname.length() - extension.length()) {
+					if (Utils::GetFileExtension(newname, false) != extension)
 						newname += extension;
-					}
-					if(Replay::RenameReplay(oldname, oldpath + newname)) {
+					if(Replay::RenameReplay(oldname, oldpath + newname))
 						mainGame->lstReplayList->refreshList();
-					} else {
+					else
 						mainGame->PopupMessage(gDataManager->GetSysString(1365));
-					}
 				}
 				prev_operation = 0;
 				prev_sel = -1;
