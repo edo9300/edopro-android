@@ -193,19 +193,25 @@ public class MainActivity extends Activity {
 				}
 				break;
 			}
-	    }
+		}
 	}
 
+	@SuppressWarnings("ConstantConditions")
 	public void next() {
 		WindBot.initAndroid(working_directory + "/WindBot");
 		/*
-		    pass the working directory via parameters, rather than making
-		    the app read the working_dir file
+			pass the working directory via parameters, rather than making
+			the app read the working_dir file
 		*/
-        parameter.add(0, working_directory + "/");
-        parameter.add(0, "-C");
-		Intent intent = new Intent(this, SdlLauncher.class);
-		intent.putStringArrayListExtra("ARGUMENTS", parameter);
+		parameter.add(0, working_directory + "/");
+		parameter.add(0, "-C");
+		Object[] array = parameter.toArray();
+		String[] strArr = new String[array.length];
+		for(int i = 0 ; i < array.length ; i ++){
+			strArr[i] = array[i].toString();
+		}
+		Intent intent = new Intent(this, EpNativeActivity.class);
+		intent.putExtra("ARGUMENTS", strArr);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 		startActivity(intent);
 	}

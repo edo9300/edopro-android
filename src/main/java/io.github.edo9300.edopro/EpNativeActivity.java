@@ -32,12 +32,12 @@ public class EpNativeActivity extends NativeActivity {
 	static {
 		//on 4.2 libraries aren't properly loaded automatically
 		//https://stackoverflow.com/questions/28806373/android-4-2-ndk-library-loading-crash-load-librarylinker-cpp750-soinfo-l/28817942
-		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP){
+		/*if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP){
 			System.loadLibrary("hidapi");
 			System.loadLibrary("SDL2");
 			System.loadLibrary("mpg123");
 			System.loadLibrary("SDL2_mixer");
-		}
+		}*/
 		System.loadLibrary("EDOProClient");
 	}
 
