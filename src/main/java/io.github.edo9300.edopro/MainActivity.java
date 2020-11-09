@@ -173,7 +173,7 @@ public class MainActivity extends Activity {
 						}
 					}
 					if(found) {
-						Toast.makeText(this,  String.format(getResources().getString(R.string.toast_dir), dest_dir), Toast.LENGTH_LONG).show();
+						Toast.makeText(this,  String.format(getResources().getString(R.string.default_dir), dest_dir), Toast.LENGTH_LONG).show();
 						final String cbdir = dest_dir;
 						AlertDialog.Builder builder = new AlertDialog.Builder(this);
 						builder.setMessage(String.format(getResources().getString(R.string.default_path), dest_dir))
@@ -226,30 +226,40 @@ public class MainActivity extends Activity {
 				Log.e("EDOPro", "working directory file found but not read: " + e.getMessage());
 			}
 		}
-		if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-			getDefaultPath();
-		} else {
-			chooseWorkingDir();
-		}
+		getDefaultPath();
 	}
 
 	public void getDefaultPath(){
 		File path = new File(Environment.getExternalStorageDirectory() + "/EDOPro");
-		String dest_dir = path.getAbsolutePath();
+		final String dest_dir = path.getAbsolutePath();
 		if(!"".equals(dest_dir)) {
 			if (!path.exists()) {
 				path.mkdirs();
 			}
-			Toast.makeText(this, String.format(getResources().getString(R.string.toast_dir), dest_dir), Toast.LENGTH_LONG).show();
-			final String cbdir = dest_dir;
 			AlertDialog.Builder builder = new AlertDialog.Builder(this);
-			builder.setMessage(String.format(getResources().getString(R.string.toast_dir), dest_dir))
-					.setCancelable(false)
-					.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-						public void onClick(DialogInterface dialog, int id) {
-							setWorkingDir(cbdir);
-						}
-					});
+			if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+				Toast.makeText(this, String.format(getResources().getString(R.string.default_dir), dest_dir), Toast.LENGTH_LONG).show();
+				builder.setMessage(String.format(getResources().getString(R.string.default_dir), dest_dir))
+						.setCancelable(false)
+						.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+							public void onClick(DialogInterface dialog, int id) {
+								setWorkingDir(dest_dir);
+							}
+						});
+			} else {
+				builder.setMessage(String.format(getResources().getString(R.string.default_dir_changeable), dest_dir))
+						.setCancelable(false)
+						.setPositiveButton(R.string.keep_game_folder, new DialogInterface.OnClickListener() {
+							public void onClick(DialogInterface dialog, int id) {
+								setWorkingDir(dest_dir);
+							}
+						})
+						.setNeutralButton(R.string.change_game_folder, new DialogInterface.OnClickListener() {
+							public void onClick(DialogInterface dialog, int id) {
+								chooseWorkingDir();
+							}
+						});
+			}
 			AlertDialog alert = builder.create();
 			alert.show();
 		}
@@ -257,21 +267,13 @@ public class MainActivity extends Activity {
 
 	@TargetApi(Build.VERSION_CODES.LOLLIPOP)
 	public void chooseWorkingDir(){
-		AlertDialog.Builder builder = new AlertDialog.Builder(this);
-		builder.setMessage(R.string.folder_prompt)
-				.setCancelable(false)
-				.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int id) {
-						Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-						i.addCategory(Intent.CATEGORY_DEFAULT);
-						startActivityForResult(Intent.createChooser(i, "Choose directory"), 2);
-					}
-				});
-		AlertDialog alert = builder.create();
-		alert.show();
+		Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+		i.addCategory(Intent.CATEGORY_DEFAULT);
+		startActivityForResult(Intent.createChooser(i, "Choose directory"), 2);
 	}
 
 	public void setWorkingDir(String dest_dir){
+		working_directory = dest_dir;
 		File file = new File(getFilesDir(),"working_dir");
 		try {
 			FileOutputStream fOut = new FileOutputStream(file);

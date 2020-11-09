@@ -3,8 +3,11 @@
 	<string name="preparing_media">Preparing media&#8230;</string>
 	<string name="not_granted">Required permission wasn\'t granted, Project Ignis: EDOPro can\'t run without it</string>
 	<string name="default_path">You chose a folder in an external storage, due to some android limitations, the game path will be set to: %s</string>
-	<string name="toast_dir">Using %s as working directory</string>
+	<string name="default_dir">Using %s as working directory</string>
+	<string name="default_dir_changeable">Using %s as working directory. Do you want to change it?</string>
 	<string name="folder_prompt">Select the folder used to copy the client\'s files</string>
+    <string name="keep_game_folder">Keep</string>
+    <string name="change_game_folder">Change</string>
 	<string name="assets_prompt">Copy internal assets?</string>
 	<string name="no_matching">Couldn\'t find matching storage</string>
 </resources>
