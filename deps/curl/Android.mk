@@ -3,7 +3,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := curl
-LOCAL_STATIC_LIBRARIES := libssl libcrypto
+LOCAL_STATIC_LIBRARIES := libssl
 LOCAL_SRC_FILES := ./lib/$(TARGET_ARCH_ABI)/libcurl.a
 
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include

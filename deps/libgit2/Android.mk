@@ -9,7 +9,7 @@ include $(PREBUILT_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := git2
-LOCAL_STATIC_LIBRARIES := libssl libcrypto libssh2
+LOCAL_STATIC_LIBRARIES := libssl libssh2
 LOCAL_SRC_FILES := ./lib/$(TARGET_ARCH_ABI)/libgit2.a
 
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
