@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="preparing_media">Preparing media&#8230;</string>
+	<string name="not_granted">I permessi necessari non sono stati garantiti, Project Ignis: EDOPro non può funzionare senza di essi</string>
+	<string name="default_path">Hai scelto una cartella nella memoria esterna, a causa di alcune limitazioni in android, la cartella di lavoro utilizzata sarà: %s</string>
+	<string name="default_dir">Usando %s come cartella di lavoro</string>
+	<string name="default_dir_changeable">%s verrà utilizzata come cartella di lavoro. Vuoi cambiarla?</string>
+    <string name="keep_game_folder">Mantieni</string>
+    <string name="change_game_folder">Cambia</string>
+	<string name="assets_prompt">Copiare gli asset interni?</string>
+	<string name="no_matching">Impossibile trovare la memoria appropriata</string>
+</resources>
