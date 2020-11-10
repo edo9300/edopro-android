@@ -10,7 +10,5 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)
 
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
 
-LOCAL_CFLAGS += -std=c++11 -fexceptions
-
 include $(BUILD_STATIC_LIBRARY)
 
