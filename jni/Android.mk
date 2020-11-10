@@ -3,17 +3,13 @@ LOCAL_PATH := $(call my-dir)/..
 include $(CLEAR_VARS)
 LOCAL_MODULE := EDOProClient
 
-LOCAL_CFLAGS := -DYGOPRO_USE_SFML -pipe -fno-rtti -fno-exceptions -fstrict-aliasing -D_ANDROID -fPIC -std=c++14 -DYGOPRO_BUILD_DLL -Wc++14-extensions
-LOCAL_CPPFLAGS := -std=c++14 -Wc++14-extensions
+LOCAL_CFLAGS := -DYGOPRO_USE_SFML -D_ANDROID -DYGOPRO_BUILD_DLL
+LOCAL_CPPFLAGS := -fstrict-aliasing
 
 ifndef NDEBUG
 LOCAL_CFLAGS += -g -D_DEBUG 
 else
 LOCAL_CFLAGS += -fexpensive-optimizations -O3 
-endif
-
-ifeq ($(TARGET_ARCH_ABI),x86)
-LOCAL_CFLAGS += -fno-stack-protector
 endif
 
 ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)

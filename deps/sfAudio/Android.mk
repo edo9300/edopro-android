@@ -68,6 +68,4 @@ LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
 
 LOCAL_EXPORT_LDLIBS := -lOpenSLES
 
-LOCAL_CFLAGS += -std=c++14 -fexceptions -Wc++14-extensions
-
 include $(BUILD_STATIC_LIBRARY)
