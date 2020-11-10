@@ -236,12 +236,9 @@ public class MainActivity extends Activity {
 	}
 
 	public void getDefaultPath(){
-		File path = new File(Environment.getExternalStorageDirectory() + "/EDOPro");
+		final File path = new File(Environment.getExternalStorageDirectory() + "/EDOPro");
 		final String dest_dir = path.getAbsolutePath();
 		if(!"".equals(dest_dir)) {
-			if (!path.exists()) {
-				path.mkdirs();
-			}
 			AlertDialog.Builder builder = new AlertDialog.Builder(this);
 			if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
 				Toast.makeText(this, String.format(getResources().getString(R.string.default_dir), dest_dir), Toast.LENGTH_LONG).show();
@@ -249,6 +246,9 @@ public class MainActivity extends Activity {
 						.setCancelable(false)
 						.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 							public void onClick(DialogInterface dialog, int id) {
+								if (!path.exists()) {
+									path.mkdirs();
+								}
 								setWorkingDir(dest_dir);
 							}
 						});
@@ -257,6 +257,9 @@ public class MainActivity extends Activity {
 						.setCancelable(false)
 						.setPositiveButton(R.string.keep_game_folder, new DialogInterface.OnClickListener() {
 							public void onClick(DialogInterface dialog, int id) {
+								if (!path.exists()) {
+									path.mkdirs();
+								}
 								setWorkingDir(dest_dir);
 							}
 						})
