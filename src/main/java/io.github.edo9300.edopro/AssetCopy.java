@@ -239,7 +239,6 @@ public class AssetCopy extends Activity {
          * update progress bar
          */
         protected void onProgressUpdate(Integer... progress) {
-            Log.e("AssetCopy", "onProgressUpdate");
             if (m_copy_started) {
                 String todisplay = m_tocopy.get(progress[0]);
                 m_ProgressBar.setProgress(progress[0]);
