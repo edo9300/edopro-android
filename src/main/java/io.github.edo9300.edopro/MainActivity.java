@@ -1,8 +1,10 @@
 package io.github.edo9300.edopro;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
@@ -25,6 +27,7 @@ import android.util.Log;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -128,7 +131,11 @@ public class MainActivity extends Activity {
 			case 1: {
 				try {
 					File file = new File(getFilesDir(),"assets_copied");
-					file.createNewFile();
+					if(file.exists() || file.createNewFile()) {
+                        FileWriter wr = (new FileWriter(file));
+                        wr.write(""+BuildConfig.VERSION_CODE);
+						wr.flush();
+                    }
 				} catch (Exception e){
 					Log.e("EDOPro", "error when creating assets_copied file: " + e.getMessage());
 				}
@@ -299,15 +306,25 @@ public class MainActivity extends Activity {
 	}
 
 	public void copyAssetsPrompt(final String working_dir) {
-		File upfile = new File(getFilesDir(),"should_copy_update");
-		if(upfile.exists()){
-			if(upfile.delete())
-				copyAssets(working_dir, true);
-			return;
-		}
 		File file = new File(getFilesDir(),"assets_copied");
 		if(file.exists()){
-			next();
+            int prevversion = Integer.MAX_VALUE;
+            try {
+                BufferedReader fileReader = new BufferedReader(new FileReader(file));
+                String line = fileReader.readLine();
+                prevversion = Integer.parseInt(line);
+            }
+            catch (Exception e) { prevversion=0; }
+            if (prevversion < BuildConfig.VERSION_CODE) {
+                try {
+                    PrintWriter pw = new PrintWriter(file);
+                    pw.close();
+					Toast.makeText(this, getResources().getString(R.string.copying_update), Toast.LENGTH_LONG).show();
+					copyAssets(working_dir, true);
+                }
+                catch (Exception e) { }
+            } else
+                next();
 			return;
 		}
 		copyCertificate();
@@ -318,7 +335,10 @@ public class MainActivity extends Activity {
 					File file = new File(getFilesDir(),"assets_copied");
 					if(!file.createNewFile()){
 						Log.e("EDOPro", "error when creating assets_copied file");
-					}
+					} else {
+                        FileWriter wr = (new FileWriter(file));
+                        wr.write(BuildConfig.VERSION_CODE);
+                    }
 				} catch (Exception e){
 					Log.e("EDOPro", "error when creating assets_copied file: " + e.getMessage());
 				}

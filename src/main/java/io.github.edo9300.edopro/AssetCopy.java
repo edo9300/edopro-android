@@ -138,7 +138,7 @@ public class AssetCopy extends Activity {
             ProcessFileList();
 
             // doing work
-            m_copy_started = true;
+            m_copy_started = m_tocopy.size() > 0;
             m_ProgressBar.setMax(m_tocopy.size());
 
             for (int i = 0; i < m_tocopy.size(); i++) {
