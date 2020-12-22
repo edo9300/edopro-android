@@ -2185,7 +2185,7 @@ void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 	grepo->commit_history_full = BufferIO::DecodeUTF8s(text);
 	grepo->commit_history_partial.clear();
 	if(repo->history.partial_history.size()) {
-		if(repo->history.partial_history.front() == repo->history.partial_history.front() && repo->history.full_history.back() == repo->history.full_history.back()) {
+		if(repo->history.partial_history.front() == repo->history.full_history.front() && repo->history.partial_history.back() == repo->history.full_history.back()) {
 			grepo->commit_history_partial = grepo->commit_history_full;
 		} else {
 			text.clear();
@@ -2736,6 +2736,7 @@ void Game::ReloadCBCardType2() {
 		cbCardType2->addItem(gDataManager->GetSysString(1059).data(), TYPE_MONSTER + TYPE_SPIRIT);
 		cbCardType2->addItem(gDataManager->GetSysString(1071).data(), TYPE_MONSTER + TYPE_FLIP);
 		cbCardType2->addItem(gDataManager->GetSysString(1072).data(), TYPE_MONSTER + TYPE_TOON);
+		cbCardType2->addItem(gDataManager->GetSysString(1065).data(), TYPE_MONSTER + TYPE_MAXIMUM);
 		break;
 	case 2:
 		cbCardType2->addItem(gDataManager->GetSysString(1080).data(), 0);

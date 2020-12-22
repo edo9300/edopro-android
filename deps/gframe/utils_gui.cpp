@@ -3,6 +3,7 @@
 #include <ICursorControl.h>
 #include <fmt/chrono.h>
 #include <fmt/format.h>
+#include "utils.h"
 #include "game_config.h"
 #include "text_types.h"
 #ifdef _WIN32
@@ -13,7 +14,6 @@
 #include "Base64.h"
 #include "IrrlichtCommonIncludes/CCursorControl.h"
 #elif defined(__ANDROID__)
-#include "Android/COSAndroidOperator.h"
 class android_app;
 namespace porting {
 extern android_app* app_global;
@@ -68,9 +68,7 @@ irr::IrrlichtDevice* GUIUtils::CreateDevice(GameConfig* configs) {
 			break;
 		}
 	}
-	irr::IOSOperator* Operator = new irr::COSAndroidOperator();
-	device->getGUIEnvironment()->setOSOperator(Operator);
-	Operator->drop();
+	device->getGUIEnvironment()->setOSOperator(Utils::OSOperator);
 	if(!driver->queryFeature(irr::video::EVDF_TEXTURE_NPOT))
 		driver->setTextureCreationFlag(irr::video::ETCF_ALLOW_NON_POWER_2, true);
 #endif
