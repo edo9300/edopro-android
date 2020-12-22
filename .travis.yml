@@ -8,8 +8,8 @@ env:
   - MINIO_UPLOAD=$(date +%Y-%m-%d_%H-%M-$TRAVIS_COMMIT)
   - DEPLOY_DIR=release
   - DEPLOY_BRANCH=android
-  - LIBWINDBOT_URL=https://github.com/ProjectIgnis/windbot/releases/download/20200524/libWindbot.aar
-  - LIBWINDBOT_RESOURCES=https://github.com/ProjectIgnis/windbot/releases/download/20200524/WindBotIgnite-Resources.7z
+  - LIBWINDBOT_URL=https://github.com/ProjectIgnis/windbot/releases/download/20201222/libWindbot.aar
+  - LIBWINDBOT_RESOURCES=https://github.com/ProjectIgnis/windbot/releases/download/20201222/WindBotIgnite-Resources.7z
 addons:
   apt:
     update: true
