@@ -171,25 +171,10 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 				}
 				break;
 			}
-			case BUTTON_CHAIN_IGNORE: {
-				mainGame->ignore_chain = mainGame->btnChainIgnore->isPressed();
-				mainGame->always_chain = false;
-				mainGame->chain_when_avail = false;
-				UpdateChainButtons();
-				break;
-			}
-			case BUTTON_CHAIN_ALWAYS: {
-				mainGame->always_chain = mainGame->btnChainAlways->isPressed();
-				mainGame->ignore_chain = false;
-				mainGame->chain_when_avail = false;
-				UpdateChainButtons();
-				break;
-			}
+			case BUTTON_CHAIN_IGNORE:
+			case BUTTON_CHAIN_ALWAYS:
 			case BUTTON_CHAIN_WHENAVAIL: {
-				mainGame->chain_when_avail = mainGame->btnChainWhenAvail->isPressed();
-				mainGame->always_chain = false;
-				mainGame->ignore_chain = false;
-				UpdateChainButtons();
+				UpdateChainButtons(event.GUIEvent.Caller);
 				break;
 			}
 			case BUTTON_CANCEL_OR_FINISH: {
@@ -1031,7 +1016,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 						mainGame->ShowCardInfo(mcard->code);
 					} else {
 						if(mcard->cover)
-							mainGame->ShowCardInfo(mcard->cover, false, ImageManager::imgType::COVER);
+							mainGame->ShowCardInfo(mcard->cover, false, imgType::COVER);
 						else
 							mainGame->ClearCardInfo(mcard->controler);
 					}
@@ -1047,7 +1032,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 						mainGame->ShowCardInfo(mcard->code);
 					} else {
 						if(mcard->cover)
-							mainGame->ShowCardInfo(mcard->cover, false, ImageManager::imgType::COVER);
+							mainGame->ShowCardInfo(mcard->cover, false, imgType::COVER);
 						else
 							mainGame->ClearCardInfo(mcard->controler);
 					}
@@ -1086,6 +1071,10 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 		break;
 	}
 	case irr::EET_MOUSE_INPUT_EVENT: {
+		bool isroot = [&event,root=mainGame->env->getRootGUIElement()] {
+			const auto elem = root->getElementFromPoint({ event.MouseInput.X, event.MouseInput.Y });
+			return elem == root || elem == mainGame->wPhase;
+		}();
 		switch(event.MouseInput.Event) {
 		case irr::EMIE_LMOUSE_LEFT_UP: {
 			if(!mainGame->dInfo.isInDuel)
@@ -1095,15 +1084,14 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 			irr::core::vector2di mousepos(event.MouseInput.X, event.MouseInput.Y);
 			irr::s32 x = pos.X;
 			irr::s32 y = pos.Y;
+			if(mainGame->always_chain) {
+				mainGame->always_chain = false;
+				mainGame->ignore_chain = event.MouseInput.isRightPressed();
+				mainGame->chain_when_avail = false;
+				UpdateChainButtons();
+			}
 			if(x < 300)
 				break;
-			if(mainGame->btnChainAlways->isPressed())
-				mainGame->always_chain = true;
-			else
-				mainGame->always_chain = false;
-			mainGame->ignore_chain = false;
-			mainGame->chain_when_avail = false;
-			//UpdateChainButtons();
 			if(mainGame->wCmdMenu->isVisible() && !mainGame->wCmdMenu->getRelativePosition().isPointInside(mousepos))
 				mainGame->wCmdMenu->setVisible(false);
 			if(panel && panel->isVisible())
@@ -1474,14 +1462,11 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 			auto y = event.MouseInput.Y;
 			irr::core::vector2di pos(x, y);
 			irr::gui::IGUIElement* root = mainGame->env->getRootGUIElement();
-			if(event.MouseInput.X > 300) {
-				if (mainGame->btnChainIgnore->isPressed())
-					mainGame->ignore_chain = true;
-				else
-					mainGame->ignore_chain = false;
-				mainGame->always_chain = false;
+			if(mainGame->dInfo.isInDuel && mainGame->ignore_chain) {
+				mainGame->ignore_chain = false;
+				mainGame->always_chain = event.MouseInput.isLeftPressed();
 				mainGame->chain_when_avail = false;
-				//UpdateChainButtons();
+				UpdateChainButtons();
 			}
 			mainGame->wCmdMenu->setVisible(false);
 			if(mainGame->fadingList.size())
@@ -1621,7 +1606,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 					} else {
 						should_show_tip = false;
 						if(mcard->cover)
-							mainGame->ShowCardInfo(mcard->cover, false, ImageManager::imgType::COVER);
+							mainGame->ShowCardInfo(mcard->cover, false, imgType::COVER);
 						else
 							mainGame->ClearCardInfo(mcard->controler);
 					}
@@ -1655,25 +1640,21 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 			break;
 		}
 		case irr::EMIE_LMOUSE_PRESSED_DOWN: {
-			if(!mainGame->dInfo.isInDuel)
+			if(!mainGame->dInfo.isInDuel || !isroot || event.MouseInput.X <= 300)
 				break;
-			if(event.MouseInput.X > 300) {
-				mainGame->always_chain = event.MouseInput.isLeftPressed();
-				mainGame->ignore_chain = false;
-				mainGame->chain_when_avail = false;
-				//UpdateChainButtons();
-			}
+			mainGame->always_chain = true;
+			mainGame->ignore_chain = false;
+			mainGame->chain_when_avail = false;
+			UpdateChainButtons();
 			break;
 		}
 		case irr::EMIE_RMOUSE_PRESSED_DOWN: {
-			if(!mainGame->dInfo.isInDuel)
+			if(!mainGame->dInfo.isInDuel || !isroot || event.MouseInput.X <= 300)
 				break;
-			if(event.MouseInput.X > 300) {
-				mainGame->ignore_chain = event.MouseInput.isRightPressed();
-				mainGame->always_chain = false;
-				mainGame->chain_when_avail = false;
-				//UpdateChainButtons();
-			}
+			mainGame->ignore_chain = true;
+			mainGame->always_chain = false;
+			mainGame->chain_when_avail = false;
+			UpdateChainButtons();
 			break;
 		}
 		default:
@@ -1688,7 +1669,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 				mainGame->always_chain = event.KeyInput.PressedDown;
 				mainGame->ignore_chain = false;
 				mainGame->chain_when_avail = false;
-				//UpdateChainButtons();
+				UpdateChainButtons();
 			}
 			break;
 		}
@@ -1697,7 +1678,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 				mainGame->ignore_chain = event.KeyInput.PressedDown;
 				mainGame->always_chain = false;
 				mainGame->chain_when_avail = false;
-				//UpdateChainButtons();
+				UpdateChainButtons();
 			}
 			break;
 		}
@@ -1706,7 +1687,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 				mainGame->chain_when_avail = event.KeyInput.PressedDown;
 				mainGame->always_chain = false;
 				mainGame->ignore_chain = false;
-				//UpdateChainButtons();
+				UpdateChainButtons();
 			}
 			break;
 		}
@@ -2282,8 +2263,15 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 			irr::gui::IGUIElement* elem = root->getElementFromPoint({ event.MouseInput.X, event.MouseInput.Y });
 			if(elem == mainGame->stName) {
 				auto path = mainGame->FindScript(fmt::format(EPRO_TEXT("c{}.lua"), mainGame->showingcard));
+				if(path.empty()) {
+					auto cd = gDataManager->GetCardData(mainGame->showingcard);
+					if(cd && cd->alias && (cd->alias - mainGame->showingcard < CARD_ARTWORK_VERSIONS_OFFSET || mainGame->showingcard - cd->alias < CARD_ARTWORK_VERSIONS_OFFSET))
+						path = mainGame->FindScript(fmt::format(EPRO_TEXT("c{}.lua"), cd->alias));
+				}
 				if(path.size() && path != EPRO_TEXT("archives"))
 					Utils::SystemOpen(path, Utils::OPEN_FILE);
+			} else if(elem == mainGame->stPasscodeScope) {
+				mainGame->env->getOSOperator()->copyToClipboard(fmt::format(L"{}", mainGame->showingcard).data());
 			}
 		}
 		break;
@@ -2384,19 +2372,19 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 	return false;
 }
 void ClientField::GetHoverField(int x, int y) {
-	irr::core::recti sfRect(430, 504, 875, 600);
-	irr::core::recti ofRect(531, 135, 800, 191);
-	if(mainGame->dInfo.duel_params & DUEL_3_COLUMNS_FIELD) {
-		sfRect = irr::core::recti(509, 504, 796, 600);
-		ofRect = irr::core::recti(531+ 46, 135, 800- 46, 191);
-	}
-	irr::core::vector2di pos(x, y);
-	int field = (mainGame->dInfo.duel_field == 3 || mainGame->dInfo.duel_field == 5) ? 0 : 1;
-	int speed = (mainGame->dInfo.duel_params & DUEL_3_COLUMNS_FIELD) ? 1 : 0;
+	static const irr::core::recti NormalSelfHand(430, 504, 875, 600);
+	static const irr::core::recti NormalOppoHand(531, 135, 800, 191);
+	static const irr::core::recti SpeedSelfHand(509, 504, 796, 600);
+	static const irr::core::recti SpeedOppoHand(531 + 46, 135, 800 - 46, 191);
+	const int speed = (mainGame->dInfo.duel_params & DUEL_3_COLUMNS_FIELD) ? 1 : 0;
+	const int field = (mainGame->dInfo.duel_field == 3 || mainGame->dInfo.duel_field == 5) ? 0 : 1;
+	const auto& sfRect = (speed) ? SpeedSelfHand : NormalSelfHand;
+	const auto& ofRect = (speed) ? SpeedOppoHand : NormalOppoHand;
+	const irr::core::vector2di pos(x, y);
 	if(sfRect.isPointInside(pos)) {
-		int hc = hand[0].size();
-		int cardSize = 66;
-		int cardSpace = 10;
+		const int hc = hand[0].size();
+		constexpr int cardSize = 66;
+		constexpr int cardSpace = 10;
 		if(hc == 0)
 			hovered_location = 0;
 		else if(hc < 7 - speed * 2) {
@@ -2421,9 +2409,9 @@ void ClientField::GetHoverField(int x, int y) {
 				hovered_sequence = (x - sfRect.UpperLeftCorner.X) * (hc - 1) / ((cardSize + cardSpace) * (5 - speed * 2));
 		}
 	} else if(ofRect.isPointInside(pos)) {
-		int hc = hand[1].size();
-		int cardSize = 39;
-		int cardSpace = 7;
+		const int hc = hand[1].size();
+		constexpr int cardSize = 39;
+		constexpr int cardSpace = 7;
 		if(hc == 0)
 			hovered_location = 0;
 		else if(hc < 7 - speed * 2) {
@@ -2448,12 +2436,12 @@ void ClientField::GetHoverField(int x, int y) {
 				hovered_sequence = hc - 1 - (x - ofRect.UpperLeftCorner.X) * (hc - 1) / ((cardSize + cardSpace) * (5 - speed * 2));
 		}
 	} else {
-		double screenx = x / 1024.0 * (CAMERA_RIGHT - CAMERA_LEFT) + CAMERA_LEFT;
-		double screeny = y / 640.0 * (CAMERA_TOP - CAMERA_BOTTOM) + CAMERA_BOTTOM;
-		double angle = FIELD_ANGLE - atan(screeny);
-		double vlen = sqrt(1.0 + screeny * screeny);
-		double boardx = FIELD_X + FIELD_Z * screenx / vlen / cos(angle);
-		double boardy = FIELD_Y - FIELD_Z * tan(angle);
+		const double screenx = x / 1024.0 * (CAMERA_RIGHT - CAMERA_LEFT) + CAMERA_LEFT;
+		const double screeny = y / 640.0 * (CAMERA_TOP - CAMERA_BOTTOM) + CAMERA_BOTTOM;
+		const double angle = FIELD_ANGLE - atan(screeny);
+		const double vlen = sqrt(1.0 + screeny * screeny);
+		const double boardx = FIELD_X + FIELD_Z * screenx / vlen / cos(angle);
+		const double boardy = FIELD_Y - FIELD_Z * tan(angle);
 		hovered_location = 0;
 		if(boardx >= matManager.vFieldExtra[0][speed][0].Pos.X && boardx <= matManager.vFieldExtra[0][speed][1].Pos.X) {
 			if(boardy >= matManager.vFieldExtra[0][speed][0].Pos.Y && boardy <= matManager.vFieldExtra[0][speed][2].Pos.Y) {
@@ -2678,11 +2666,26 @@ void ClientField::ShowMenu(int flag, int x, int y) {
 	y = mouse.Y;
 	mainGame->wCmdMenu->setRelativePosition(irr::core::recti(x - mainGame->Scale(20), y - mainGame->Scale(20) - height, x + mainGame->Scale(80), y - mainGame->Scale(20)));
 }
-void ClientField::UpdateChainButtons() {
-	if(mainGame->btnChainAlways->isVisible()) {
-		mainGame->btnChainIgnore->setPressed(mainGame->ignore_chain);
-		mainGame->btnChainAlways->setPressed(mainGame->always_chain);
-		mainGame->btnChainWhenAvail->setPressed(mainGame->chain_when_avail);
+void ClientField::UpdateChainButtons(irr::gui::IGUIElement* caller) {
+	if(!caller) {
+		if(mainGame->ignore_chain || mainGame->always_chain || mainGame->chain_when_avail) {
+			mainGame->btnChainIgnore->setPressed(mainGame->ignore_chain);
+			mainGame->btnChainAlways->setPressed(mainGame->always_chain);
+			mainGame->btnChainWhenAvail->setPressed(mainGame->chain_when_avail);
+			return;
+		}
+		mainGame->btnChainIgnore->setPressed(mainGame->btnChainIgnore->isSubElement());
+		mainGame->btnChainAlways->setPressed(mainGame->btnChainAlways->isSubElement());
+		mainGame->btnChainWhenAvail->setPressed(mainGame->btnChainWhenAvail->isSubElement());
+	} else {
+		auto SetButton = [caller=(irr::gui::IGUIButton*)caller](irr::gui::IGUIButton* button) {
+			const auto press = caller == button && caller->isPressed();
+			button->setPressed(press);
+			button->setSubElement(press);
+		};
+		SetButton(mainGame->btnChainIgnore);
+		SetButton(mainGame->btnChainAlways);
+		SetButton(mainGame->btnChainWhenAvail);
 	}
 }
 void ClientField::ShowCancelOrFinishButton(int buttonOp) {

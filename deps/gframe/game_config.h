@@ -15,8 +15,8 @@ enum CoreLogOutput {
 struct GameConfig
 {
 	GameConfig();
-	bool Load(const path_char* filename);
-	bool Save(const path_char* filename);
+	bool Load(const epro::path_char* filename);
+	bool Save(const epro::path_char* filename);
 
 	bool use_d3d = true;
 	bool vsync = true;
@@ -37,7 +37,7 @@ struct GameConfig
 	std::wstring lastdeck = L"";
 	uint32_t lastlflist = 0;
 	uint32_t lastallowedcards = 3;
-	uint32_t lastDuelParam = 0x2E800; //#define DUEL_MODE_MR5
+	uint64_t lastDuelParam = 0x2E800; //#define DUEL_MODE_MR5
 	uint32_t lastExtraRules = 0;
 	uint32_t lastDuelForbidden = 0; //#define DUEL_MODE_MR5_FORB
 	uint32_t timeLimit = 180;
@@ -99,8 +99,8 @@ struct GameConfig
 	bool loopMusic = true;
 	bool noClientUpdates = false;
 	bool controller_input = false;
-	path_string skin = EPRO_TEXT("none");
-	path_string locale = EPRO_TEXT("English");
+	epro::path_string skin = EPRO_TEXT("none");
+	epro::path_string locale = EPRO_TEXT("English");
 	std::string ssl_certificate_path = "";
 
 	nlohmann::json configs;

@@ -9,6 +9,8 @@
 #include <atomic>
 #include <future>
 #include <queue>
+#include <mutex>
+#include <condition_variable>
 
 namespace irr {
 class IrrlichtDevice;
@@ -25,34 +27,27 @@ class SColor;
 
 namespace ygo {
 
+#ifndef IMGTYPE
+#define IMGTYPE
+enum imgType {
+	ART,
+	FIELD,
+	COVER,
+	THUMB
+};
+#endif
+
 class ImageManager {
-public:
-	enum imgType {
-		ART,
-		FIELD,
-		COVER,
-		THUMB
-	};
 private:
-	using image_path = std::pair<irr::video::IImage*, path_string>;
+	using image_path = std::pair<irr::video::IImage*, epro::path_string>;
 	using loading_map = std::map<int, std::future<image_path>>;
 	using chrono_time = uint64_t;
 	using texture_map = std::unordered_map<uint32_t, irr::video::ITexture*>;
 public:
-	ImageManager() {
-		loading_pics[0] = new loading_map();
-		loading_pics[1] = new loading_map();
-		loading_pics[2] = new loading_map();
-		loading_pics[3] = new loading_map();
-	}
-	~ImageManager() {
-		delete loading_pics[0];
-		delete loading_pics[1];
-		delete loading_pics[2];
-		delete loading_pics[3];
-	}
+	ImageManager();
+	~ImageManager();
 	bool Initial();
-	void ChangeTextures(path_stringview path);
+	void ChangeTextures(epro::path_stringview path);
 	void ResetTextures();
 	void SetDevice(irr::IrrlichtDevice* dev);
 	void ClearTexture(bool resize = false);
@@ -60,7 +55,8 @@ public:
 	void RefreshCachedTextures();
 	void ClearCachedTextures(bool resize);
 	bool imageScaleNNAA(irr::video::IImage *src, irr::video::IImage* dest, irr::s32 width, irr::s32 height, chrono_time timestamp_id, std::atomic<chrono_time>& source_timestamp_id);
-	irr::video::IImage* GetTextureImageFromFile(const irr::io::path& file, int width, int height, chrono_time timestamp_id, std::atomic<chrono_time>& source_timestamp_id, irr::video::IImage* archivefile = nullptr);
+	irr::video::IImage* GetScaledImage(irr::video::IImage* srcimg, int width, int height, chrono_time timestamp_id, std::atomic<chrono_time>& source_timestamp_id);
+	irr::video::IImage* GetScaledImageFromFile(const irr::io::path& file, int width, int height);
 	irr::video::ITexture* GetTextureFromFile(const irr::io::path& file, int width, int height);
 	irr::video::ITexture* GetTextureCard(uint32_t code, imgType type, bool wait = false, bool fit = false, int* chk = nullptr);
 	irr::video::ITexture* GetTextureField(uint32_t code);
@@ -126,15 +122,20 @@ private:
 	A(tFieldTransparent[2][4])
 	A(tSettings)
 #undef A
-	void ClearFutureObjects(loading_map* map1, loading_map* map2, loading_map* map3, loading_map* map4);
+	void ClearFutureObjects();
 	void RefreshCovers();
 	image_path LoadCardTexture(uint32_t code, imgType type, std::atomic<irr::s32>& width, std::atomic<irr::s32>& height, chrono_time timestamp_id, std::atomic<chrono_time>& source_timestamp_id);
-	loading_map* loading_pics[4];
-	path_string textures_path;
+	epro::path_string textures_path;
 	std::pair<std::atomic<irr::s32>, std::atomic<irr::s32>> sizes[3];
 	std::atomic<chrono_time> timestamp_id;
 	std::map<irr::io::path, irr::video::ITexture*> g_txrCache;
 	std::map<irr::io::path, irr::video::IImage*> g_imgCache;
+	std::mutex obj_clear_lock;
+	std::thread obj_clear_thread;
+	std::condition_variable cv;
+	loading_map loading_pics[4];
+	std::deque<std::pair<loading_map::key_type, loading_map::mapped_type>> to_clear;
+	std::atomic<bool> stop_threads;
 };
 
 #define CARD_IMG_WIDTH		177

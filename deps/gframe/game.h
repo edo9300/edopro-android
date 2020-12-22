@@ -81,7 +81,7 @@ struct DuelInfo {
 	int lp[2];
 	int startlp;
 	int duel_field;
-	int duel_params;
+	uint64_t duel_params;
 	int turn;
 	uint8_t curMsg;
 	int team1;
@@ -117,14 +117,14 @@ class Game {
 public:
 	bool Initialize();
 	bool MainLoop();
-	path_string NoSkinLabel();
-	bool ApplySkin(const path_string& skin, bool reload = false, bool firstrun = false);
+	epro::path_string NoSkinLabel();
+	bool ApplySkin(const epro::path_string& skin, bool reload = false, bool firstrun = false);
 	void RefreshDeck(irr::gui::IGUIComboBox* cbDeck);
 	void RefreshLFLists();
 	void RefreshAiDecks();
 	void RefreshReplay();
 	void RefreshSingleplay();
-	void DrawSelectionLine(irr::video::S3DVertex* vec, bool strip, int width, irr::video::SColor color);
+	void DrawSelectionLine(irr::video::S3DVertex vec[4], bool strip, int width, irr::video::SColor color);
 	void DrawBackGround();
 	void DrawLinkedZones(ClientCard* pcard);
 	void DrawCards();
@@ -132,7 +132,7 @@ public:
 	void DrawMisc();
 	void DrawStatus(ClientCard* pcard);
 	void DrawPendScale(ClientCard* pcard);
-	void DrawStackIndicator(epro_wstringview text, irr::video::S3DVertex* v, bool opponent);
+	void DrawStackIndicator(epro::wstringview text, irr::video::S3DVertex* v, bool opponent);
 	void DrawGUI();
 	void DrawSpec();
 	void DrawBackImage(irr::video::ITexture* texture, bool resized);
@@ -156,21 +156,21 @@ public:
 	void LoadGithubRepositories();
 	void UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo);
 	void LoadServers();
-	void ShowCardInfo(uint32_t code, bool resize = false, ImageManager::imgType type = ImageManager::imgType::ART);
+	void ShowCardInfo(uint32_t code, bool resize = false, imgType type = imgType::ART);
 	void RefreshCardInfoTextPositions();
 	void ClearCardInfo(int player = 0);
-	void AddChatMsg(epro_wstringview msg, int player, int type);
-	void AddLog(epro_wstringview msg, int param = 0);
+	void AddChatMsg(epro::wstringview msg, int player, int type);
+	void AddLog(epro::wstringview msg, int param = 0);
 	void ClearChatMsg();
-	void AddDebugMsg(epro_stringview msg);
+	void AddDebugMsg(epro::stringview msg);
 	void ClearTextures();
 	void CloseDuelWindow();
-	void PopupMessage(epro_wstringview text, epro_wstringview caption = L"");
+	void PopupMessage(epro::wstringview text, epro::wstringview caption = L"");
 
 	uint8_t LocalPlayer(uint8_t player);
 	void UpdateDuelParam();
 	void UpdateExtraRules(bool set = false);
-	int GetMasterRule(uint32_t param, uint32_t forbidden = 0, int* truerule = 0);
+	int GetMasterRule(uint64_t param, uint32_t forbidden = 0, int* truerule = 0);
 	void SetPhaseButtons(bool visibility = false);
 	void SetMessageWindow();
 
@@ -219,9 +219,9 @@ public:
 	
 	std::wstring ReadPuzzleMessage(const std::wstring& script_name);
 	OCG_Duel SetupDuel(OCG_DuelOptions opts);
-	path_string FindScript(path_stringview script_name, MutexLockedIrrArchivedFile* retarchive = nullptr);
-	std::vector<char> LoadScript(epro_stringview script_name);
-	bool LoadScript(OCG_Duel pduel, epro_stringview script_name);
+	epro::path_string FindScript(epro::path_stringview script_name, MutexLockedIrrArchivedFile* retarchive = nullptr);
+	std::vector<char> LoadScript(epro::stringview script_name);
+	bool LoadScript(OCG_Duel pduel, epro::stringview script_name);
 	static int ScriptReader(void* payload, OCG_Duel duel, const char* name);
 	static void MessageHandler(void* payload, const char* string, int type);
 	static void UpdateDownloadBar(int percentage, int cur, int tot, const char* filename, bool is_new, void* payload);
@@ -234,7 +234,7 @@ public:
 	std::atomic<bool> closeDuelWindow{ false };
 	Signal closeDoneSignal;
 	DuelInfo dInfo;
-	DiscordWrapper discord;
+	DiscordWrapper discord{};
 	ImageManager imageManager;
 #ifdef YGOPRO_BUILD_DLL
 	void* ocgcore;
@@ -281,7 +281,7 @@ public:
 	bool is_siding;
 	uint32_t forbiddentypes;
 	uint16_t extra_rules;
-	uint32_t duel_param;
+	uint64_t duel_param;
 	uint32_t showingcard;
 	bool cardimagetextureloading;
 	float dpi_scale;
@@ -301,14 +301,14 @@ public:
 	irr::scene::ICameraSceneNode* camera;
 	irr::io::IFileSystem* filesystem;
 	void PopulateResourcesDirectories();
-	std::vector<path_string> field_dirs;
-	std::vector<path_string> pic_dirs;
-	std::vector<path_string> cover_dirs;
-	std::vector<path_string> script_dirs;
-	std::vector<path_string> cores_to_load;
+	std::vector<epro::path_string> field_dirs;
+	std::vector<epro::path_string> pic_dirs;
+	std::vector<epro::path_string> cover_dirs;
+	std::vector<epro::path_string> script_dirs;
+	std::vector<epro::path_string> cores_to_load;
 	void PopulateLocales();
 	void ApplyLocale(size_t index, bool forced = false);
-	std::vector<std::pair<path_string, std::vector<path_string>>> locales;
+	std::vector<std::pair<epro::path_string, std::vector<epro::path_string>>> locales;
 	std::mutex popupCheck;
 	std::wstring queued_msg;
 	std::wstring queued_caption;
@@ -424,12 +424,13 @@ public:
 	irr::gui::IGUIButton* btnRulesOK;
 	irr::gui::IGUIComboBox* cbDuelRule;
 	irr::gui::IGUIButton* btnCustomRule;
-	irr::gui::IGUICheckBox* chkCustomRules[7+12+8];
+	irr::gui::IGUICheckBox* chkCustomRules[7+12+8+2];
 	irr::gui::IGUICheckBox* chkTypeLimit[5];
 	irr::gui::IGUIWindow* wCustomRules;
 	irr::gui::IGUIButton* btnCustomRulesOK;
 	irr::gui::IGUICheckBox* chkNoCheckDeck;
 	irr::gui::IGUICheckBox* chkNoShuffleDeck;
+	irr::gui::IGUICheckBox* chkTcgRulings;
 	irr::gui::IGUIButton* btnHostConfirm;
 	irr::gui::IGUIButton* btnHostCancel;
 	irr::gui::IGUIStaticText* stHostPort;
@@ -714,16 +715,6 @@ irr::core::rect<T> Game::Scale(irr::core::rect<T> rect) {
 }
 
 }
-
-#define FIELD_X			4.2f	
-#define FIELD_Y			8.0f
-#define FIELD_Z			7.8f
-#define FIELD_ANGLE		0.7980557f //atan(FIELD_Y / FIELD_Z)
-
-#define CAMERA_LEFT		-0.90f
-#define CAMERA_RIGHT	0.45f
-#define CAMERA_BOTTOM	-0.42f
-#define CAMERA_TOP		0.42f
 
 #define UEVENT_EXIT			0x1
 #define UEVENT_TOWINDOW		0x2

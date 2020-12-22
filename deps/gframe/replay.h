@@ -19,6 +19,7 @@ namespace ygo {
 #define REPLAY_NEWREPLAY	0x20
 #define REPLAY_HAND_TEST	0x40
 #define REPLAY_DIRECT_SEED	0x80
+#define REPLAY_64BIT_DUELFLAG	0x100
 
 #define REPLAY_YRP1			0x31707279
 #define REPLAY_YRPX			0x58707279
@@ -61,9 +62,10 @@ public:
 
 class Replay {
 public:
-	void BeginRecord(bool write = true, path_string name = EPRO_TEXT("./replay/_LastReplay.yrpX"));
+	void BeginRecord(bool write = true, epro::path_string name = EPRO_TEXT("./replay/_LastReplay.yrpX"));
 	void WriteStream(const ReplayStream& stream);
 	void WritePacket(const ReplayPacket& p);
+	bool IsStreamedReplay();
 	template<typename T>
 	void Write(T data, bool flush = true);
 	void WritetoFile(const void* data, size_t size, bool flush);
@@ -71,12 +73,12 @@ public:
 	void WriteData(const void* data, size_t length, bool flush = true);
 	void Flush();
 	void EndRecord(size_t size = 0x20000);
-	void SaveReplay(const path_string& name);
-	bool OpenReplay(const path_string& name);
+	void SaveReplay(const epro::path_string& name);
+	bool OpenReplay(const epro::path_string& name);
 	bool OpenReplayFromBuffer(std::vector<uint8_t>&& contents);
 	bool IsExportable();
-	static bool DeleteReplay(const path_string& name);
-	static bool RenameReplay(const path_string& oldname, const path_string& newname);
+	static bool DeleteReplay(const epro::path_string& name);
+	static bool RenameReplay(const epro::path_string& oldname, const epro::path_string& newname);
 	bool GetNextResponse(ReplayResponse* res);
 	const std::vector<std::wstring>& GetPlayerNames();
 	const ReplayDeckList& GetPlayerDecks();
@@ -85,7 +87,7 @@ public:
 	void Reset();
 	int GetPlayersCount(int side);
 	int GetTurnsCount();
-	path_string GetReplayName();
+	epro::path_string GetReplayName();
 	std::unique_ptr<Replay> yrp;
 	std::vector<uint8_t> replay_data;
 	std::vector<uint8_t> comp_data;
@@ -95,7 +97,7 @@ public:
 		uint32_t start_lp;
 		uint32_t start_hand;
 		uint32_t draw_count;
-		uint32_t duel_flags;
+		uint64_t duel_flags;
 	};
 	duel_parameters params;
 	std::string scriptname;
@@ -122,7 +124,7 @@ private:
 	std::vector<std::wstring> players;
 	uint32_t home_count;
 	uint32_t opposing_count;
-	path_string replay_name;
+	epro::path_string replay_name;
 	ReplayDeckList decks;
 	std::vector<uint32_t> replay_custom_rule_cards;
 	std::vector<ReplayResponse>::iterator responses_iterator;

@@ -11,7 +11,9 @@
 #include "client_card.h"
 
 namespace ygo {
-CardDataC* DeckManager::GetDummyCardData(uint32_t code) {
+CardDataC* DeckManager::GetDummyOrMappedCardData(uint32_t code) {
+	if(!load_dummies)
+		return GetMappedCardData(code);
 	auto it = dummy_entries.find(code);
 	if(it != dummy_entries.end())
 		return it->second;
@@ -21,13 +23,19 @@ CardDataC* DeckManager::GetDummyCardData(uint32_t code) {
 	dummy_entries[code] = tmp;
 	return tmp;
 }
-DeckManager::~DeckManager() {
+CardDataC* DeckManager::GetMappedCardData(uint32_t code) {
+	auto it = mapped_ids.find(code);
+	if(it != mapped_ids.end())
+		return gDataManager->GetCardData(it->second);
+	return nullptr;
+}
+void DeckManager::ClearDummies() {
 	for(auto& card : dummy_entries) {
 		delete card.second;
 	}
 	dummy_entries.clear();
 }
-bool DeckManager::LoadLFListSingle(const path_string& path) {
+bool DeckManager::LoadLFListSingle(const epro::path_string& path) {
 	static const char key[] = "$whitelist";
 	bool loaded = false;
 	std::ifstream infile(path, std::ifstream::in);
@@ -80,7 +88,7 @@ bool DeckManager::LoadLFListSingle(const path_string& path) {
 	infile.close();
 	return loaded;
 }
-bool DeckManager::LoadLFListFolder(path_string path) {
+bool DeckManager::LoadLFListFolder(epro::path_string path) {
 	path = Utils::NormalizePath(path);
 	bool loaded = false;
 	auto lflists = Utils::FindFiles(path, { EPRO_TEXT("conf") });
@@ -124,7 +132,7 @@ LFList* DeckManager::GetLFList(uint32_t lfhash) {
 	auto it = std::find_if(_lfList.begin(), _lfList.end(), [lfhash](LFList list) {return list.hash == lfhash; });
 	return it != _lfList.end() ? &*it : nullptr;
 }
-epro_wstringview DeckManager::GetLFListName(uint32_t lfhash) {
+epro::wstringview DeckManager::GetLFListName(uint32_t lfhash) {
 	auto lflist = GetLFList(lfhash);
 	if(lflist)
 		return lflist->listName;
@@ -276,9 +284,9 @@ uint32_t DeckManager::LoadDeck(Deck& deck, const cardlist_type& mainlist, const 
 				errorcode = code;
 				continue;
 			}
-			cd = GetDummyCardData(code);
+			cd = GetDummyOrMappedCardData(code);
 		}
-		if(cd->type & TYPE_TOKEN)
+		if(!cd || cd->type & TYPE_TOKEN)
 			continue;
 		else if(!extralist && (cd->type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ) || (cd->type & TYPE_LINK && cd->type & TYPE_MONSTER))) {
 			deck.extra.push_back(cd);
@@ -293,9 +301,9 @@ uint32_t DeckManager::LoadDeck(Deck& deck, const cardlist_type& mainlist, const 
 					errorcode = code;
 					continue;
 				}
-				cd = GetDummyCardData(code);
+				cd = GetDummyOrMappedCardData(code);
 			}
-			if(cd->type & TYPE_TOKEN)
+			if(!cd || cd->type & TYPE_TOKEN)
 				continue;
 			deck.extra.push_back(cd);
 		}
@@ -306,15 +314,15 @@ uint32_t DeckManager::LoadDeck(Deck& deck, const cardlist_type& mainlist, const 
 				errorcode = code;
 				continue;
 			}
-			cd = GetDummyCardData(code);
+			cd = GetDummyOrMappedCardData(code);
 		}
-		if(cd->type & TYPE_TOKEN)
+		if(!cd || cd->type & TYPE_TOKEN)
 			continue;
 		deck.side.push_back(cd);
 	}
 	return errorcode;
 }
-bool LoadCardList(const path_string& name, cardlist_type* mainlist = nullptr, cardlist_type* extralist = nullptr, cardlist_type* sidelist = nullptr, uint32_t* retmainc = nullptr, uint32_t* retsidec = nullptr) {
+bool LoadCardList(const epro::path_string& name, cardlist_type* mainlist = nullptr, cardlist_type* extralist = nullptr, cardlist_type* sidelist = nullptr, uint32_t* retmainc = nullptr, uint32_t* retsidec = nullptr) {
 	std::ifstream deck(name, std::ifstream::in);
 	if(!deck.is_open())
 		return false;
@@ -386,7 +394,7 @@ bool DeckManager::LoadSide(Deck& deck, uint32_t* dbuf, uint32_t mainc, uint32_t 
 	deck = ndeck;
 	return true;
 }
-bool DeckManager::LoadDeck(const path_string& file, Deck* deck, bool separated) {
+bool DeckManager::LoadDeck(const epro::path_string& file, Deck* deck, bool separated) {
 	cardlist_type mainlist;
 	cardlist_type sidelist;
 	cardlist_type extralist;
@@ -400,7 +408,7 @@ bool DeckManager::LoadDeck(const path_string& file, Deck* deck, bool separated) 
 		LoadDeck(current_deck, mainlist, sidelist, separated ? &extralist : nullptr);
 	return true;
 }
-bool DeckManager::LoadDeckDouble(const path_string& file, const path_string& file2, Deck* deck) {
+bool DeckManager::LoadDeckDouble(const epro::path_string& file, const epro::path_string& file2, Deck* deck) {
 	cardlist_type mainlist;
 	cardlist_type sidelist;
 	LoadCardList(fmt::format(EPRO_TEXT("./deck/{}.ydk"), file), &mainlist, nullptr, &sidelist);
@@ -411,7 +419,7 @@ bool DeckManager::LoadDeckDouble(const path_string& file, const path_string& fil
 		LoadDeck(current_deck, mainlist, sidelist);
 	return true;
 }
-bool DeckManager::SaveDeck(Deck& deck, const path_string& name) {
+bool DeckManager::SaveDeck(Deck& deck, const epro::path_string& name) {
 	std::ofstream deckfile(fmt::format(EPRO_TEXT("./deck/{}.ydk"), name), std::ofstream::out);
 	if(!deckfile.is_open())
 		return false;
@@ -427,7 +435,7 @@ bool DeckManager::SaveDeck(Deck& deck, const path_string& name) {
 	deckfile.close();
 	return true;
 }
-bool DeckManager::SaveDeck(const path_string& name, const cardlist_type& mainlist, const cardlist_type& extralist, const cardlist_type& sidelist) {
+bool DeckManager::SaveDeck(const epro::path_string& name, const cardlist_type& mainlist, const cardlist_type& extralist, const cardlist_type& sidelist) {
 	std::ofstream deckfile(fmt::format(EPRO_TEXT("./deck/{}.ydk"), name), std::ofstream::out);
 	if(!deckfile.is_open())
 		return false;
@@ -530,10 +538,10 @@ void DeckManager::ImportDeckBase64(Deck& deck, const wchar_t* buffer) {
 	uint32_t sidec = (deck_data.size() / 4) - mainc;
 	LoadDeck(deck, (uint32_t*)deck_data.data(), mainc, sidec);
 }
-bool DeckManager::DeleteDeck(Deck& deck, const path_string& name) {
+bool DeckManager::DeleteDeck(Deck& deck, const epro::path_string& name) {
 	return Utils::FileDelete(fmt::format(EPRO_TEXT("./deck/{}.ydk"), name));
 }
-bool DeckManager::RenameDeck(const path_string& oldname, const path_string& newname) {
+bool DeckManager::RenameDeck(const epro::path_string& oldname, const epro::path_string& newname) {
 	return Utils::FileMove(EPRO_TEXT("./deck/") + oldname + EPRO_TEXT(".ydk"), EPRO_TEXT("./deck/") + newname + EPRO_TEXT(".ydk"));
 }
 }

@@ -68,8 +68,8 @@ bool Game::Initialize() {
 	if(!device) {
 		try {
 			device = GUIUtils::CreateDevice(gGameConfig);
-		} catch (...) {
-			ErrorLog("Failed to create Irrlicht Engine device!");
+		} catch (std::exception e) {
+			ErrorLog(e.what());
 			return false;
 		}
 	}
@@ -120,7 +120,9 @@ bool Game::Initialize() {
 		return false;
 	}
 	RefreshAiDecks();
-	discord.Initialize();
+	auto discordinitialized = discord.Initialize();
+	if(!discordinitialized)
+		gGameConfig->discordIntegration = false;
 	if(gGameConfig->discordIntegration)
 		discord.UpdatePresence(DiscordWrapper::INITIALIZE);
 	PopulateResourcesDirectories();
@@ -304,8 +306,6 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(tmpptr, 1237);
 	ebTimeLimit = env->addEditBox(WStr(gGameConfig->timeLimit), Scale(140, 115, 220, 140), true, wCreateHost, EDITBOX_NUMERIC);
 	ebTimeLimit->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
-	tmpptr = env->addStaticText(gDataManager->GetSysString(1228).data(), Scale(20, 150, 320, 170), false, false, wCreateHost);
-	defaultStrings.emplace_back(tmpptr, 1228);
 	btnRuleCards = env->addButton(Scale(260, 325, 370, 350), wCreateHost, BUTTON_RULE_CARDS, gDataManager->GetSysString(1625).data());
 	defaultStrings.emplace_back(btnRuleCards, 1625);
 	wRules = env->addWindow(Scale(630, 100, 1000, 310), false, L"");
@@ -321,12 +321,12 @@ bool Game::Initialize() {
 	}
 	extra_rules = gGameConfig->lastExtraRules;
 	UpdateExtraRules(true);
-	tmpptr = env->addStaticText(gDataManager->GetSysString(1236).data(), Scale(20, 180, 220, 200), false, false, wCreateHost);
+	tmpptr = env->addStaticText(gDataManager->GetSysString(1236).data(), Scale(20, 150, 220, 170), false, false, wCreateHost);
 	defaultStrings.emplace_back(tmpptr, 1236);
-	cbDuelRule = AddComboBox(env, Scale(140, 175, 300, 200), wCreateHost, COMBOBOX_DUEL_RULE);
+	cbDuelRule = AddComboBox(env, Scale(140, 145, 300, 170), wCreateHost, COMBOBOX_DUEL_RULE);
 	duel_param = gGameConfig->lastDuelParam;
 	forbiddentypes = gGameConfig->lastDuelForbidden;
-	btnCustomRule = env->addButton(Scale(305, 175, 370, 200), wCreateHost, BUTTON_CUSTOM_RULE, gDataManager->GetSysString(1626).data());
+	btnCustomRule = env->addButton(Scale(305, 145, 370, 170), wCreateHost, BUTTON_CUSTOM_RULE, gDataManager->GetSysString(1626).data());
 	defaultStrings.emplace_back(btnCustomRule, 1626);
 
 	wCustomRules = env->addWindow(Scale(0, 0, 450, 330), false, gDataManager->GetSysString(1630).data());
@@ -359,9 +359,9 @@ bool Game::Initialize() {
 		else if(i == 21)
 			set = duel_param & DUEL_TRIGGER_WHEN_PRIVATE_KNOWLEDGE;
 		else if(i > 21)
-			set = duel_param & 0x100U << (i - 3);
+			set = duel_param & 0x100ULL << (i - 3);
 		else
-			set = duel_param & 0x100U << i;
+			set = duel_param & 0x100ULL << i;
 		chkCustomRules[i] = env->addCheckBox(set, rectsize(), crPanel, CHECKBOX_OBSOLETE + i, gDataManager->GetSysString(1631 + i).data());
 		defaultStrings.emplace_back(chkCustomRules[i], 1631 + i);
 	}
@@ -377,15 +377,20 @@ bool Game::Initialize() {
 	TYPECHK(4, 1076);
 #undef TYPECHK
 
-	UpdateDuelParam();
 	btnCustomRulesOK = env->addButton(Scale(175, 290, 275, 315), wCustomRules, BUTTON_CUSTOM_RULE_OK, gDataManager->GetSysString(1211).data());
 	defaultStrings.emplace_back(btnCustomRulesOK, 1211);
 
 
-	chkNoCheckDeck = env->addCheckBox(gGameConfig->noCheckDeck, Scale(20, 210, 170, 230), wCreateHost, -1, gDataManager->GetSysString(1229).data());
+	chkNoCheckDeck = env->addCheckBox(gGameConfig->noCheckDeck, Scale(20, 180, 170, 200), wCreateHost, -1, gDataManager->GetSysString(1229).data());
 	defaultStrings.emplace_back(chkNoCheckDeck, 1229);
-	chkNoShuffleDeck = env->addCheckBox(gGameConfig->noShuffleDeck, Scale(180, 210, 360, 230), wCreateHost, -1, gDataManager->GetSysString(1230).data());
+	chkNoShuffleDeck = env->addCheckBox(gGameConfig->noShuffleDeck, Scale(180, 180, 360, 200), wCreateHost, -1, gDataManager->GetSysString(1230).data());
 	defaultStrings.emplace_back(chkNoShuffleDeck, 1230);
+
+	chkTcgRulings = env->addCheckBox(duel_param & DUEL_TCG_SEGOC_NONPUBLIC, Scale(20, 210, 170, 230), wCreateHost, TCG_SEGOC_NONPUBLIC, gDataManager->GetSysString(1239).data());
+	defaultStrings.emplace_back(chkTcgRulings, 1239);
+
+	UpdateDuelParam();
+
 	tmpptr = env->addStaticText(gDataManager->GetSysString(1231).data(), Scale(20, 240, 320, 260), false, false, wCreateHost);
 	defaultStrings.emplace_back(tmpptr, 1231);
 	ebStartLP = env->addEditBox(WStr(gGameConfig->startLP), Scale(140, 235, 220, 260), true, wCreateHost, EDITBOX_NUMERIC);
@@ -761,6 +766,7 @@ bool Game::Initialize() {
 #ifdef DISCORD_APP_ID
 	gSettings.chkDiscordIntegration = env->addCheckBox(gGameConfig->discordIntegration, Scale(340, 335, 645, 360), sPanel, CHECKBOX_DISCORD_INTEGRATION, gDataManager->GetSysString(2078).data());
 	defaultStrings.emplace_back(gSettings.chkDiscordIntegration, 2078);
+	gSettings.chkDiscordIntegration->setEnabled(discordinitialized);
 #endif
 	gSettings.chkHideHandsInReplays = env->addCheckBox(gGameConfig->hideHandsInReplays, Scale(340, 365, 645, 390), sPanel, CHECKBOX_HIDE_HANDS_REPLAY, gDataManager->GetSysString(2080).data());
 	defaultStrings.emplace_back(gSettings.chkHideHandsInReplays, 2080);
@@ -1575,7 +1581,7 @@ bool Game::MainLoop() {
 					auto lang = Utils::ToUpperNoAccents(langpath);
 					auto it = std::find_if(locales.begin(), locales.end(),
 										   [&lang]
-					(const std::pair<path_string, std::vector<path_string>>& locale)->bool
+					(const std::pair<epro::path_string, std::vector<epro::path_string>>& locale)->bool
 					{
 						return Utils::ToUpperNoAccents(locale.first) == lang;
 					});
@@ -1584,16 +1590,17 @@ bool Game::MainLoop() {
 						ReloadElementsStrings();
 					} else {
 						Utils::MakeDirectory(EPRO_TEXT("./config/languages/") + langpath);
-						locales.emplace_back(std::move(langpath), std::vector<path_string>{ std::move(data_path) });
+						locales.emplace_back(std::move(langpath), std::vector<epro::path_string>{ std::move(data_path) });
 						gSettings.cbCurrentLocale->addItem(BufferIO::DecodeUTF8s(repo->language).data());
 					}
 				}
 			}
-			if(refresh_db && is_building && !is_siding) {
+			if(refresh_db && is_building && !is_siding)
 				gdeckManager->RefreshDeck(gdeckManager->current_deck);
-			}
 			if(refresh_db && is_building && deckBuilder.results.size())
 				deckBuilder.StartFilter(true);
+			if(gRepoManager->GetUpdatingReposNumber() == 0)
+				gdeckManager->StopDummyLoading();
 		}
 #ifdef YGOPRO_BUILD_DLL
 		bool coreJustLoaded = false;
@@ -1855,11 +1862,11 @@ bool Game::MainLoop() {
 	//device->drop();
 	return restart;
 }
-path_string Game::NoSkinLabel() {
+epro::path_string Game::NoSkinLabel() {
 	return Utils::ToPathString(gDataManager->GetSysString(2065));
 }
-bool Game::ApplySkin(const path_string& skinname, bool reload, bool firstrun) {
-	static path_string prev_skin = EPRO_TEXT("");
+bool Game::ApplySkin(const epro::path_string& skinname, bool reload, bool firstrun) {
+	static epro::path_string prev_skin = EPRO_TEXT("");
 	bool applied = true;
 	auto reapply_colors = [&] () {
 		wCardImg->setBackgroundColor(skin::CARDINFO_IMAGE_BACKGROUND_VAL);
@@ -2003,45 +2010,47 @@ void Game::RefreshLFLists() {
 void Game::RefreshAiDecks() {
 	gBot.bots.clear();
 	std::ifstream windbots("WindBot/bots.json");
-	if (windbots) {
+	if (windbots.good()) {
+		nlohmann::json j;
 		try {
-			nlohmann::json j;
 			windbots >> j;
-			if (j.size() && j.is_array()) {
-				for (auto& obj : j) {
-					if (!obj["name"].is_string() || !obj["deck"].is_string() || !obj["difficulty"].is_number() || !obj["masterRules"].is_array())
-						continue;
+		}
+		catch(std::exception& e) {
+			ErrorLog(fmt::format("Failed to load WindBot Ignite config json: {}", e.what()));
+		}
+		if(j.is_array()) {
+#ifdef _WIN32
+			WindBot::executablePath = filesystem->getAbsolutePath(EPRO_TEXT("./WindBot")).c_str();
+#elif !defined(__ANDROID__)
+			{
+				auto it = gGameConfig->user_configs.find("posixPathExtension");
+				if(it != gGameConfig->user_configs.end() && it->is_string()) {
+					WindBot::executablePath = it->get<epro::path_string>();
+				} else if((it = gGameConfig->configs.find("posixPathExtension")) != gGameConfig->configs.end()
+						  && it->is_string()) {
+					WindBot::executablePath = it->get<epro::path_string>();
+				}
+			}
+#endif
+			for(auto& obj : j) {
+				try {
 					WindBot bot;
-					bot.name = BufferIO::DecodeUTF8s(obj["name"].get<std::string>());
-					bot.deck = BufferIO::DecodeUTF8s(obj["deck"].get<std::string>());
-					bot.difficulty = obj["difficulty"].get<int>();
-					for (auto& masterRule : obj["masterRules"].get<std::vector<nlohmann::json>>()) {
-						if (masterRule.is_number()) {
+					bot.name = BufferIO::DecodeUTF8s(obj.at("name").get_ref<std::string&>());
+					bot.deck = BufferIO::DecodeUTF8s(obj.at("deck").get_ref<std::string&>());
+					bot.difficulty = obj.at("difficulty").get<int>();
+					for(auto& masterRule : obj.at("masterRules")) {
+						if(masterRule.is_number()) {
 							bot.masterRules.insert(masterRule.get<int>());
 						}
 					}
-					bot.version = CLIENT_VERSION;
-#ifdef _WIN32
-					bot.executablePath = filesystem->getAbsolutePath(EPRO_TEXT("./WindBot")).c_str();
-#else
-					if(gGameConfig->user_configs.size() && gGameConfig->user_configs["posixPathExtension"].is_string()) {
-						bot.executablePath = gGameConfig->user_configs["posixPathExtension"].get<path_string>();
-					} else if (gGameConfig->configs.size() && gGameConfig->configs["posixPathExtension"].is_string()) {
-						bot.executablePath = gGameConfig->configs["posixPathExtension"].get<path_string>();
-					} else {
-						bot.executablePath = EPRO_TEXT("");
-					}
-#endif
 					gBot.bots.push_back(std::move(bot));
+				}
+				catch(std::exception& e) {
+					ErrorLog(fmt::format("Failed to parse WindBot Ignite config json entry: {}", e.what()));
 				}
 			}
 		}
-		catch (std::exception& e)
-		{
-			ErrorLog(fmt::format("Failed to load WindBot Ignite config json: {}", e.what()));
-		}
-	}
-	else {
+	} else {
 		ErrorLog("Failed to open WindBot Ignite config json!");
 	}
 }
@@ -2140,7 +2149,7 @@ void Game::LoadGithubRepositories() {
 				auto lang = Utils::ToPathString(repo->language);
 				auto it = std::find_if(locales.begin(), locales.end(),
 									   [&lang]
-				(const std::pair<path_string, std::vector<path_string>>& locale)->bool {
+				(const std::pair<epro::path_string, std::vector<epro::path_string>>& locale)->bool {
 					return locale.first == lang;
 				});
 				if(it != locales.end()) {
@@ -2153,9 +2162,9 @@ void Game::LoadGithubRepositories() {
 	}
 }
 void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
-	if(repo->error.size()) {
+	if(repo->history.error.size()) {
 		ErrorLog(fmt::format("The repo {} couldn't be cloned", repo->url));
-		ErrorLog(fmt::format("Error: {}", repo->error));
+		ErrorLog(fmt::format("Error: {}", repo->history.error));
 		grepo->history_button1->setText(gDataManager->GetSysString(1434).data());
 		defaultStrings.emplace_back(grepo->history_button1, 1434);
 		grepo->history_button1->setEnabled(true);
@@ -2164,34 +2173,34 @@ void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 		grepo->history_button2->setEnabled(true);
 		grepo->commit_history_full = fmt::format(L"{}\n{}",
 												fmt::format(gDataManager->GetSysString(1435), BufferIO::DecodeUTF8s(repo->url)),
-												fmt::format(gDataManager->GetSysString(1436), BufferIO::DecodeUTF8s(repo->error))
+												fmt::format(gDataManager->GetSysString(1436), BufferIO::DecodeUTF8s(repo->history.error))
 		);
 		grepo->commit_history_partial = grepo->commit_history_full;
 		return;
 	}
 	std::string text;
-	std::for_each(repo->commit_history_full.begin(), repo->commit_history_full.end(), [&text](const std::string& n) { if(n.size()) { text += n + "\n\n"; }});
+	std::for_each(repo->history.full_history.begin(), repo->history.full_history.end(), [&text](const std::string& n) { if(n.size()) { text += n + "\n\n"; }});
 	if(text.size())
 		text.erase(text.size() - 2, 2);
 	grepo->commit_history_full = BufferIO::DecodeUTF8s(text);
 	grepo->commit_history_partial.clear();
-	if(repo->commit_history_partial.size()) {
-		if(repo->commit_history_full.front() == repo->commit_history_partial.front() && repo->commit_history_full.back() == repo->commit_history_partial.back()) {
+	if(repo->history.partial_history.size()) {
+		if(repo->history.partial_history.front() == repo->history.partial_history.front() && repo->history.full_history.back() == repo->history.full_history.back()) {
 			grepo->commit_history_partial = grepo->commit_history_full;
 		} else {
 			text.clear();
-			std::for_each(repo->commit_history_partial.begin(), repo->commit_history_partial.end(), [&text](const std::string& n) { if(n.size()) { text += n + "\n\n"; }});
+			std::for_each(repo->history.partial_history.begin(), repo->history.partial_history.end(), [&text](const std::string& n) { if(n.size()) { text += n + "\n\n"; }});
 			if(text.size())
 				text.erase(text.size() - 2, 2);
 			grepo->commit_history_partial = BufferIO::DecodeUTF8s(text);
 		}
 	} else {
-		if(repo->warning.size()) {
+		if(repo->history.warning.size()) {
 			grepo->history_button1->setText(gDataManager->GetSysString(1448).data());
 			grepo->commit_history_partial = fmt::format(L"{}\n{}\n\n{}",
 				gDataManager->GetSysString(1449),
 				gDataManager->GetSysString(1450),
-				BufferIO::DecodeUTF8s(repo->warning));
+				BufferIO::DecodeUTF8s(repo->history.warning));
 		} else {
 			grepo->commit_history_partial = gDataManager->GetSysString(1446).data();
 		}
@@ -2200,7 +2209,7 @@ void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 	grepo->history_button2->setEnabled(true);
 	if(!repo->is_language) {
 		script_dirs.insert(script_dirs.begin(), Utils::ToPathString(repo->script_path));
-		auto script_subdirs = Utils::FindSubfolders(Utils::ToPathString(repo->script_path));
+		auto script_subdirs = Utils::FindSubfolders(Utils::ToPathString(repo->script_path), 2);
 		script_dirs.insert(script_dirs.begin(), std::make_move_iterator(script_subdirs.begin()), std::make_move_iterator(script_subdirs.end()));
 		pic_dirs.insert(pic_dirs.begin(), Utils::ToPathString(repo->pics_path));
 		if(repo->has_core)
@@ -2214,34 +2223,32 @@ void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 	}
 }
 void Game::LoadServers() {
-	for(auto& _config : { std::ref(gGameConfig->user_configs), std::ref(gGameConfig->configs) }) {
-		auto& config = _config.get();
-		try {
-			if(config.size() && config.at("servers").is_array()) {
+	for(auto& _config : { &gGameConfig->user_configs, &gGameConfig->configs }) {
+		auto& config = *_config;
+		auto it = config.find("servers");
+		if(it != config.end() && it->is_array()) {
+			for(auto& obj : *it) {
 				try {
-					for(auto& obj : config["servers"].get<std::vector<nlohmann::json>>()) {
-						ServerInfo tmp_server;
-						tmp_server.name = BufferIO::DecodeUTF8s(obj["name"].get<std::string>());
-						tmp_server.address = BufferIO::DecodeUTF8s(obj["address"].get<std::string>());
-						tmp_server.roomaddress = BufferIO::DecodeUTF8s(obj["roomaddress"].get<std::string>());
-						tmp_server.roomlistport = obj["roomlistport"].get<int>();
-						tmp_server.duelport = obj["duelport"].get<int>();
-						int i = serverChoice->addItem(tmp_server.name.data());
-						if(gGameConfig->lastServer == tmp_server.name)
-							serverChoice->setSelected(i);
-						ServerLobby::serversVector.push_back(std::move(tmp_server));
-					}
+					ServerInfo tmp_server;
+					tmp_server.name = BufferIO::DecodeUTF8s(obj.at("name").get_ref<std::string&>());
+					tmp_server.address = BufferIO::DecodeUTF8s(obj.at("address").get_ref<std::string&>());
+					tmp_server.roomaddress = BufferIO::DecodeUTF8s(obj.at("roomaddress").get_ref<std::string&>());
+					tmp_server.roomlistport = obj.at("roomlistport").get<int>();
+					tmp_server.duelport = obj.at("duelport").get<int>();
+					int i = serverChoice->addItem(tmp_server.name.data());
+					if(gGameConfig->lastServer == tmp_server.name)
+						serverChoice->setSelected(i);
+					ServerLobby::serversVector.push_back(std::move(tmp_server));
 				}
 				catch(std::exception& e) {
-					ErrorLog(fmt::format("Exception occurred: {}", e.what()));
+					ErrorLog(fmt::format("Exception occurred while parsing server entry: {}", e.what()));
 				}
 			}
 		}
-		catch(...) {}
 	}
 }
-void Game::ShowCardInfo(uint32_t code, bool resize, ImageManager::imgType type) {
-	static ImageManager::imgType prevtype = ImageManager::imgType::ART;
+void Game::ShowCardInfo(uint32_t code, bool resize, imgType type) {
+	static auto prevtype = imgType::ART;
 	if(code == 0) {
 		ClearCardInfo(0);
 		return;
@@ -2342,16 +2349,16 @@ void Game::ClearCardInfo(int player) {
 	cardimagetextureloading = false;
 	showingcard = 0;
 }
-void Game::AddChatMsg(epro_wstringview msg, int player, int type) {
+void Game::AddChatMsg(epro::wstringview msg, int player, int type) {
 	for(int i = 7; i > 0; --i) {
-		chatMsg[i] = chatMsg[i - 1];
+		chatMsg[i].swap(chatMsg[i - 1]);
 		chatTiming[i] = chatTiming[i - 1];
 		chatType[i] = chatType[i - 1];
 	}
 	chatMsg[0].clear();
 	chatTiming[0] = 1200.0f;
 	chatType[0] = player;
-	epro_wstringview sender = L"";
+	epro::wstringview sender = L"";
 	if(type == 0) {
 		gSoundManager->PlaySoundEffect(SoundManager::SFX::CHAT);
 		sender = dInfo.selfnames[player];
@@ -2378,7 +2385,7 @@ void Game::AddChatMsg(epro_wstringview msg, int player, int type) {
 	chatMsg[0] = fmt::format(L"{}: {}", sender, msg);
 	lstChat->addItem(chatMsg[0].data());
 }
-void Game::AddLog(epro_wstringview msg, int param) {
+void Game::AddLog(epro::wstringview msg, int param) {
 	logParam.push_back(param);
 	lstLog->addItem(msg.data());
 	if(!env->hasFocus(lstLog)) {
@@ -2390,7 +2397,7 @@ void Game::ClearChatMsg() {
 		chatTiming[i] = 0;
 	}
 }
-void Game::AddDebugMsg(epro_stringview msg) {
+void Game::AddDebugMsg(epro::stringview msg) {
 	if (gGameConfig->coreLogOutput & CORE_LOG_TO_CHAT)
 		AddChatMsg(BufferIO::DecodeUTF8s(msg), 9, 2);
 	if (gGameConfig->coreLogOutput & CORE_LOG_TO_FILE)
@@ -2463,7 +2470,7 @@ void Game::CloseDuelWindow() {
 	closeDuelWindow = false;
 	closeDoneSignal.Set();
 }
-void Game::PopupMessage(epro_wstringview text, epro_wstringview caption) {
+void Game::PopupMessage(epro::wstringview text, epro::wstringview caption) {
 	popupCheck.lock();
 	queued_msg = text.data();
 	queued_caption = caption.data();
@@ -2474,9 +2481,9 @@ uint8_t Game::LocalPlayer(uint8_t player) {
 }
 void Game::UpdateDuelParam() {
 	ReloadCBDuelRule();
-	uint32_t flag = 0;
-	for (int i = 0; i < sizeofarr(chkCustomRules); ++i)
-		if (chkCustomRules[i]->isChecked()) {
+	uint64_t flag = 0;
+	for(int i = 0; i < sizeofarr(chkCustomRules); ++i) {
+		if(chkCustomRules[i]->isChecked()) {
 			if(i == 19)
 				flag |= DUEL_USE_TRAPS_IN_NEW_CHAIN;
 			else if(i == 20)
@@ -2484,10 +2491,11 @@ void Game::UpdateDuelParam() {
 			else if(i == 21)
 				flag |= DUEL_TRIGGER_WHEN_PRIVATE_KNOWLEDGE;
 			else if(i > 21)
-				flag |= 0x100U << (i - 3);
+				flag |= 0x100ULL << (i - 3);
 			else
-				flag |= 0x100U << i;
+				flag |= 0x100ULL << i;
 		}
+	}
 	constexpr uint32_t limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
 	uint32_t flag2 = 0;
 	for (int i = 0; i < sizeofarr(chkTypeLimit); ++i) {
@@ -2514,19 +2522,23 @@ void Game::UpdateDuelParam() {
 			cbDuelRule->removeItem(8);
 		break;
 	}
-// NOTE: intentional case fallthrough
-#define CHECK(MR) case DUEL_MODE_MR##MR:{ cbDuelRule->setSelected(MR - 1); if (flag2 == DUEL_MODE_MR##MR##_FORB) { cbDuelRule->removeItem(8); break; } }
-	CHECK(1)
-	CHECK(2)
-	CHECK(3)
-	CHECK(4)
-	CHECK(5)
-#undef CHECK
-	default: {
-		cbDuelRule->addItem(gDataManager->GetSysString(1630).data());
-		cbDuelRule->setSelected(8);
+	default:
+		switch(flag & ~DUEL_TCG_SEGOC_NONPUBLIC) {
+	// NOTE: intentional case fallthrough
+	#define CHECK(MR) case DUEL_MODE_MR##MR:{ cbDuelRule->setSelected(MR - 1); if (flag2 == DUEL_MODE_MR##MR##_FORB) { cbDuelRule->removeItem(8); break; } }
+		CHECK(1)
+		CHECK(2)
+		CHECK(3)
+		CHECK(4)
+		CHECK(5)
+	#undef CHECK
+		default: {
+			cbDuelRule->addItem(gDataManager->GetSysString(1630).data());
+			cbDuelRule->setSelected(8);
+			break;
+		}
+		}
 		break;
-	}
 	}
 	duel_param = flag;
 	forbiddentypes = flag2;
@@ -2569,7 +2581,7 @@ void Game::UpdateExtraRules(bool set) {
 			extra_rules |= flag;
 	}
 }
-int Game::GetMasterRule(uint32_t param, uint32_t forbiddentypes, int* truerule) {
+int Game::GetMasterRule(uint64_t param, uint32_t forbiddentypes, int* truerule) {
 	if(truerule)
 		*truerule = 0;
 #define CHECK(MR) case DUEL_MODE_MR##MR:{ if (truerule && forbiddentypes == DUEL_MODE_MR##MR##_FORB) *truerule = MR; break; }
@@ -3205,7 +3217,7 @@ std::wstring Game::ReadPuzzleMessage(const std::wstring& script_name) {
 	}
 	return BufferIO::DecodeUTF8s(res);
 }
-path_string Game::FindScript(path_stringview name, MutexLockedIrrArchivedFile* retarchive) {
+epro::path_string Game::FindScript(epro::path_stringview name, MutexLockedIrrArchivedFile* retarchive) {
 	for(auto& path : script_dirs) {
 		if(path == EPRO_TEXT("archives")) {
 			if(auto tmp = Utils::FindFileInArchives(EPRO_TEXT("script/"), name)) {
@@ -3223,7 +3235,7 @@ path_string Game::FindScript(path_stringview name, MutexLockedIrrArchivedFile* r
 		return name.data();
 	return EPRO_TEXT("");
 }
-std::vector<char> Game::LoadScript(epro_stringview _name) {
+std::vector<char> Game::LoadScript(epro::stringview _name) {
 	MutexLockedIrrArchivedFile tmp;
 	auto path = FindScript(Utils::ToPathString(_name), &tmp);
 	if(path.size()) {
@@ -3244,7 +3256,7 @@ std::vector<char> Game::LoadScript(epro_stringview _name) {
 	}
 	return {};
 }
-bool Game::LoadScript(OCG_Duel pduel, epro_stringview script_name) {
+bool Game::LoadScript(OCG_Duel pduel, epro::stringview script_name) {
 	auto buf = LoadScript(script_name);
 	return buf.size() && OCG_LoadScript(pduel, buf.data(), buf.size(), script_name.data());
 }
@@ -3328,7 +3340,7 @@ void Game::PopulateResourcesDirectories() {
 void Game::PopulateLocales() {
 	locales.clear();
 	for(auto& locale : Utils::FindSubfolders(EPRO_TEXT("./config/languages/"), 1, false)) {
-		locales.emplace_back(locale, std::vector<path_string>());
+		locales.emplace_back(locale, std::vector<epro::path_string>());
 	}
 }
 

@@ -25,7 +25,7 @@ void ReplayPacket::Set(uint8_t msg, char* buf, uint32_t len) {
 	if(len)
 		memcpy(data.data(), buf, data.size());
 }
-void Replay::BeginRecord(bool write, path_string name) {
+void Replay::BeginRecord(bool write, epro::path_string name) {
 	Reset();
 	if(fp.is_open())
 		fp.close();
@@ -42,6 +42,9 @@ void Replay::WritePacket(const ReplayPacket& p) {
 	Write<uint8_t>(p.message, false);
 	Write<uint32_t>(p.data.size(), false);
 	WriteData((char*)p.data.data(), p.data.size());
+}
+bool Replay::IsStreamedReplay() {
+	return pheader.id == REPLAY_YRPX;
 }
 void Replay::WriteStream(const ReplayStream& stream) {
 	for(auto& packet : stream)
@@ -88,7 +91,7 @@ void Replay::EndRecord(size_t size) {
 	comp_data.resize(comp_size);
 	is_recording = false;
 }
-void Replay::SaveReplay(const path_string& name) {
+void Replay::SaveReplay(const epro::path_string& name) {
 	std::ofstream replay_file(fmt::format(EPRO_TEXT("./replay/{}.yrpX"), name), std::ofstream::binary);
 	if(!replay_file.is_open())
 		return;
@@ -96,10 +99,13 @@ void Replay::SaveReplay(const path_string& name) {
 	replay_file.write((char*)comp_data.data(), comp_data.size());
 	replay_file.close();
 }
+static inline bool IsReplayValid(uint32_t id) {
+	return id == REPLAY_YRP1 || id == REPLAY_YRPX;
+}
 bool Replay::OpenReplayFromBuffer(std::vector<uint8_t>&& contents) {
 	Reset();
 	memcpy(&pheader, contents.data(), sizeof(pheader));
-	if(pheader.id != REPLAY_YRP1 && pheader.id != REPLAY_YRPX) {
+	if(!IsReplayValid(pheader.id)) {
 		Reset();
 		return false;
 	}
@@ -132,7 +138,7 @@ bool Replay::IsExportable() {
 		return false;
 	return true;
 }
-bool Replay::OpenReplay(const path_string& name) {
+bool Replay::OpenReplay(const epro::path_string& name) {
 	if(replay_name == name) {
 		Rewind();
 		return true;
@@ -155,10 +161,10 @@ bool Replay::OpenReplay(const path_string& name) {
 	replay_name.clear();
 	return false;
 }
-bool Replay::DeleteReplay(const path_string& name) {
+bool Replay::DeleteReplay(const epro::path_string& name) {
 	return Utils::FileDelete(name);
 }
-bool Replay::RenameReplay(const path_string& oldname, const path_string& newname) {
+bool Replay::RenameReplay(const epro::path_string& oldname, const epro::path_string& newname) {
 	return Utils::FileMove(oldname, newname);
 }
 bool Replay::GetNextResponse(ReplayResponse* res) {
@@ -172,7 +178,7 @@ const std::vector<std::wstring>& Replay::GetPlayerNames() {
 	return players;
 }
 const ReplayDeckList& Replay::GetPlayerDecks() {
-	if(pheader.id == REPLAY_YRPX && yrp)
+	if(IsStreamedReplay() && yrp)
 		return yrp->decks;
 	return decks;
 }
@@ -222,7 +228,10 @@ void Replay::ParseParams() {
 		params.start_hand = Read<uint32_t>();
 		params.draw_count = Read<uint32_t>();
 	}
-	params.duel_flags = Read<uint32_t>();
+	if(pheader.flag & REPLAY_64BIT_DUELFLAG)
+		params.duel_flags = Read<uint64_t>();
+	else
+		params.duel_flags = Read<uint32_t>();
 	if(pheader.flag & REPLAY_SINGLE_MODE && pheader.id == REPLAY_YRP1) {
 		size_t slen = Read<uint16_t>();
 		scriptname.resize(slen);
@@ -262,7 +271,7 @@ bool Replay::ReadNextPacket(ReplayPacket* packet) {
 }
 void Replay::ParseStream() {
 	packets_stream.clear();
-	if(pheader.id != REPLAY_YRPX)
+	if(!IsStreamedReplay())
 		return;
 	ReplayPacket p;
 	while(ReadNextPacket(&p)) {
@@ -326,7 +335,7 @@ int Replay::GetPlayersCount(int side) {
 int Replay::GetTurnsCount() {
 	return turn_count;
 }
-path_string Replay::GetReplayName() {
+epro::path_string Replay::GetReplayName() {
 	return replay_name;
 }
 std::vector<uint8_t> Replay::GetSerializedBuffer() {

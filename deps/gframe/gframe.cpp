@@ -6,6 +6,7 @@
 #define _tmain main
 #include <unistd.h>
 #endif
+#include <curl/curl.h>
 #include <event2/thread.h>
 #include <IrrlichtDevice.h>
 #include <IGUIButton.h>
@@ -28,7 +29,7 @@
 bool exit_on_return = false;
 bool is_from_discord = false;
 bool open_file = false;
-path_string open_file_name = EPRO_TEXT("");
+epro::path_string open_file_name = EPRO_TEXT("");
 bool show_changelog = false;
 ygo::Game* ygo::mainGame = nullptr;
 ygo::ImageDownloader* ygo::gImageDownloader = nullptr;
@@ -61,7 +62,7 @@ inline void SetCheckbox(irr::gui::IGUICheckBox* chk, bool state) {
 #define RUN_IF(x,expr) (PARAM_CHECK(x)) {i++; if(i < argc) {expr;} continue;}
 #define SET_TXT(elem) ygo::mainGame->elem->setText(ygo::Utils::ToUnicodeIfNeeded(argv[i]).data())
 
-void CheckArguments(int argc, path_char* argv[]) {
+void CheckArguments(int argc, epro::path_char* argv[]) {
 	bool keep_on_return = false;
 	for(int i = 1; i < argc; ++i) {
 		if((wchar_t)argv[i][0] == '-' && argv[i][1]) {
@@ -129,7 +130,7 @@ void CheckArguments(int argc, path_char* argv[]) {
 				break;
 			}
 		} else if(argc == 2 && argv[1][0] && argv[1][1] && argv[1][2] && argv[1][3]) {
-			path_string parameter = argv[1];
+			epro::path_string parameter = argv[1];
 			auto extension = ygo::Utils::GetFileExtension(parameter);
 			if(extension == EPRO_TEXT("ydk")) {
 				open_file = true;
@@ -164,22 +165,27 @@ void CheckArguments(int argc, path_char* argv[]) {
 #undef SET_TXT
 #undef PARAM_CHECK
 
-
+inline void ThreadsStartup() {
+	curl_global_init(CURL_GLOBAL_NOTHING);
 #ifdef _WIN32
-#define Cleanup() WSACleanup()
-inline void Startup() {
 	const WORD wVersionRequested = MAKEWORD(2, 2);
 	WSADATA wsaData;
 	WSAStartup(wVersionRequested, &wsaData);
 	evthread_use_windows_threads();
-}
 #else
-#define Cleanup() ((void)0)
-#define Startup() evthread_use_pthreads()
-#endif //_WIN32
+	evthread_use_pthreads();
+#endif
+}
+inline void ThreadsCleanup() {
+	curl_global_cleanup();
+	libevent_global_shutdown();
+#ifdef _WIN32
+	WSACleanup();
+#endif
+}
 
-int _tmain(int argc, path_char* argv[]) {
-	path_stringview dest{};
+int _tmain(int argc, epro::path_char* argv[]) {
+	epro::path_stringview dest{};
 	int skipped = 0;
 	if(argc >= 2 && (argv[1] == EPRO_TEXT("from_discord"_sv) || argv[1] == EPRO_TEXT("-C"_sv))) {
 		dest = argv[2];
@@ -192,7 +198,7 @@ int _tmain(int argc, path_char* argv[]) {
 	}
 	if(argc >= 2 && argv[1] == EPRO_TEXT("show_changelog"_sv))
 		show_changelog = true;
-	Startup();
+	ThreadsStartup();
 #ifndef _WIN32
 	setlocale(LC_CTYPE, "UTF-8");
 #endif //_WIN32
@@ -210,7 +216,7 @@ int _tmain(int argc, path_char* argv[]) {
 	}
 	catch(std::exception e) {
 		ygo::ErrorLog(e.what());
-		Cleanup();
+		ThreadsCleanup();
 		return EXIT_FAILURE;
 	}
 	if (!data->configs->noClientUpdates)
@@ -237,7 +243,7 @@ int _tmain(int argc, path_char* argv[]) {
 			data->tmp_device = nullptr;
 		}
 		if(!ygo::mainGame->Initialize()) {
-			Cleanup();
+			ThreadsCleanup();
 			return EXIT_FAILURE;
 		}
 		if(firstlaunch) {
@@ -259,6 +265,6 @@ int _tmain(int argc, path_char* argv[]) {
 			data->tmp_device->getGUIEnvironment()->clear();
 		}
 	} while(reset);
-	Cleanup();
+	ThreadsCleanup();
 	return EXIT_SUCCESS;
 }

@@ -565,7 +565,7 @@ void GenericDuel::TPResult(DuelPlayer* dp, uint8_t tp) {
 	ReplayHeader rh;
 	rh.id = REPLAY_YRP1;
 	rh.version = CLIENT_VERSION;
-	rh.flag = REPLAY_LUA64 | REPLAY_NEWREPLAY;
+	rh.flag = REPLAY_LUA64 | REPLAY_NEWREPLAY | REPLAY_64BIT_DUELFLAG;
 	rh.seed = static_cast<uint32_t>(time(0));
 	last_replay.BeginRecord(true, EPRO_TEXT("./replay/_LastReplay.yrp"));
 	last_replay.WriteHeader(rh);
@@ -588,9 +588,9 @@ void GenericDuel::TPResult(DuelPlayer* dp, uint8_t tp) {
 	}
 	replay_stream.clear();
 	time_limit[0] = time_limit[1] = host_info.time_limit ? (host_info.time_limit + 5) : 0;
-	uint32_t opt = host_info.duel_flag;
+	uint64_t opt = (((uint64_t)host_info.duel_flag_low) | ((uint64_t)host_info.duel_flag_high) << 32);
 	if(host_info.no_shuffle_deck)
-		opt |= DUEL_PSEUDO_SHUFFLE;
+		opt |= ((uint64_t)DUEL_PSEUDO_SHUFFLE);
 	OCG_Player team = { host_info.start_lp, host_info.start_hand, host_info.draw_count };
 	pduel = mainGame->SetupDuel({ rnd(), opt, team, team });
 	if(!host_info.no_shuffle_deck) {
@@ -598,11 +598,11 @@ void GenericDuel::TPResult(DuelPlayer* dp, uint8_t tp) {
 			std::shuffle(dueler.pdeck.main.begin(), dueler.pdeck.main.end(), rnd);
 		});
 	}
-	new_replay.Write<uint32_t>(opt);
+	new_replay.Write<uint64_t>(opt);
 	last_replay.Write<uint32_t>(host_info.start_lp, false);
 	last_replay.Write<uint32_t>(host_info.start_hand, false);
 	last_replay.Write<uint32_t>(host_info.draw_count, false);
-	last_replay.Write<uint32_t>(opt, false);
+	last_replay.Write<uint64_t>(opt, false);
 	last_replay.Flush();
 	//
 	std::vector<uint32_t> extracards;

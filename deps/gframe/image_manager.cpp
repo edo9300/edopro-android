@@ -16,60 +16,75 @@
 namespace ygo {
 
 #define X(x) (textures_path + EPRO_TEXT(x)).data()
-#define GET(obj,fun1,fun2) obj=fun1; if(!obj) obj=fun2;
+#define GET(obj,fun1,fun2) do {obj=fun1; if(!obj) obj=fun2; def_##obj=obj;}while(0)
 #define GTFF(path,ext,w,h) GetTextureFromFile(X(path ext), mainGame->Scale(w), mainGame->Scale(h))
-#define GET_TEXTURE_SIZED(obj,path,w,h) GET(obj,GTFF(path,".png",w,h),GTFF(path,".jpg",w,h)) def_##obj=obj;
-#define GET_TEXTURE(obj,path) GET(obj,driver->getTexture(X(path ".png")),driver->getTexture(X(path ".jpg"))) def_##obj=obj;
+#define GET_TEXTURE_SIZED(obj,path,w,h) GET(obj,GTFF(path,".png",w,h),GTFF(path,".jpg",w,h))
+#define GET_TEXTURE(obj,path) GET(obj,driver->getTexture(X(path ".png")),driver->getTexture(X(path ".jpg")))
+ImageManager::ImageManager() {
+	stop_threads = false;
+	obj_clear_thread = std::thread(&ImageManager::ClearFutureObjects, this);
+}
+ImageManager::~ImageManager() {
+	obj_clear_lock.lock();
+	stop_threads = true;
+	cv.notify_all();
+	obj_clear_lock.unlock();
+	obj_clear_thread.join();
+}
 bool ImageManager::Initial() {
 	timestamp_id = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	textures_path = BASE_PATH;
-	GET_TEXTURE_SIZED(tCover[0],"cover", CARD_IMG_WIDTH, CARD_IMG_HEIGHT)
-	GET_TEXTURE_SIZED(tCover[1],"cover2", CARD_IMG_WIDTH, CARD_IMG_HEIGHT)
+	GET_TEXTURE_SIZED(tCover[0], "cover", CARD_IMG_WIDTH, CARD_IMG_HEIGHT);
+	GET_TEXTURE_SIZED(tCover[1], "cover2", CARD_IMG_WIDTH, CARD_IMG_HEIGHT);
 	if(!tCover[1]){
 		tCover[1] = tCover[0];
 		def_tCover[1] = tCover[1];
 	}
-	GET_TEXTURE_SIZED(tUnknown, "unknown", CARD_IMG_WIDTH, CARD_IMG_HEIGHT)
-	GET_TEXTURE(tAct, "act")
-	GET_TEXTURE(tAttack, "attack")
-	GET_TEXTURE(tChain, "chain")
-	GET_TEXTURE_SIZED(tNegated, "negated", 128, 128)
-	GET_TEXTURE_SIZED(tNumber, "number", 320, 256)
-	GET_TEXTURE(tLPBar, "lp")
-	GET_TEXTURE(tLPFrame, "lpf")
-	GET_TEXTURE_SIZED(tMask, "mask", 254, 254)
-	GET_TEXTURE(tEquip, "equip")
-	GET_TEXTURE(tTarget, "target")
-	GET_TEXTURE(tChainTarget, "chaintarget")
-	GET_TEXTURE(tLim, "lim")
-	GET_TEXTURE(tOT, "ot")
-	GET_TEXTURE_SIZED(tHand[0], "f1", 89, 128)
-	GET_TEXTURE_SIZED(tHand[1], "f2", 89, 128)
-	GET_TEXTURE_SIZED(tHand[2], "f3", 89, 128)
-	GET_TEXTURE(tBackGround, "bg")
-	GET_TEXTURE(tBackGround_menu, "bg_menu")
-	if(!tBackGround_menu)
+	GET_TEXTURE_SIZED(tUnknown, "unknown", CARD_IMG_WIDTH, CARD_IMG_HEIGHT);
+	GET_TEXTURE(tAct, "act");
+	GET_TEXTURE(tAttack, "attack");
+	GET_TEXTURE(tChain, "chain");
+	GET_TEXTURE_SIZED(tNegated, "negated", 128, 128);
+	GET_TEXTURE_SIZED(tNumber, "number", 320, 256);
+	GET_TEXTURE(tLPBar, "lp");
+	GET_TEXTURE(tLPFrame, "lpf");
+	GET_TEXTURE_SIZED(tMask, "mask", 254, 254);
+	GET_TEXTURE(tEquip, "equip");
+	GET_TEXTURE(tTarget, "target");
+	GET_TEXTURE(tChainTarget, "chaintarget");
+	GET_TEXTURE(tLim, "lim");
+	GET_TEXTURE(tOT, "ot");
+	GET_TEXTURE_SIZED(tHand[0], "f1", 89, 128);
+	GET_TEXTURE_SIZED(tHand[1], "f2", 89, 128);
+	GET_TEXTURE_SIZED(tHand[2], "f3", 89, 128);
+	GET_TEXTURE(tBackGround, "bg");
+	GET_TEXTURE(tBackGround_menu, "bg_menu");
+	if(!tBackGround_menu){
 		tBackGround_menu = tBackGround;
-	GET_TEXTURE(tBackGround_deck, "bg_deck")
-	if(!tBackGround_deck)
+		def_tBackGround_menu = tBackGround;
+	}
+	GET_TEXTURE(tBackGround_deck, "bg_deck");
+	if(!tBackGround_deck){
 		tBackGround_deck = tBackGround;
-	GET_TEXTURE(tField[0][0], "field2")
-	GET_TEXTURE(tFieldTransparent[0][0], "field-transparent2")
-	GET_TEXTURE(tField[0][1], "field3")
-	GET_TEXTURE(tFieldTransparent[0][1], "field-transparent3")
-	GET_TEXTURE(tField[0][2], "field")
-	GET_TEXTURE(tFieldTransparent[0][2], "field-transparent")
-	GET_TEXTURE(tField[0][3], "field4")
-	GET_TEXTURE(tFieldTransparent[0][3], "field-transparent4")
-	GET_TEXTURE(tField[1][0], "fieldSP2")
-	GET_TEXTURE(tFieldTransparent[1][0], "field-transparentSP2")
-	GET_TEXTURE(tField[1][1], "fieldSP3")
-	GET_TEXTURE(tFieldTransparent[1][1], "field-transparentSP3")
-	GET_TEXTURE(tField[1][2], "fieldSP")
-	GET_TEXTURE(tFieldTransparent[1][2], "field-transparentSP")
-	GET_TEXTURE(tField[1][3], "fieldSP4")
-	GET_TEXTURE(tFieldTransparent[1][3], "field-transparentSP4")
-	GET_TEXTURE(tSettings, "settings")
+		def_tBackGround_deck = tBackGround;
+	}
+	GET_TEXTURE(tField[0][0], "field2");
+	GET_TEXTURE(tFieldTransparent[0][0], "field-transparent2");
+	GET_TEXTURE(tField[0][1], "field3");
+	GET_TEXTURE(tFieldTransparent[0][1], "field-transparent3");
+	GET_TEXTURE(tField[0][2], "field");
+	GET_TEXTURE(tFieldTransparent[0][2], "field-transparent");
+	GET_TEXTURE(tField[0][3], "field4");
+	GET_TEXTURE(tFieldTransparent[0][3], "field-transparent4");
+	GET_TEXTURE(tField[1][0], "fieldSP2");
+	GET_TEXTURE(tFieldTransparent[1][0], "field-transparentSP2");
+	GET_TEXTURE(tField[1][1], "fieldSP3");
+	GET_TEXTURE(tFieldTransparent[1][1], "field-transparentSP3");
+	GET_TEXTURE(tField[1][2], "fieldSP");
+	GET_TEXTURE(tFieldTransparent[1][2], "field-transparentSP");
+	GET_TEXTURE(tField[1][3], "fieldSP4");
+	GET_TEXTURE(tFieldTransparent[1][3], "field-transparentSP4");
+	GET_TEXTURE(tSettings, "settings");
 	sizes[0].first = CARD_IMG_WIDTH * gGameConfig->dpi_scale;
 	sizes[0].second = CARD_IMG_HEIGHT * gGameConfig->dpi_scale;
 	sizes[1].first = CARD_IMG_WIDTH * mainGame->window_scale.X * gGameConfig->dpi_scale;
@@ -82,54 +97,64 @@ bool ImageManager::Initial() {
 #undef GET
 #undef GET_TEXTURE
 #undef GET_TEXTURE_SIZED
-#define GET(obj,fun1,fun2,fallback) obj=fun1; if(!obj) obj=fun2; if(!obj) obj=fallback;
+#define GET(to_set,fun1,fun2,fallback) do  {\
+	irr::video::ITexture* tmp = fun1;\
+	if(!tmp)\
+		tmp = fun2;\
+	if(!tmp)\
+		tmp = fallback;\
+	if(to_set != fallback)\
+		driver->removeTexture(to_set);\
+	to_set = tmp;\
+} while(0)
 #define GET_TEXTURE_SIZED(obj,path,w,h) GET(obj,GTFF(path,".png",w,h),GTFF(path,".jpg",w,h),def_##obj)
 #define GET_TEXTURE(obj,path) GET(obj,driver->getTexture(X(path ".png")),driver->getTexture(X(path ".jpg")),def_##obj)
-void ImageManager::ChangeTextures(path_stringview _path) {
+void ImageManager::ChangeTextures(epro::path_stringview _path) {
 	if(_path == textures_path)
 		return;
-	textures_path = _path.data();
-	GET_TEXTURE_SIZED(tUnknown, "unknown", CARD_IMG_WIDTH, CARD_IMG_HEIGHT)
-	GET_TEXTURE(tAct, "act")
-	GET_TEXTURE(tAttack, "attack")
-	GET_TEXTURE(tChain, "chain")
-	GET_TEXTURE_SIZED(tNegated, "negated", 128, 128)
-	GET_TEXTURE_SIZED(tNumber, "number", 320, 256)
-	GET_TEXTURE(tLPBar, "lp")
-	GET_TEXTURE(tLPFrame, "lpf")
-	GET_TEXTURE_SIZED(tMask, "mask", 254, 254)
-	GET_TEXTURE(tEquip, "equip")
-	GET_TEXTURE(tTarget, "target")
-	GET_TEXTURE(tChainTarget, "chaintarget")
-	GET_TEXTURE(tLim, "lim")
-	GET_TEXTURE(tOT, "ot")
-	GET_TEXTURE_SIZED(tHand[0], "f1", 89, 128)
-	GET_TEXTURE_SIZED(tHand[1], "f2", 89, 128)
-	GET_TEXTURE_SIZED(tHand[2], "f3", 89, 128)
-	GET_TEXTURE(tBackGround, "bg")
-	GET_TEXTURE(tBackGround_menu, "bg_menu")
-	if(!tBackGround_menu)
+	textures_path = { _path.data(), _path.size() };
+	const bool is_base = textures_path == BASE_PATH;
+	GET_TEXTURE_SIZED(tUnknown, "unknown", CARD_IMG_WIDTH, CARD_IMG_HEIGHT);
+	GET_TEXTURE(tAct, "act");
+	GET_TEXTURE(tAttack, "attack");
+	GET_TEXTURE(tChain, "chain");
+	GET_TEXTURE_SIZED(tNegated, "negated", 128, 128);
+	GET_TEXTURE_SIZED(tNumber, "number", 320, 256);
+	GET_TEXTURE(tLPBar, "lp");
+	GET_TEXTURE(tLPFrame, "lpf");
+	GET_TEXTURE_SIZED(tMask, "mask", 254, 254);
+	GET_TEXTURE(tEquip, "equip");
+	GET_TEXTURE(tTarget, "target");
+	GET_TEXTURE(tChainTarget, "chaintarget");
+	GET_TEXTURE(tLim, "lim");
+	GET_TEXTURE(tOT, "ot");
+	GET_TEXTURE_SIZED(tHand[0], "f1", 89, 128);
+	GET_TEXTURE_SIZED(tHand[1], "f2", 89, 128);
+	GET_TEXTURE_SIZED(tHand[2], "f3", 89, 128);
+	GET_TEXTURE(tBackGround, "bg");
+	GET_TEXTURE(tBackGround_menu, "bg_menu");
+	if(!is_base && tBackGround != def_tBackGround && tBackGround_menu == def_tBackGround_menu)
 		tBackGround_menu = tBackGround;
-	GET_TEXTURE(tBackGround_deck, "bg_deck")
-	if(!tBackGround_deck)
+	GET_TEXTURE(tBackGround_deck, "bg_deck");
+	if(!is_base && tBackGround != def_tBackGround && tBackGround_deck == def_tBackGround_deck)
 		tBackGround_deck = tBackGround;
-	GET_TEXTURE(tField[0][0], "field2")
-	GET_TEXTURE(tFieldTransparent[0][0], "field-transparent2")
-	GET_TEXTURE(tField[0][1], "field3")
-	GET_TEXTURE(tFieldTransparent[0][1], "field-transparent3")
-	GET_TEXTURE(tField[0][2], "field")
-	GET_TEXTURE(tFieldTransparent[0][2], "field-transparent")
-	GET_TEXTURE(tField[0][3], "field4")
-	GET_TEXTURE(tFieldTransparent[0][3], "field-transparent4")
-	GET_TEXTURE(tField[1][0], "fieldSP2")
-	GET_TEXTURE(tFieldTransparent[1][0], "field-transparentSP2")
-	GET_TEXTURE(tField[1][1], "fieldSP3")
-	GET_TEXTURE(tFieldTransparent[1][1], "field-transparentSP3")
-	GET_TEXTURE(tField[1][2], "fieldSP")
-	GET_TEXTURE(tFieldTransparent[1][2], "field-transparentSP")
-	GET_TEXTURE(tField[1][3], "fieldSP4")
-	GET_TEXTURE(tFieldTransparent[1][3], "field-transparentSP4")
-	GET_TEXTURE(tSettings, "settings")
+	GET_TEXTURE(tField[0][0], "field2");
+	GET_TEXTURE(tFieldTransparent[0][0], "field-transparent2");
+	GET_TEXTURE(tField[0][1], "field3");
+	GET_TEXTURE(tFieldTransparent[0][1], "field-transparent3");
+	GET_TEXTURE(tField[0][2], "field");
+	GET_TEXTURE(tFieldTransparent[0][2], "field-transparent");
+	GET_TEXTURE(tField[0][3], "field4");
+	GET_TEXTURE(tFieldTransparent[0][3], "field-transparent4");
+	GET_TEXTURE(tField[1][0], "fieldSP2");
+	GET_TEXTURE(tFieldTransparent[1][0], "field-transparentSP2");
+	GET_TEXTURE(tField[1][1], "fieldSP3");
+	GET_TEXTURE(tFieldTransparent[1][1], "field-transparentSP3");
+	GET_TEXTURE(tField[1][2], "fieldSP");
+	GET_TEXTURE(tFieldTransparent[1][2], "field-transparentSP");
+	GET_TEXTURE(tField[1][3], "fieldSP4");
+	GET_TEXTURE(tFieldTransparent[1][3], "field-transparentSP4");
+	GET_TEXTURE(tSettings, "settings");
 	RefreshCovers();
 }
 void ImageManager::ResetTextures() {
@@ -140,10 +165,11 @@ void ImageManager::SetDevice(irr::IrrlichtDevice* dev) {
 	driver = dev->getVideoDriver();
 }
 void ImageManager::ClearTexture(bool resize) {
-	auto f = [&](texture_map &map) {
-		for(auto tit = map.begin(); tit != map.end(); ++tit) {
-			if(tit->second)
-				driver->removeTexture(tit->second);
+	auto ClearMap = [&](texture_map &map) {
+		for(const auto& tit : map) {
+			if(tit.second) {
+				driver->removeTexture(tit.second);
+			}
 		}
 		map.clear();
 	};
@@ -154,17 +180,17 @@ void ImageManager::ClearTexture(bool resize) {
 		sizes[2].second = CARD_THUMB_HEIGHT * mainGame->window_scale.Y * gGameConfig->dpi_scale;
 		const auto s1 = CARD_IMG_WIDTH * mainGame->window_scale.X;
 		const auto s2 = CARD_IMG_HEIGHT * mainGame->window_scale.Y;
-		GET_TEXTURE_SIZED(tUnknown, "unknown", s1, s2)
+		GET_TEXTURE_SIZED(tUnknown, "unknown", s1, s2);
 		RefreshCovers();
 	}
 	if(!resize) {
 		ClearCachedTextures(resize);
 	}
-	f(tMap[0]);
-	f(tMap[1]);
-	f(tThumb);
-	f(tFields);
-	f(tCovers);
+	ClearMap(tMap[0]);
+	ClearMap(tMap[1]);
+	ClearMap(tThumb);
+	ClearMap(tFields);
+	ClearMap(tCovers);
 }
 #undef GET_TEXTURE
 #undef GET_TEXTURE_SIZED
@@ -180,16 +206,16 @@ void ImageManager::RemoveTexture(uint32_t code) {
 	}
 }
 void ImageManager::RefreshCachedTextures() {
-	auto StartLoad = [this](loading_map* src, texture_map& dest, int index, imgType type) {
+	auto StartLoad = [this](loading_map& src, texture_map& dest, int index, imgType type) {
 		std::vector<int> readd;
-		for (auto it = src->begin(); it != src->end();) {
+		for (auto it = src.begin(); it != src.end();) {
 			if (it->second.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
 				auto pair = it->second.get();
 				if (pair.first) {
 					if (pair.first->getDimension().Width != sizes[index].first || pair.first->getDimension().Height != sizes[index].second) {
 						readd.push_back(it->first);
 						dest[it->first] = nullptr;
-						it = src->erase(it);
+						it = src.erase(it);
 						continue;
 					}
 					dest[it->first] = driver->addTexture(pair.second.data(), pair.first);
@@ -197,32 +223,35 @@ void ImageManager::RefreshCachedTextures() {
 				} else if (pair.second != EPRO_TEXT("wait for download")) {
 					dest[it->first] = nullptr;
 				}
-				it = src->erase(it);
+				it = src.erase(it);
 				continue;
 			}
 			it++;
 		}
 		for (auto& code : readd) {
-			(*src)[code] = std::async(std::launch::async, &ImageManager::LoadCardTexture, this, code, type, std::ref(sizes[index].first), std::ref(sizes[index].second), timestamp_id.load(), std::ref(timestamp_id));
+			src[code] = std::async(std::launch::async, &ImageManager::LoadCardTexture, this, code, type, std::ref(sizes[index].first), std::ref(sizes[index].second), timestamp_id.load(), std::ref(timestamp_id));
 		}
 	};
-	StartLoad(loading_pics[0], tMap[0], 0, ART);
-	StartLoad(loading_pics[1], tMap[1], 1, ART);
-	StartLoad(loading_pics[2], tThumb, 2, THUMB);
-	StartLoad(loading_pics[3], tCovers, 1, COVER);
+	StartLoad(loading_pics[0], tMap[0], 0, imgType::ART);
+	StartLoad(loading_pics[1], tMap[1], 1, imgType::ART);
+	StartLoad(loading_pics[2], tThumb, 2, imgType::THUMB);
+	StartLoad(loading_pics[3], tCovers, 1, imgType::COVER);
 }
-void ImageManager::ClearFutureObjects(loading_map* map1, loading_map* map2, loading_map* map3, loading_map* map4) {
+void ImageManager::ClearFutureObjects() {
 	Utils::SetThreadName("ImgObjsClear");
-	for(auto& map : { &map1, &map2, &map3 }) {
-		if(*map) {
-			for(auto it = (*map)->begin(); it != (*map)->end();) {
-				auto pair = it->second.get();
-				if(pair.first)
-					pair.first->drop();
-				it = (*map)->erase(it);
-			}
-			delete (*map);
+	while(!stop_threads) {
+		std::unique_lock<std::mutex> lck(obj_clear_lock);
+		while(to_clear.empty()) {
+			cv.wait(lck);
+			if(stop_threads)
+				return;
 		}
+		auto img = std::move(to_clear.front());
+		to_clear.pop_front();
+		lck.unlock();
+		auto pair = img.second.get();
+		if(pair.first)
+			pair.first->drop();
 	}
 }
 void ImageManager::RefreshCovers() {
@@ -232,6 +261,7 @@ void ImageManager::RefreshCovers() {
 #define X(x) BASE_PATH x
 #define GET_TEXTURE_SIZED(obj,path) GET(tmp_cover,GetTextureFromFile(X( path".png"),sizes[1].first,sizes[1].second),GetTextureFromFile(X( path".jpg"),sizes[1].first,sizes[1].second))\
 										if(tmp_cover) {\
+											driver->removeTexture(obj); \
 											obj = tmp_cover;\
 										}
 	GET_TEXTURE_SIZED(tCover[0], "cover")
@@ -241,10 +271,12 @@ void ImageManager::RefreshCovers() {
 	if(textures_path != BASE_PATH) {
 		GET(tmp_cover, GetTextureFromFile(X("cover.png"), sizes[1].first, sizes[1].second), GetTextureFromFile(X("cover.jpg"), sizes[1].first, sizes[1].second))
 		if(tmp_cover){
+			driver->removeTexture(tCover[0]);
 			tCover[0] = tmp_cover;
 		}
 		GET(tmp_cover, GetTextureFromFile(X("cover2.png"), sizes[1].first, sizes[1].second), GetTextureFromFile(X("cover2.jpg"), sizes[1].first, sizes[1].second))
 		if(tmp_cover){
+			driver->removeTexture(tCover[1]);
 			tCover[1] = tmp_cover;
 		}
 	}
@@ -254,67 +286,60 @@ void ImageManager::RefreshCovers() {
 }
 void ImageManager::ClearCachedTextures(bool resize) {
 	timestamp_id = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	if(loading_pics[0]->size() + loading_pics[1]->size() + loading_pics[2]->size() + loading_pics[3]->size()) {
-		std::thread(&ImageManager::ClearFutureObjects, this, loading_pics[0], loading_pics[1], loading_pics[2], loading_pics[3]).detach();
-		loading_pics[0] = new loading_map();
-		loading_pics[1] = new loading_map();
-		loading_pics[2] = new loading_map();
-		loading_pics[3] = new loading_map();
+	std::unique_lock<std::mutex> lck(obj_clear_lock);
+	for(auto& map : loading_pics) {
+		to_clear.insert(to_clear.end(), std::make_move_iterator(map.begin()), std::make_move_iterator(map.end()));
+		map.clear();
 	}
+	cv.notify_one();
 }
 // function by Warr1024, from https://github.com/minetest/minetest/issues/2419 , modified
 bool ImageManager::imageScaleNNAA(irr::video::IImage *src, irr::video::IImage *dest, irr::s32 width, irr::s32 height, chrono_time timestamp_id, std::atomic<chrono_time>& source_timestamp_id) {
-	double sx, sy, minsx, maxsx, minsy, maxsy, area, ra, ga, ba, aa, pw, ph, pa;
-	irr::u32 dy, dx;
-	irr::video::SColor pxl;
-
 	// Cache rectsngle boundaries.
-	double sw = src->getDimension().Width * 1.0;
-	double sh = src->getDimension().Height * 1.0;
+	const double sw = src->getDimension().Width;
+	const double sh = src->getDimension().Height;
 
 	// Walk each destination image pixel.
 	// Note: loop y around x for better cache locality.
-	irr::core::dimension2d<irr::u32> dim = dest->getDimension();
+	const auto dim = dest->getDimension();
 	if(timestamp_id != source_timestamp_id.load())
 		return false;
-	for(dy = 0; dy < dim.Height; dy++)
-		for(dx = 0; dx < dim.Width; dx++) {
+	for(irr::u32 dy = 0; dy < dim.Height; dy++)
+		for(irr::u32 dx = 0; dx < dim.Width; dx++) {
 			if(timestamp_id != source_timestamp_id.load())
 				return false;
 
 			// Calculate floating-point source rectangle bounds.
-			minsx = dx * sw / dim.Width;
-			maxsx = minsx + sw / dim.Width;
-			minsy = dy * sh / dim.Height;
-			maxsy = minsy + sh / dim.Height;
+			const double minsx = dx * sw / dim.Width;
+			const double maxsx = minsx + sw / dim.Width;
+			const double minsy = dy * sh / dim.Height;
+			const double maxsy = minsy + sh / dim.Height;
 
 			// Total area, and integral of r, g, b values over that area,
 			// initialized to zero, to be summed up in next loops.
-			area = 0;
-			ra = 0;
-			ga = 0;
-			ba = 0;
-			aa = 0;
-
+			double area = 0, ra = 0, ga = 0, ba = 0, aa = 0;
+			irr::video::SColor pxl;
+			const auto csy = floor(minsy);
+			const auto csx = floor(minsx);
 			// Loop over the integral pixel positions described by those bounds.
-			for(sy = floor(minsy); sy < maxsy; sy++)
-				for(sx = floor(minsx); sx < maxsx; sx++) {
+			for(irr::u32 sy = csy; sy < maxsy; sy++)
+				for(irr::u32 sx = csx; sx < maxsx; sx++) {
 					if(timestamp_id != source_timestamp_id.load())
 						return false;
 
 					// Calculate width, height, then area of dest pixel
 					// that's covered by this source pixel.
-					pw = 1;
+					double pw = 1;
 					if(minsx > sx)
 						pw += sx - minsx;
 					if(maxsx < (sx + 1))
 						pw += maxsx - sx - 1;
-					ph = 1;
+					double ph = 1;
 					if(minsy > sy)
 						ph += sy - minsy;
 					if(maxsy < (sy + 1))
 						ph += maxsy - sy - 1;
-					pa = pw * ph;
+					const double pa = pw * ph;
 
 					// Get source pixel and add it to totals, weighted
 					// by covered area and alpha.
@@ -342,32 +367,24 @@ bool ImageManager::imageScaleNNAA(irr::video::IImage *src, irr::video::IImage *d
 		}
 	return true;
 }
-irr::video::IImage* ImageManager::GetTextureImageFromFile(const irr::io::path& file, int width, int height, chrono_time timestamp_id, std::atomic<chrono_time>& source_timestamp_id, irr::video::IImage* archivefile) {
-	irr::video::IImage* srcimg = nullptr;
-	if(archivefile) {
-		archivefile->grab();
-		srcimg = archivefile;
-	} else
-		srcimg = driver->createImageFromFile(file);
-	if(srcimg == NULL || timestamp_id != source_timestamp_id.load()) {
-		if(srcimg)
-			srcimg->drop();
-		return NULL;
-	}
-	if(srcimg->getDimension() == irr::core::dimension2d<irr::u32>(width, height)) {
+irr::video::IImage* ImageManager::GetScaledImage(irr::video::IImage* srcimg, int width, int height, chrono_time timestamp_id, std::atomic<chrono_time>& source_timestamp_id) {
+	if(!srcimg || timestamp_id != source_timestamp_id.load())
+		return nullptr;
+	const irr::core::dimension2d<irr::u32> dim(width, height);
+	if(srcimg->getDimension() == dim) {
+		srcimg->grab();
 		return srcimg;
 	} else {
-		irr::video::IImage *destimg = driver->createImage(srcimg->getColorFormat(), irr::core::dimension2d<irr::u32>(width, height));
+		irr::video::IImage *destimg = driver->createImage(srcimg->getColorFormat(), dim);
 		if(timestamp_id != source_timestamp_id.load() || !imageScaleNNAA(srcimg, destimg, width, height, timestamp_id, std::ref(source_timestamp_id))) {
 			destimg->drop();
 			destimg = nullptr;
 		}
-		srcimg->drop();
 		return destimg;
 	}
 }
 irr::video::ITexture* ImageManager::GetTextureFromFile(const irr::io::path& file, int width, int height) {
-	auto img = GetTextureImageFromFile(file, width, height, timestamp_id.load(), std::ref(timestamp_id));
+	auto img = GetScaledImageFromFile(file, width, height);
 	if(img) {
 		auto texture = driver->addTexture(file, img);
 		img->drop();
@@ -377,96 +394,80 @@ irr::video::ITexture* ImageManager::GetTextureFromFile(const irr::io::path& file
 	return driver->getTexture(file);
 }
 ImageManager::image_path ImageManager::LoadCardTexture(uint32_t code, imgType type, std::atomic<irr::s32>& _width, std::atomic<irr::s32>& _height, chrono_time timestamp_id, std::atomic<chrono_time>& source_timestamp_id) {
-	irr::video::IImage* img = nullptr;
+	static constexpr auto fail = std::make_pair(nullptr, EPRO_TEXT("fail"));
+	static constexpr auto waitdownload = std::make_pair(nullptr, EPRO_TEXT("wait for download"));
 	int width = _width;
 	int height = _height;
-	if(type == THUMB)
-		type = ART;
-	auto status = gImageDownloader->GetDownloadStatus(code, static_cast<ImageDownloader::imgType>(type));
-	if(status == ImageDownloader::DOWNLOADED) {
-		if(timestamp_id != source_timestamp_id.load())
-			return std::make_pair(nullptr, EPRO_TEXT("fail"));
+	if(type == imgType::THUMB)
+		type = imgType::ART;
+
+	auto LoadImg = [&](irr::video::IImage* base_img)->irr::video::IImage* {
+		if(!base_img)
+			return nullptr;
 		if(width != _width || height != _height) {
 			width = _width;
 			height = _height;
 		}
-		auto file = gImageDownloader->GetDownloadPath(code, static_cast<ImageDownloader::imgType>(type));
-		while(true) {
-			if((img = GetTextureImageFromFile(file.data(), width, height, timestamp_id, std::ref(source_timestamp_id), nullptr))) {
-				if(timestamp_id != source_timestamp_id.load()) {
-					img->drop();
-					return std::make_pair(nullptr, EPRO_TEXT("fail"));
-				}
-				if(width != _width || height != _height) {
-					img->drop();
-					width = _width;
-					height = _height;
-					continue;
-				}
-				return std::make_pair(img, file);
+		while(const auto img = GetScaledImage(base_img, width, height, timestamp_id, std::ref(source_timestamp_id))) {
+			if(timestamp_id != source_timestamp_id.load()) {
+				img->drop();
+				base_img->drop();
+				return nullptr;
 			}
-			break;
+			if(width != _width || height != _height) {
+				img->drop();
+				width = _width;
+				height = _height;
+				continue;
+			}
+			base_img->drop();
+			return img;
 		}
+		base_img->drop();
+		return nullptr;
+	};
+
+	irr::video::IImage* img;
+
+	auto status = gImageDownloader->GetDownloadStatus(code, type);
+	if(status == ImageDownloader::downloadStatus::DOWNLOADED) {
 		if(timestamp_id != source_timestamp_id.load())
-			return std::make_pair(nullptr, EPRO_TEXT("fail"));
-	} else {
-		for(auto& path : (type == ART) ? mainGame->pic_dirs : mainGame->cover_dirs) {
+			return fail;
+		const auto file = gImageDownloader->GetDownloadPath(code, type);
+		if((img = LoadImg(driver->createImageFromFile({ file.data(), (irr::u32)file.size() }))) != nullptr)
+			return std::make_pair(img, file);
+		return fail;
+	} else if(status == ImageDownloader::downloadStatus::NONE) {
+		for(auto& path : (type == imgType::ART) ? mainGame->pic_dirs : mainGame->cover_dirs) {
 			for(auto extension : { EPRO_TEXT(".png"), EPRO_TEXT(".jpg") }) {
 				if(timestamp_id != source_timestamp_id.load())
-					return std::make_pair(nullptr, EPRO_TEXT("fail"));
-				irr::video::IImage* readerimg = nullptr;
-				path_string file;
+					return fail;
+				irr::video::IImage* base_img = nullptr;
+				epro::path_string file;
 				if(path == EPRO_TEXT("archives")) {
 					auto lockedIrrFile = Utils::FindFileInArchives(
-						(type == ART) ? EPRO_TEXT("pics/") : EPRO_TEXT("pics/cover/"),
+						(type == imgType::ART) ? EPRO_TEXT("pics/") : EPRO_TEXT("pics/cover/"),
 						fmt::format(EPRO_TEXT("{}{}"), code, extension));
 					if(!lockedIrrFile)
 						continue;
-					file = lockedIrrFile.reader->getFileName().c_str();
-					readerimg = driver->createImageFromFile(lockedIrrFile.reader);
+					const auto& name = lockedIrrFile.reader->getFileName();
+					file = { name.c_str(), name.size() };
+					base_img = driver->createImageFromFile(lockedIrrFile.reader);
 				} else {
 					file = fmt::format(EPRO_TEXT("{}{}{}"), path, code, extension);
+					base_img = driver->createImageFromFile({ file.data(), (irr::u32)file.size() });
 				}
-				if(width != _width || height != _height) {
-					width = _width;
-					height = _height;
-				}
-				while(true) {
-					if((img = GetTextureImageFromFile(file.data(), width, height, timestamp_id, std::ref(source_timestamp_id), readerimg))) {
-						if(timestamp_id != source_timestamp_id.load()) {
-							img->drop();
-							if(readerimg)
-								readerimg->drop();
-							return std::make_pair(nullptr, EPRO_TEXT("fail"));
-						}
-						if(width != _width || height != _height) {
-							img->drop();
-							width = _width;
-							height = _height;
-							continue;
-						}
-						if(readerimg)
-							readerimg->drop();
-						return std::make_pair(img, file);
-					}
-					break;
-				}
-				if(timestamp_id != source_timestamp_id.load()) {
-					if(readerimg)
-						readerimg->drop();
-					return std::make_pair(nullptr, EPRO_TEXT("fail"));
-				}
-				if(readerimg)
-					readerimg->drop();
+				if((img = LoadImg(base_img)) != nullptr)
+					return std::make_pair(img, file);
 			}
 		}
+		gImageDownloader->AddToDownloadQueue(code, type);
+		return waitdownload;
 	}
-	if(status == ImageDownloader::NONE) {
-		gImageDownloader->AddToDownloadQueue(code, static_cast<ImageDownloader::imgType>(type));
-	}
-	return std::make_pair(nullptr, EPRO_TEXT("wait for download"));
+	return fail;
 }
 irr::video::ITexture* ImageManager::GetTextureCard(uint32_t code, imgType type, bool wait, bool fit, int* chk) {
+	//wait = true;
 	if(chk)
 		*chk = 1;
 	irr::video::ITexture* ret_unk = tUnknown;
@@ -474,24 +475,24 @@ irr::video::ITexture* ImageManager::GetTextureCard(uint32_t code, imgType type, 
 	int size_index;
 	auto& map = [&]()->texture_map& {
 		switch(type) {
-			case ART: {
+			case imgType::ART: {
 				index = fit ? 1 : 0;
 				size_index = index;
 				return tMap[fit ? 1 : 0];
 			}
-			case THUMB:	{
+			case imgType::THUMB: {
 				index = 2;
 				size_index = index;
 				return tThumb;
 			}
-			case COVER:	{
+			case imgType::COVER: {
 				ret_unk = tCover[0];
 				index = 3;
 				size_index = 0;
 				return tCovers;
 			}
 			// Should never come to these last cases
-			case FIELD:
+			case imgType::FIELD:
 			default:
 				return tMap[0];
 		}
@@ -500,25 +501,25 @@ irr::video::ITexture* ImageManager::GetTextureCard(uint32_t code, imgType type, 
 		return ret_unk;
 	auto tit = map.find(code);
 	if(tit == map.end()) {
-		auto status = gImageDownloader->GetDownloadStatus(code, static_cast<ImageDownloader::imgType>(type));
-		if(status == ImageDownloader::DOWNLOADING) {
+		auto status = gImageDownloader->GetDownloadStatus(code, type);
+		if(status == ImageDownloader::downloadStatus::DOWNLOADING) {
 			if(chk)
 				*chk = 2;
 			return ret_unk;
 		}
 		//pic will be loaded below instead
 		/*if(status == ImageDownloader::DOWNLOADED) {
-			map[code] = driver->getTexture(gImageDownloader->GetDownloadPath(code, static_cast<ImageDownloader::imgType>(type)).data());
+			map[code] = driver->getTexture(gImageDownloader->GetDownloadPath(code, type).data());
 			return map[code] ? map[code] : ret_unk;
 		}*/
-		if(status == ImageDownloader::DOWNLOAD_ERROR) {
+		if(status == ImageDownloader::downloadStatus::DOWNLOAD_ERROR) {
 			map[code] = nullptr;
 			return ret_unk;
 		}
-		auto a = loading_pics[index]->find(code);
+		auto a = loading_pics[index].find(code);
 		if(chk)
 			*chk = 2;
-		if(a == loading_pics[index]->end()) {
+		if(a == loading_pics[index].end()) {
 			if(wait) {
 				auto tmp_img = LoadCardTexture(code, type, std::ref(sizes[size_index].first), std::ref(sizes[size_index].second), timestamp_id.load(), std::ref(timestamp_id));
 				if(tmp_img.first) {
@@ -533,7 +534,7 @@ irr::video::ITexture* ImageManager::GetTextureCard(uint32_t code, imgType type, 
 				}
 				return (map[code]) ? map[code] : ret_unk;
 			} else {
-				(*loading_pics[index])[code] = std::async(std::launch::async, &ImageManager::LoadCardTexture, this, code, type, std::ref(sizes[size_index].first), std::ref(sizes[size_index].second), timestamp_id.load(), std::ref(timestamp_id));
+				loading_pics[index][code] = std::async(std::launch::async, &ImageManager::LoadCardTexture, this, code, type, std::ref(sizes[size_index].first), std::ref(sizes[size_index].second), timestamp_id.load(), std::ref(timestamp_id));
 			}
 		}
 		return ret_unk;
@@ -547,12 +548,12 @@ irr::video::ITexture* ImageManager::GetTextureField(uint32_t code) {
 		return nullptr;
 	auto tit = tFields.find(code);
 	if(tit == tFields.end()) {
-		auto status = gImageDownloader->GetDownloadStatus(code, ImageDownloader::FIELD);
-		bool should_download = status == ImageDownloader::NONE;
+		auto status = gImageDownloader->GetDownloadStatus(code, imgType::FIELD);
+		bool should_download = status == ImageDownloader::downloadStatus::NONE;
 		irr::video::ITexture* img = nullptr;
 		if(!should_download) {
-			if(status == ImageDownloader::DOWNLOADED) {
-				img = driver->getTexture(gImageDownloader->GetDownloadPath(code, ImageDownloader::FIELD).data());
+			if(status == ImageDownloader::downloadStatus::DOWNLOADED) {
+				img = driver->getTexture(gImageDownloader->GetDownloadPath(code, imgType::FIELD).data());
 			} else
 				return nullptr;
 		} else {
@@ -572,7 +573,7 @@ irr::video::ITexture* ImageManager::GetTextureField(uint32_t code) {
 			}
 		}
 		if(should_download && !img)
-			gImageDownloader->AddToDownloadQueue(code, ImageDownloader::FIELD);
+			gImageDownloader->AddToDownloadQueue(code, imgType::FIELD);
 		else
 			tFields[code] = img;
 		return img;
@@ -601,7 +602,7 @@ originally under LGPL2.1+
  * 2d where alpha is blended.
  */
 void imageCleanTransparent(irr::video::IImage *src, irr::u32 threshold) {
-	irr::core::dimension2d<irr::u32> dim = src->getDimension();
+	const auto dim = src->getDimension();
 
 	// Walk each pixel looking for fully transparent ones.
 	// Note: loop y around x for better cache locality.
@@ -609,7 +610,7 @@ void imageCleanTransparent(irr::video::IImage *src, irr::u32 threshold) {
 		for(irr::u32 ctrx = 0; ctrx < dim.Width; ctrx++) {
 
 			// Ignore opaque pixels.
-			irr::video::SColor c = src->getPixel(ctrx, ctry);
+			auto c = src->getPixel(ctrx, ctry);
 			if(c.getAlpha() > threshold)
 				continue;
 
@@ -623,12 +624,12 @@ void imageCleanTransparent(irr::video::IImage *src, irr::u32 threshold) {
 					sx <= (ctrx + 1) && sx < dim.Width; sx++) {
 
 				// Ignore transparent pixels.
-				irr::video::SColor d = src->getPixel(sx, sy);
+				const auto d = src->getPixel(sx, sy);
 				if(d.getAlpha() <= threshold)
 					continue;
 
 				// Add RGB values weighted by alpha.
-				irr::u32 a = d.getAlpha();
+				const auto a = d.getAlpha();
 				ss += a;
 				sr += a * d.getRed();
 				sg += a * d.getGreen();
@@ -654,63 +655,52 @@ void imageCleanTransparent(irr::video::IImage *src, irr::u32 threshold) {
  * and downscaling.
  */
 void imageScaleNNAAUnthreaded(irr::video::IImage *src, const irr::core::rect<irr::s32> &srcrect, irr::video::IImage *dest) {
-	double sx, sy, minsx, maxsx, minsy, maxsy, area, ra, ga, ba, aa, pw, ph, pa;
-	irr::u32 dy, dx;
-	irr::video::SColor pxl;
-
-	// Cache rectsngle boundaries.
-	double sox = srcrect.UpperLeftCorner.X * 1.0;
-	double soy = srcrect.UpperLeftCorner.Y * 1.0;
-	double sw = srcrect.getWidth() * 1.0;
-	double sh = srcrect.getHeight() * 1.0;
+	// Cache rectangle boundaries.
+	const double sox = srcrect.UpperLeftCorner.X;
+	const double soy = srcrect.UpperLeftCorner.Y;
+	const double sw = srcrect.getWidth();
+	const double sh = srcrect.getHeight();
 
 	// Walk each destination image pixel.
 	// Note: loop y around x for better cache locality.
-	irr::core::dimension2d<irr::u32> dim = dest->getDimension();
-	for(dy = 0; dy < dim.Height; dy++)
-		for(dx = 0; dx < dim.Width; dx++) {
+	const auto dim = dest->getDimension();
+	for(irr::u32 dy = 0; dy < dim.Height; dy++)
+		for(irr::u32 dx = 0; dx < dim.Width; dx++) {
 
 			// Calculate floating-point source rectangle bounds.
 			// Do some basic clipping, and for mirrored/flipped rects,
 			// make sure min/max are in the right order.
-			minsx = sox + (dx * sw / dim.Width);
-			minsx = std::min(std::max(minsx, 0.0), sw + sox);
-			maxsx = minsx + sw / dim.Width;
-			maxsx = std::min(std::max(maxsx, 0.0), sw + sox);
+			double minsx = std::min(std::max(sox + (dx * sw / dim.Width), 0.0), sw + sox);
+			double maxsx = std::min(std::max(minsx + sw / dim.Width, 0.0), sw + sox);
 			if(minsx > maxsx)
 				std::swap(minsx, maxsx);
-			minsy = soy + (dy * sh / dim.Height);
-			minsy = std::min(std::max(minsy, 0.0), sh + soy);
-			maxsy = minsy + sh / dim.Height;
-			maxsy = std::min(std::max(maxsy, 0.0), sh + soy);
+			double minsy = std::min(std::max(soy + (dy * sh / dim.Height), 0.0), sh + soy);
+			double maxsy = std::min(std::max(minsy + sh / dim.Height, 0.0), sh + soy);
 			if(minsy > maxsy)
 				std::swap(minsy, maxsy);
 
 			// Total area, and integral of r, g, b values over that area,
 			// initialized to zero, to be summed up in next loops.
-			area = 0;
-			ra = 0;
-			ga = 0;
-			ba = 0;
-			aa = 0;
+			double area = 0, ra = 0, ga = 0, ba = 0, aa = 0;
+			irr::video::SColor pxl;
 
 			// Loop over the integral pixel positions described by those bounds.
-			for(sy = floor(minsy); sy < maxsy; sy++)
-				for(sx = floor(minsx); sx < maxsx; sx++) {
-
+			for(double sy = floor(minsy); sy < maxsy; sy++)
+				for(double sx = floor(minsx); sx < maxsx; sx++) {
 					// Calculate width, height, then area of dest pixel
 					// that's covered by this source pixel.
-					pw = 1;
+
+					double pw = 1;
 					if(minsx > sx)
 						pw += sx - minsx;
 					if(maxsx < (sx + 1))
 						pw += maxsx - sx - 1;
-					ph = 1;
+					double ph = 1;
 					if(minsy > sy)
 						ph += sy - minsy;
 					if(maxsy < (sy + 1))
 						ph += maxsy - sy - 1;
-					pa = pw * ph;
+					const double pa = pw * ph;
 
 					// Get source pixel and add it to totals, weighted
 					// by covered area and alpha.
@@ -739,10 +729,9 @@ void imageScaleNNAAUnthreaded(irr::video::IImage *src, const irr::core::rect<irr
 }
 #ifdef __ANDROID__
 bool hasNPotSupport(irr::video::IVideoDriver* driver) {
-	auto check = [](auto driver)->bool {
+	static const auto supported = [driver] {
 		return driver->queryFeature(irr::video::EVDF_TEXTURE_NPOT);
-	};
-	static const bool supported = check(driver);
+	}();
 	return supported;
 }
 // Compute next-higher power of 2 efficiently, e.g. for power-of-2 texture sizes.
@@ -763,19 +752,19 @@ inline irr::u32 npot2(irr::u32 orig) {
  */
 irr::video::ITexture* ImageManager::guiScalingResizeCached(irr::video::ITexture *src, const irr::core::rect<irr::s32> &srcrect,
 											const irr::core::rect<irr::s32> &destrect) {
-	if(src == NULL)
+	if(!src)
 		return src;
 
 	// Calculate scaled texture name.
-	irr::io::path rectstr = fmt::format(EPRO_TEXT("{}:{}:{}:{}:{}:{}"),
+	irr::io::path rectstr = fmt::format(EPRO_TEXT("@guiScalingFilter:{}:{}:{}:{}:{}:{}"),
 						 srcrect.UpperLeftCorner.X,
 						 srcrect.UpperLeftCorner.Y,
 						 srcrect.getWidth(),
 						 srcrect.getHeight(),
 						 destrect.getWidth(),
 						 destrect.getHeight()).data();
-	irr::io::path origname = src->getName().getPath();
-	irr::io::path scalename = origname + "@guiScalingFilter:" + rectstr;
+	auto& origname = src->getName().getPath();
+	irr::io::path scalename = origname + rectstr;
 
 	// Search for existing scaled texture.
 	irr::video::ITexture *scaled = g_txrCache[scalename];
@@ -785,7 +774,7 @@ irr::video::ITexture* ImageManager::guiScalingResizeCached(irr::video::ITexture 
 	// Try to find the texture converted to an image in the cache.
 	// If the image was not found, try to extract it from the texture.
 	irr::video::IImage* srcimg = g_imgCache[origname];
-	if(srcimg == NULL) {
+	if(!srcimg) {
 		srcimg = driver->createImageFromData(src->getColorFormat(),
 											 src->getSize(), src->lock(), false);
 		src->unlock();
@@ -826,15 +815,33 @@ void ImageManager::draw2DImageFilterScaled(irr::video::ITexture* txr,
 							 bool usealpha) {
 	// Attempt to pre-scale image in software in high quality.
 	irr::video::ITexture *scaled = guiScalingResizeCached(txr, srcrect, destrect);
-	if(scaled == NULL)
+	if(!scaled)
 		return;
 
 	// Correct source rect based on scaled image.
-	const irr::core::rect<irr::s32> mysrcrect = (scaled != txr)
+	const auto mysrcrect = (scaled != txr)
 		? irr::core::rect<irr::s32>(0, 0, destrect.getWidth(), destrect.getHeight())
 		: srcrect;
 
 	driver->draw2DImage(scaled, destrect, mysrcrect, cliprect, colors, usealpha);
+}
+irr::video::IImage* ImageManager::GetScaledImageFromFile(const irr::io::path& file, int width, int height) {
+	irr::video::IImage* srcimg = driver->createImageFromFile(file);
+	if(!srcimg) {
+		if(srcimg)
+			srcimg->drop();
+		return nullptr;
+	}
+	const irr::core::dimension2d<irr::u32> dim(width, height);
+	const auto srcdim = srcimg->getDimension();
+	if(srcdim == dim) {
+		return srcimg;
+	} else {
+		irr::video::IImage *destimg = driver->createImage(srcimg->getColorFormat(), dim);
+		imageScaleNNAAUnthreaded(srcimg, { 0, 0, (irr::s32)srcdim.Width, (irr::s32)srcdim.Height }, destimg);
+		srcimg->drop();
+		return destimg;
+	}
 }
 
 }

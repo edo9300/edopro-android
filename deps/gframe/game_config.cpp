@@ -34,7 +34,7 @@ GameConfig::GameConfig() {
 	}
 }
 
-bool GameConfig::Load(const path_char* filename)
+bool GameConfig::Load(const epro::path_char* filename)
 {
 	std::ifstream conf_file(filename, std::ifstream::in);
 	if(!conf_file.is_open())
@@ -47,7 +47,7 @@ bool GameConfig::Load(const path_char* filename)
 		if (str.empty() || str.at(0) == '#') {
 			continue;
 		}
-		pos = str.find_first_of("=");
+		pos = str.find('=');
 		if (pos == std::wstring::npos)
 			continue;
 		auto type = str.substr(0, pos - 1);
@@ -75,12 +75,13 @@ bool GameConfig::Load(const path_char* filename)
 					val = static_cast<uint32_t>(std::stoul(str));
 				maxFPS = val;
 			}
+			else if (type == "lastDuelParam") {
+				lastDuelParam = static_cast<uint64_t>(std::stoull(str));
+			}
 #define DESERIALIZE_UNSIGNED(name) \
 			else if (type == #name) { \
-				uint32_t val = static_cast<uint32_t>(std::stoul(str)); \
-				name = val; \
+				name = static_cast<uint32_t>(std::stoul(str)); \
 			}
-			DESERIALIZE_UNSIGNED(lastDuelParam)
 			DESERIALIZE_UNSIGNED(coreLogOutput)
 			DESERIALIZE_UNSIGNED(lastlflist)
 			DESERIALIZE_UNSIGNED(lastallowedcards)
@@ -226,7 +227,7 @@ inline void Serialize(std::ofstream& conf_file, const char* name, std::wstring v
 	conf_file << name << " = " << BufferIO::EncodeUTF8s(value) << "\n";
 }
 
-bool GameConfig::Save(const path_char* filename)
+bool GameConfig::Save(const epro::path_char* filename)
 {
 	std::ofstream conf_file(filename, std::ofstream::out);
 	if (!conf_file.is_open())

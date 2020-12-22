@@ -83,8 +83,9 @@ CURLcode curlPerform(const char* url, void* payload, void* payload2 = nullptr) {
 	curl_easy_setopt(curl_handle, CURLOPT_XFERINFOFUNCTION, progress_callback);
 	curl_easy_setopt(curl_handle, CURLOPT_XFERINFODATA, payload2);
 	curl_easy_setopt(curl_handle, CURLOPT_NOPROGRESS, 0L);
-	if(ygo::gGameConfig->ssl_certificate_path.size())
-		curl_easy_setopt(curl_handle, CURLOPT_CAINFO, ygo::gGameConfig->ssl_certificate_path.c_str());
+	if(ygo::gGameConfig->ssl_certificate_path.size()
+	   && ygo::Utils::FileExists(ygo::Utils::ToPathString(ygo::gGameConfig->ssl_certificate_path)))
+		curl_easy_setopt(curl_handle, CURLOPT_CAINFO, ygo::gGameConfig->ssl_certificate_path.data());
 #ifdef _WIN32
 	else
 		curl_easy_setopt(curl_handle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
@@ -100,7 +101,7 @@ void Reboot() {
 	PROCESS_INFORMATION pi{};
 	auto pathstring = fmt::format(EPRO_TEXT("{} show_changelog"), ygo::Utils::GetExePath());
 	CreateProcess(nullptr,
-		(TCHAR*)pathstring.c_str(),
+		(TCHAR*)pathstring.data(),
 				  nullptr,
 				  nullptr,
 				  false,
@@ -113,15 +114,13 @@ void Reboot() {
 	CloseHandle(pi.hThread);
 #elif defined(__APPLE__)
 	system("open -b io.github.edo9300.ygoprodll --args show_changelog");
-#else
+#elif !defined(__ANDROID__)
 	struct stat fileStat;
-	stat(ygo::Utils::GetExePath().data(), &fileStat);
-	chmod(ygo::Utils::GetExePath().data(), fileStat.st_mode | S_IXUSR | S_IXGRP | S_IXOTH);
-	pid_t pid = vfork();
-	if(pid == 0) {
-		execl(ygo::Utils::GetExePath().data(), "show_changelog", nullptr);
-		exit(EXIT_FAILURE);
-	}
+	const char* path = ygo::Utils::GetExePath().data();
+	stat(path, &fileStat);
+	chmod(path, fileStat.st_mode | S_IXUSR | S_IXGRP | S_IXOTH);
+	execl(path, "show_changelog", nullptr);
+	exit(EXIT_FAILURE);
 #endif
 	exit(0);
 }
@@ -141,9 +140,9 @@ bool CheckMd5(std::fstream& instream, uint8_t md5[MD5_DIGEST_LENGTH]) {
 
 void DeleteOld() {
 #if defined(_WIN32) || (defined(__linux__) && !defined(__ANDROID__))
-	ygo::Utils::FileDelete(fmt::format(EPRO_TEXT(".old"), ygo::Utils::GetExePath()));
+	ygo::Utils::FileDelete(fmt::format(EPRO_TEXT("{}.old"), ygo::Utils::GetExePath()));
 #if !defined(__linux__)
-	ygo::Utils::FileDelete(fmt::format(EPRO_TEXT(".old"), ygo::Utils::GetCorePath()));
+	ygo::Utils::FileDelete(fmt::format(EPRO_TEXT("{}.old"), ygo::Utils::GetCorePath()));
 #endif
 #endif
 }
@@ -188,7 +187,7 @@ void FreeLock(ygo::ClientUpdater::lock_type lock) {
 #endif
 namespace ygo {
 
-void ClientUpdater::StartUnzipper(unzip_callback callback, void* payload, const path_string& src) {
+void ClientUpdater::StartUnzipper(unzip_callback callback, void* payload, const epro::path_string& src) {
 #ifdef UPDATE_URL
 #ifdef __ANDROID__
 	porting::installUpdate(fmt::format("{}{}{}.apk", Utils::working_dir, src, update_urls.front().name));
@@ -206,7 +205,7 @@ void ClientUpdater::CheckUpdates() {
 #endif
 }
 
-bool ClientUpdater::StartUpdate(update_callback callback, void* payload, const path_string& dest) {
+bool ClientUpdater::StartUpdate(update_callback callback, void* payload, const epro::path_string& dest) {
 #ifdef UPDATE_URL
 	if(!has_update || downloading || !Lock)
 		return false;
@@ -217,14 +216,14 @@ bool ClientUpdater::StartUpdate(update_callback callback, void* payload, const p
 #endif
 }
 #ifdef UPDATE_URL
-void ClientUpdater::Unzip(path_string src, void* payload, unzip_callback callback) {
+void ClientUpdater::Unzip(epro::path_string src, void* payload, unzip_callback callback) {
 	Utils::SetThreadName("Unzip");
 #if defined(_WIN32) || (defined(__linux__) && !defined(__ANDROID__))
 	auto path = ygo::Utils::GetExePath();
 	ygo::Utils::FileMove(path, fmt::format(EPRO_TEXT("{}.old"), path));
 #if !defined(__linux__)
 	auto corepath = ygo::Utils::GetCorePath();
-	ygo::Utils::FileMove(corepath, fmt::format(EPRO_TEXT("{}.old"), path));
+	ygo::Utils::FileMove(corepath, fmt::format(EPRO_TEXT("{}.old"), corepath));
 #endif
 #endif
 	unzip_payload cbpayload{};
@@ -237,13 +236,13 @@ void ClientUpdater::Unzip(path_string src, void* payload, unzip_callback callbac
 	for(auto& file : update_urls) {
 		uzpl.cur = i++;
 		auto name = src + ygo::Utils::ToPathString(file.name);
-		uzpl.filename = name.c_str();
+		uzpl.filename = name.data();
 		ygo::Utils::UnzipArchive(name, callback, &cbpayload);
 	}
 	Reboot();
 }
 
-void ClientUpdater::DownloadUpdate(path_string dest_path, void* payload, update_callback callback) {
+void ClientUpdater::DownloadUpdate(epro::path_string dest_path, void* payload, update_callback callback) {
 	Utils::SetThreadName("Updater");
 	downloading = true;
 	Payload cbpayload{};
@@ -285,7 +284,7 @@ void ClientUpdater::DownloadUpdate(path_string dest_path, void* payload, update_
 		MD5_CTX context{};
 		wpayload.md5context = &context;
 		MD5_Init(wpayload.md5context);
-		if(curlPerform(file.url.c_str(), &wpayload, &cbpayload) != CURLE_OK)
+		if(curlPerform(file.url.data(), &wpayload, &cbpayload) != CURLE_OK)
 			continue;
 		uint8_t md5[MD5_DIGEST_LENGTH]{};
 		MD5_Final(md5, &context);

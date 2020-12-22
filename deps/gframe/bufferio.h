@@ -17,10 +17,7 @@ public:
 	}
 	template<typename T>
 	static void insert_value(std::vector<uint8_t>& vec, T val) {
-		const auto vec_size = vec.size();
-		const auto val_size = sizeof(T);
-		vec.resize(vec_size + val_size);
-		std::memcpy(&vec[vec_size], &val, val_size);
+		insert_data(vec, &val, sizeof(T));
 	}
 	inline static void Read(char*& p, void* dest, size_t size) {
 		memcpy(dest, p, size);
@@ -29,8 +26,7 @@ public:
 	template<typename T>
 	inline static T Read(char*& p) {
 		T ret;
-		memcpy((void*)&ret, p, sizeof(T));
-		p += sizeof(T);
+		Read(p, &ret, sizeof(T));
 		return ret;
 	}
 	template<typename T>
@@ -129,14 +125,14 @@ public:
 		*wp = 0;
 		return wp - wstr;
 	}
-	static std::string EncodeUTF8s(epro_wstringview source) {
+	static std::string EncodeUTF8s(epro::wstringview source) {
 		thread_local std::vector<char> res;
 		res.reserve(source.size() * 4 + 1);
 		EncodeUTF8(source.data(), const_cast<char*>(res.data()));
 		return res.data();
 	}
 	// UTF-8 to UTF-16/UTF-32
-	static std::wstring DecodeUTF8s(epro_stringview source) {
+	static std::wstring DecodeUTF8s(epro::stringview source) {
 		thread_local std::vector<wchar_t> res;
 #if	WCHAR_MAX == 0xffff
 			res.reserve(source.size() * 2 + 1);
@@ -155,6 +151,13 @@ public:
 		if(*pstr == 0)
 			return ret;
 		return 0;
+	}
+
+	template<typename T>
+	static T getStruct(void* data, size_t len) {
+		T pkt{};
+		memcpy(&pkt, data, std::min<size_t>(sizeof(T), len));
+		return pkt;
 	}
 };
 
