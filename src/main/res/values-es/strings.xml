@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<string name="preparing_media">Preparing media&#8230;</string>
-	<string name="not_granted">Required permission wasn\'t granted, Project Ignis: EDOPro can\'t run without it</string>
-	<string name="default_path">You chose a folder in an external storage, due to some android limitations, the game path will be set to: %s</string>
-	<string name="default_dir">Using %s as working directory</string>
-	<string name="default_dir_changeable">Using %s as working directory. Do you want to change it?</string>
-	<string name="keep_game_folder">Keep</string>
-	<string name="change_game_folder">Change</string>
-	<string name="assets_prompt">Copy internal assets?</string>
-	<string name="copying_update">Copying update assets</string>
-	<string name="no_matching">Couldn\'t find matching storage</string>
+	<string name="preparing_media">Preparando archivos&#8230;</string>
+	<string name="not_granted">Permiso requerido no fue otorgado, Project Ignis: EDOPro no puede correr sin el</string>
+	<string name="default_path">Elejiste un directorio en el almacenaje externo, debido a una limitación de Android, la dirección de los archivos del juego será: %s</string>
+	<string name="default_dir">Usando %s como directorio de trabajo</string>
+	<string name="default_dir_changeable">Usando %s como directorio de trabajo. ¿Deseas cambiarlo?</string>
+	<string name="keep_game_folder">Mantener</string>
+	<string name="change_game_folder">Cambiar</string>
+	<string name="assets_prompt">¿Copiar archivos internos?</string>
+	<string name="copying_update">Copiando archivos de la actualización</string>
+	<string name="no_matching">No se pudo encontrar almacenaje seleccionado</string>
 </resources>
