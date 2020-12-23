@@ -53,6 +53,7 @@ std::deque<std::vector<uint8_t>> DuelClient::to_analyze;
 std::mutex DuelClient::analyzeMutex;
 std::mutex DuelClient::to_analyze_mutex;
 std::thread DuelClient::parsing_thread;
+std::thread DuelClient::client_thread;
 std::condition_variable DuelClient::cv;
 
 bool DuelClient::is_refreshing = false;
@@ -132,9 +133,11 @@ bool DuelClient::StartClient(uint32_t ip, uint16_t port, uint32_t gameid, bool c
 	mainGame->dInfo.secret.server_address = ip;
 	mainGame->dInfo.isCatchingUp = false;
 	mainGame->dInfo.checkRematch = false;
+	if(client_thread.joinable())
+		client_thread.join();
+	client_thread = std::thread(ClientThread);
 	stop_threads = false;
 	parsing_thread = std::thread(DuelClient::ParserThread);
-	std::thread(ClientThread).detach();
 	return true;
 }
 void DuelClient::ConnectTimeout(evutil_socket_t fd, short events, void* arg) {
@@ -158,8 +161,11 @@ void DuelClient::ConnectTimeout(evutil_socket_t fd, short events, void* arg) {
 	event_base_loopbreak(client_base);
 }
 void DuelClient::StopClient(bool is_exiting) {
-	if((connect_state & 0x7) == 0)
+	if((connect_state & 0x7) == 0) {
+		if(client_thread.joinable())
+			client_thread.join();
 		return;
+	}
 	is_closing = is_exiting || exit_on_return;
 	to_analyze_mutex.lock();
 	to_analyze.clear();
@@ -174,6 +180,8 @@ void DuelClient::StopClient(bool is_exiting) {
 	if(!is_closing) {
 		
 	}
+	if(client_thread.joinable())
+		client_thread.join();
 }
 void DuelClient::ClientRead(bufferevent* bev, void* ctx) {
 	evbuffer* input = bufferevent_get_input(bev);
@@ -269,17 +277,16 @@ catch(...) { what = def; }
 int DuelClient::ClientThread() {
 	Utils::SetThreadName("ClientThread");
 	event_base_dispatch(client_base);
-	bufferevent_free(client_bev);
-	event_base_free(client_base);
-	client_bev = 0;
-	client_base = 0;
 	connect_state = 0;
 	to_analyze_mutex.lock();
 	stop_threads = true;
 	cv.notify_all();
 	to_analyze_mutex.unlock();
 	parsing_thread.join();
-	event_base_loopbreak(client_base);
+	bufferevent_free(client_bev);
+	event_base_free(client_base);
+	client_bev = 0;
+	client_base = 0;
 	return 0;
 }
 
@@ -288,6 +295,8 @@ void DuelClient::ParserThread() {
 	while(true) {
 		std::unique_lock<std::mutex> lck(to_analyze_mutex);
 		while(to_analyze.empty()) {
+			if(stop_threads)
+				return;
 			cv.wait(lck);
 			if(stop_threads)
 				return;
@@ -367,7 +376,7 @@ void DuelClient::HandleSTOCPacketLan2(char* data, uint32_t len) {
 	case INTERNAL_HANDLE_CONNECTION_END: {
 		bool iseof = !!BufferIO::Read<uint8_t>(pdata);
 		mainGame->dInfo.isInLobby = false;
-		if(connect_state & 0x1) {
+		if(connect_state == 0x1) {
 			temp_ver = 0;
 			std::lock_guard<std::mutex> lock(mainGame->gMutex);
 			mainGame->btnCreateHost->setEnabled(mainGame->coreloaded);
@@ -383,7 +392,7 @@ void DuelClient::HandleSTOCPacketLan2(char* data, uint32_t len) {
 			mainGame->PopupMessage(gDataManager->GetSysString(1400));
 			if(exit_on_return)
 				mainGame->device->closeDevice();
-		} else {
+		} else if(connect_state == 0x7) {
 			if(!mainGame->dInfo.isInDuel && !mainGame->is_building) {
 				std::lock_guard<std::mutex> lock(mainGame->gMutex);
 				mainGame->btnCreateHost->setEnabled(mainGame->coreloaded);
