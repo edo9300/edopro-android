@@ -36,120 +36,117 @@
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
 			</intent-filter>
-			<intent-filter>
-				<action android:name="android.intent.action.VIEW" />
-				<category android:name="android.intent.category.DEFAULT" />
+			<!-- <intent-filter> -->
+				<!-- <action android:name="android.intent.action.VIEW" /> -->
+				<!-- <category android:name="android.intent.category.DEFAULT" /> -->
 
-				<data android:scheme="file" />
-				<data android:host="*" />
-				<!--data android:mimeType="*/*" /-->
-				<data android:pathPattern=".*\\.ydk" />
-				<data android:pathPattern=".*\\.Ydk" />
-				<data android:pathPattern=".*\\.YDk" />
-				<data android:pathPattern=".*\\.YdK" />
-				<data android:pathPattern=".*\\.YDK" />
-				<data android:pathPattern=".*\\.yDk" />
-				<data android:pathPattern=".*\\.yDK" />
-				<data android:pathPattern=".*\\.ydK" />
-			</intent-filter>
-			<intent-filter>
-				<action android:name="android.intent.action.VIEW" />
-				<category android:name="android.intent.category.DEFAULT" />
+				<!-- <data android:scheme="file" /> -->
+				<!-- <data android:host="*" /> -->
+				<!-- <data android:pathPattern=".*\\.ydk" /> -->
+				<!-- <data android:pathPattern=".*\\.Ydk" /> -->
+				<!-- <data android:pathPattern=".*\\.YDk" /> -->
+				<!-- <data android:pathPattern=".*\\.YdK" /> -->
+				<!-- <data android:pathPattern=".*\\.YDK" /> -->
+				<!-- <data android:pathPattern=".*\\.yDk" /> -->
+				<!-- <data android:pathPattern=".*\\.yDK" /> -->
+				<!-- <data android:pathPattern=".*\\.ydK" /> -->
+			<!-- </intent-filter> -->
+			<!-- <intent-filter> -->
+				<!-- <action android:name="android.intent.action.VIEW" /> -->
+				<!-- <category android:name="android.intent.category.DEFAULT" /> -->
 
-				<data android:scheme="content" />
-				<data android:host="*" />
-				<data android:mimeType="*/*" />
-				<data android:pathPattern=".*\\.ydk" />
-				<data android:pathPattern=".*\\.Ydk" />
-				<data android:pathPattern=".*\\.YDk" />
-				<data android:pathPattern=".*\\.YdK" />
-				<data android:pathPattern=".*\\.YDK" />
-				<data android:pathPattern=".*\\.yDk" />
-				<data android:pathPattern=".*\\.yDK" />
-				<data android:pathPattern=".*\\.ydK" />
-			</intent-filter>
-			<intent-filter>
-				<action android:name="android.intent.action.VIEW" />
-				<category android:name="android.intent.category.DEFAULT" />
+				<!-- <data android:scheme="content" /> -->
+				<!-- <data android:host="*" /> -->
+				<!-- <data android:mimeType="*/*" /> -->
+				<!-- <data android:pathPattern=".*\\.ydk" /> -->
+				<!-- <data android:pathPattern=".*\\.Ydk" /> -->
+				<!-- <data android:pathPattern=".*\\.YDk" /> -->
+				<!-- <data android:pathPattern=".*\\.YdK" /> -->
+				<!-- <data android:pathPattern=".*\\.YDK" /> -->
+				<!-- <data android:pathPattern=".*\\.yDk" /> -->
+				<!-- <data android:pathPattern=".*\\.yDK" /> -->
+				<!-- <data android:pathPattern=".*\\.ydK" /> -->
+			<!-- </intent-filter> -->
+			<!-- <intent-filter> -->
+				<!-- <action android:name="android.intent.action.VIEW" /> -->
+				<!-- <category android:name="android.intent.category.DEFAULT" /> -->
 
-				<data android:scheme="file" />
-				<data android:host="*" />
-				<!--data android:mimeType="*/*" /-->
-				<data android:pathPattern=".*\\.yrpx" />
-				<data android:pathPattern=".*\\.Yrpx" />
-				<data android:pathPattern=".*\\.yRpx" />
-				<data android:pathPattern=".*\\.yrPx" />
-				<data android:pathPattern=".*\\.yrpX" />
-				<data android:pathPattern=".*\\.YRpx" />
-				<data android:pathPattern=".*\\.YrPx" />
-				<data android:pathPattern=".*\\.YrpX" />
-				<data android:pathPattern=".*\\.YRPx" />
-				<data android:pathPattern=".*\\.YRpX" />
-				<data android:pathPattern=".*\\.YRPX" />
-				<data android:pathPattern=".*\\.yRPx" />
-				<data android:pathPattern=".*\\.yRpX" />
-				<data android:pathPattern=".*\\.yRPX" />
-				<data android:pathPattern=".*\\.yrPX" />
-			</intent-filter>
-			<intent-filter>
-				<action android:name="android.intent.action.VIEW" />
-				<category android:name="android.intent.category.DEFAULT" />
+				<!-- <data android:scheme="file" /> -->
+				<!-- <data android:host="*" /> -->
+				<!-- <data android:pathPattern=".*\\.yrpx" /> -->
+				<!-- <data android:pathPattern=".*\\.Yrpx" /> -->
+				<!-- <data android:pathPattern=".*\\.yRpx" /> -->
+				<!-- <data android:pathPattern=".*\\.yrPx" /> -->
+				<!-- <data android:pathPattern=".*\\.yrpX" /> -->
+				<!-- <data android:pathPattern=".*\\.YRpx" /> -->
+				<!-- <data android:pathPattern=".*\\.YrPx" /> -->
+				<!-- <data android:pathPattern=".*\\.YrpX" /> -->
+				<!-- <data android:pathPattern=".*\\.YRPx" /> -->
+				<!-- <data android:pathPattern=".*\\.YRpX" /> -->
+				<!-- <data android:pathPattern=".*\\.YRPX" /> -->
+				<!-- <data android:pathPattern=".*\\.yRPx" /> -->
+				<!-- <data android:pathPattern=".*\\.yRpX" /> -->
+				<!-- <data android:pathPattern=".*\\.yRPX" /> -->
+				<!-- <data android:pathPattern=".*\\.yrPX" /> -->
+			<!-- </intent-filter> -->
+			<!-- <intent-filter> -->
+				<!-- <action android:name="android.intent.action.VIEW" /> -->
+				<!-- <category android:name="android.intent.category.DEFAULT" /> -->
 
-				<data android:scheme="content" />
-				<data android:host="*" />
-				<data android:mimeType="*/*" />
-				<data android:pathPattern=".*\\.yrpx" />
-				<data android:pathPattern=".*\\.Yrpx" />
-				<data android:pathPattern=".*\\.yRpx" />
-				<data android:pathPattern=".*\\.yrPx" />
-				<data android:pathPattern=".*\\.yrpX" />
-				<data android:pathPattern=".*\\.YRpx" />
-				<data android:pathPattern=".*\\.YrPx" />
-				<data android:pathPattern=".*\\.YrpX" />
-				<data android:pathPattern=".*\\.YRPx" />
-				<data android:pathPattern=".*\\.YRpX" />
-				<data android:pathPattern=".*\\.YRPX" />
-				<data android:pathPattern=".*\\.yRPx" />
-				<data android:pathPattern=".*\\.yRpX" />
-				<data android:pathPattern=".*\\.yRPX" />
-				<data android:pathPattern=".*\\.yrPX" />
-			</intent-filter>
-			<intent-filter>
-				<action android:name="android.intent.action.VIEW" />
-				<category android:name="android.intent.category.DEFAULT" />
+				<!-- <data android:scheme="content" /> -->
+				<!-- <data android:host="*" /> -->
+				<!-- <data android:mimeType="*/*" /> -->
+				<!-- <data android:pathPattern=".*\\.yrpx" /> -->
+				<!-- <data android:pathPattern=".*\\.Yrpx" /> -->
+				<!-- <data android:pathPattern=".*\\.yRpx" /> -->
+				<!-- <data android:pathPattern=".*\\.yrPx" /> -->
+				<!-- <data android:pathPattern=".*\\.yrpX" /> -->
+				<!-- <data android:pathPattern=".*\\.YRpx" /> -->
+				<!-- <data android:pathPattern=".*\\.YrPx" /> -->
+				<!-- <data android:pathPattern=".*\\.YrpX" /> -->
+				<!-- <data android:pathPattern=".*\\.YRPx" /> -->
+				<!-- <data android:pathPattern=".*\\.YRpX" /> -->
+				<!-- <data android:pathPattern=".*\\.YRPX" /> -->
+				<!-- <data android:pathPattern=".*\\.yRPx" /> -->
+				<!-- <data android:pathPattern=".*\\.yRpX" /> -->
+				<!-- <data android:pathPattern=".*\\.yRPX" /> -->
+				<!-- <data android:pathPattern=".*\\.yrPX" /> -->
+			<!-- </intent-filter> -->
+			<!-- <intent-filter> -->
+				<!-- <action android:name="android.intent.action.VIEW" /> -->
+				<!-- <category android:name="android.intent.category.DEFAULT" /> -->
 
-				<data android:scheme="file" />
-				<data android:host="*" />
-				<!--data android:mimeType="*/*" /-->
-				<data android:pathPattern=".*\\.lua" />
-				<data android:pathPattern=".*\\.Lua" />
-				<data android:pathPattern=".*\\.lUa" />
-				<data android:pathPattern=".*\\.luA" />
-				<data android:pathPattern=".*\\.LUa" />
-				<data android:pathPattern=".*\\.lUA" />
-				<data android:pathPattern=".*\\.LuA" />
-				<data android:pathPattern=".*\\.LUA" />
-			</intent-filter>
-			<intent-filter>
-				<action android:name="android.intent.action.VIEW" />
-				<category android:name="android.intent.category.DEFAULT" />
+				<!-- <data android:scheme="file" /> -->
+				<!-- <data android:host="*" /> -->
+				<!-- <data android:pathPattern=".*\\.lua" /> -->
+				<!-- <data android:pathPattern=".*\\.Lua" /> -->
+				<!-- <data android:pathPattern=".*\\.lUa" /> -->
+				<!-- <data android:pathPattern=".*\\.luA" /> -->
+				<!-- <data android:pathPattern=".*\\.LUa" /> -->
+				<!-- <data android:pathPattern=".*\\.lUA" /> -->
+				<!-- <data android:pathPattern=".*\\.LuA" /> -->
+				<!-- <data android:pathPattern=".*\\.LUA" /> -->
+			<!-- </intent-filter> -->
+			<!-- <intent-filter> -->
+				<!-- <action android:name="android.intent.action.VIEW" /> -->
+				<!-- <category android:name="android.intent.category.DEFAULT" /> -->
 
-				<data android:scheme="content" />
-				<data android:host="*" />
-				<data android:mimeType="*/*" />
-				<data android:pathPattern=".*\\.lua" />
-				<data android:pathPattern=".*\\.Lua" />
-				<data android:pathPattern=".*\\.lUa" />
-				<data android:pathPattern=".*\\.luA" />
-				<data android:pathPattern=".*\\.LUa" />
-				<data android:pathPattern=".*\\.lUA" />
-				<data android:pathPattern=".*\\.LuA" />
-				<data android:pathPattern=".*\\.LUA" />
-			</intent-filter>
+				<!-- <data android:scheme="content" /> -->
+				<!-- <data android:host="*" /> -->
+				<!-- <data android:mimeType="*/*" /> -->
+				<!-- <data android:pathPattern=".*\\.lua" /> -->
+				<!-- <data android:pathPattern=".*\\.Lua" /> -->
+				<!-- <data android:pathPattern=".*\\.lUa" /> -->
+				<!-- <data android:pathPattern=".*\\.luA" /> -->
+				<!-- <data android:pathPattern=".*\\.LUa" /> -->
+				<!-- <data android:pathPattern=".*\\.lUA" /> -->
+				<!-- <data android:pathPattern=".*\\.LuA" /> -->
+				<!-- <data android:pathPattern=".*\\.LUA" /> -->
+			<!-- </intent-filter> -->
 		</activity>
-		<activity
-			android:name=".SdlLauncher">
-		</activity>
+		<!-- <activity -->
+			<!-- android:name=".SdlLauncher"> -->
+		<!-- </activity> -->
 		<activity
 			android:name=".EpNativeActivity"
 			android:excludeFromRecents="true"
