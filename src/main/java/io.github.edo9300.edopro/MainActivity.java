@@ -337,7 +337,8 @@ public class MainActivity extends Activity {
 						Log.e("EDOPro", "error when creating assets_copied file");
 					} else {
                         FileWriter wr = (new FileWriter(file));
-                        wr.write(BuildConfig.VERSION_CODE);
+                        wr.write(""+BuildConfig.VERSION_CODE);
+                        wr.flush();
                     }
 				} catch (Exception e){
 					Log.e("EDOPro", "error when creating assets_copied file: " + e.getMessage());
