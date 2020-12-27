@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 	package="io.github.edo9300.edopro"
+	xmlns:tools="http://schemas.android.com/tools"
 	android:installLocation="auto">
 
 	<uses-feature
@@ -14,6 +15,7 @@
 	<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
 	<application
+		tools:replace="android:allowBackup"
 		android:allowBackup="false"
 		android:icon="@mipmap/ic_launcher"
 		android:roundIcon="@mipmap/ic_launcher_round"
