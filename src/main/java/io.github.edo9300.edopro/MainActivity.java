@@ -308,24 +308,23 @@ public class MainActivity extends Activity {
 	public void copyAssetsPrompt(final String working_dir) {
 		File file = new File(getFilesDir(),"assets_copied");
 		if(file.exists()){
-            int prevversion = Integer.MAX_VALUE;
             try {
                 BufferedReader fileReader = new BufferedReader(new FileReader(file));
                 String line = fileReader.readLine();
-                prevversion = Integer.parseInt(line);
+                int prevversion = Integer.parseInt(line);
+				if (prevversion < BuildConfig.VERSION_CODE) {
+					try {
+						PrintWriter pw = new PrintWriter(file);
+						pw.close();
+						Toast.makeText(this, getResources().getString(R.string.copying_update), Toast.LENGTH_LONG).show();
+						copyAssets(working_dir, true);
+					}
+					catch (Exception e) { }
+				} else
+					next();
+				return;
             }
-            catch (Exception e) { prevversion=0; }
-            if (prevversion < BuildConfig.VERSION_CODE) {
-                try {
-                    PrintWriter pw = new PrintWriter(file);
-                    pw.close();
-					Toast.makeText(this, getResources().getString(R.string.copying_update), Toast.LENGTH_LONG).show();
-					copyAssets(working_dir, true);
-                }
-                catch (Exception e) { }
-            } else
-                next();
-			return;
+            catch (Exception e) {  }
 		}
 		copyCertificate();
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
