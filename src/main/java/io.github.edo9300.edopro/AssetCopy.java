@@ -173,6 +173,15 @@ public class AssetCopy extends Activity {
                         continue;
                     }
 
+                    if(".nomedia".equals(filename)){
+                        File file = new File(workingDir + "/" + filename);
+                        try {
+                            file.createNewFile();
+                        } catch (IOException e) {
+                        }
+                        continue;
+                    }
+
                     // Transfer bytes from in to out
                     byte[] buf = new byte[1024];
                     int len = src.read(buf, 0, 1024);
