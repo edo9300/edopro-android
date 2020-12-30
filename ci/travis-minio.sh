@@ -21,6 +21,4 @@ fi
 
 $MC config host add ignition "$MINIO_ENDPOINT" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
 $MC mb -p "ignition/$MINIO_BUCKET"
-$MC cp "$MINIO_UPLOAD/EDOPro-release-patch.apk" "ignition/$MINIO_BUCKET"
-$MC cp "$MINIO_UPLOAD/EDOPro-release-full.apk" "ignition/$MINIO_BUCKET"
-$MC cp "$MINIO_UPLOAD/obj.7z" "ignition/$MINIO_BUCKET"
+$MC cp --recursive "$MINIO_UPLOAD" "ignition/$MINIO_BUCKET"
