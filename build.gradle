@@ -49,6 +49,7 @@ android {
 
 	aaptOptions {
 		noCompress 'dll', "config"
+		ignoreAssetsPattern '!.svn:!.git:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*.scc:*~'
 	}
 
 	Properties props = new Properties()
