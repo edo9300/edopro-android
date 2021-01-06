@@ -283,7 +283,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 						return false;
 					}
 				}
-				if(gdeckManager->RenameDeck(Utils::ToPathString(mainGame->cbDBDecks->getItem(sel)), Utils::ToPathString(dname))) {
+				if(DeckManager::RenameDeck(Utils::ToPathString(mainGame->cbDBDecks->getItem(sel)), Utils::ToPathString(dname))) {
 					mainGame->cbDBDecks->removeItem(sel);
 					mainGame->cbDBDecks->setSelected(mainGame->cbDBDecks->addItem(dname));
 				} else {
@@ -353,7 +353,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 				switch(prev_operation) {
 				case BUTTON_DELETE_DECK : {
 					int sel = mainGame->cbDBDecks->getSelected();
-					if(gdeckManager->DeleteDeck(gdeckManager->current_deck, Utils::ToPathString(mainGame->cbDBDecks->getItem(sel)))) {
+					if(DeckManager::DeleteDeck(gdeckManager->current_deck, Utils::ToPathString(mainGame->cbDBDecks->getItem(sel)))) {
 						mainGame->cbDBDecks->removeItem(sel);
 						int count = mainGame->cbDBDecks->getItemCount();
 						if(sel >= count)
@@ -751,7 +751,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			switch(event.KeyInput.Key) {
 			case irr::KEY_KEY_C: {
 				if(event.KeyInput.Control) {
-					auto deck_string = event.KeyInput.Shift ? gdeckManager->ExportDeckCardNames(gdeckManager->current_deck) : gdeckManager->ExportDeckBase64(gdeckManager->current_deck);
+					auto deck_string = event.KeyInput.Shift ? DeckManager::ExportDeckCardNames(gdeckManager->current_deck) : DeckManager::ExportDeckBase64(gdeckManager->current_deck);
 					if(deck_string) {
 						Utils::OSOperator->copyToClipboard(deck_string);
 						mainGame->stACMessage->setText(gDataManager->GetSysString(1368).data());
@@ -765,8 +765,11 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			case irr::KEY_KEY_V: {
 				if(event.KeyInput.Control && !mainGame->HasFocus(irr::gui::EGUIET_EDIT_BOX)) {
 					const wchar_t* deck_string = Utils::OSOperator->getTextFromClipboard();
-					if(deck_string && wcsncmp(L"ydke://", deck_string, sizeof(L"ydke://") / sizeof(wchar_t) - 1) == 0) {
-						gdeckManager->ImportDeckBase64(gdeckManager->current_deck, deck_string);
+					if(deck_string) {
+						if(wcsncmp(L"ydke://", deck_string, sizeof(L"ydke://") / sizeof(wchar_t) - 1) == 0)
+							gdeckManager->ImportDeckBase64(gdeckManager->current_deck, deck_string);
+						else
+							(void)gdeckManager->ImportDeckBase64Omega(gdeckManager->current_deck, deck_string);
 					}
 				}
 				break;
@@ -800,6 +803,8 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 					gdeckManager->ImportDeckBase64(gdeckManager->current_deck, event.DropEvent.Text);
 					return true;
 				}
+				if(gdeckManager->ImportDeckBase64Omega(gdeckManager->current_deck, event.DropEvent.Text))
+					return true;
 				std::wstringstream ss(Utils::ToUpperNoAccents<std::wstring>(event.DropEvent.Text));
 				std::wstring to;
 				int firstcode = 0;
