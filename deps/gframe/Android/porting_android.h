@@ -32,9 +32,15 @@ void openUrl(epro::path_stringview url);
 
 void openFile(epro::path_stringview file);
 
+void openFolder(epro::path_stringview file);
+
+void makeErrorDialog(epro::stringview context, epro::stringview message);
+
 void setTextToClipboard(epro::wstringview text);
 
 const wchar_t* getTextFromClipboard();
+
+void dispatchQueuedMessages();
 }
 
 #endif //PORTING_ANDROID_H
