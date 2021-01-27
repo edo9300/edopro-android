@@ -3,11 +3,19 @@
 
 #include <unordered_map>
 #include <cstdint>
+#include <memory>
 #include "text_types.h"
 #include "utils.h"
 
 struct sqlite3;
 struct sqlite3_stmt;
+struct sqlite3_vfs;
+
+namespace irr {
+namespace io {
+class IReadFile;
+}
+}
 
 #define SCOPE_OCG        0x1
 #define SCOPE_TCG        0x2
@@ -65,6 +73,8 @@ struct CardDataC {
 struct CardString {
 	std::wstring name;
 	std::wstring text;
+	std::wstring uppercase_name;
+	std::wstring uppercase_text;
 	std::wstring desc[16];
 };
 
@@ -86,11 +96,17 @@ public:
 class DataManager {
 public:
 	DataManager();
-	~DataManager() {}
+	~DataManager();
 	void ClearLocaleTexts();
-	bool LoadLocaleDB(const epro::path_string& file);
-	bool LoadDB(const epro::path_string& file);
-	bool LoadDBFromBuffer(const std::vector<char>& buffer, const std::string& filename = "");
+	inline bool LoadLocaleDB(const epro::path_string& file) {
+		return ParseLocaleDB(OpenDb(file));
+	}
+	inline bool LoadDB(const epro::path_string& file) {
+		return ParseDB(OpenDb(file));
+	}
+	inline bool LoadDB(irr::io::IReadFile* reader) {
+		return ParseDB(OpenDb(reader));
+	}
 	bool LoadStrings(const epro::path_string& file);
 	bool LoadLocaleStrings(const epro::path_string& file);
 	void ClearLocaleStrings();
@@ -99,10 +115,18 @@ public:
 	epro::wstringview GetName(uint32_t code);
 	epro::wstringview GetText(uint32_t code);
 	epro::wstringview GetDesc(uint64_t strCode, bool compat);
-	epro::wstringview GetSysString(uint32_t code);
-	epro::wstringview GetVictoryString(int code);
-	epro::wstringview GetCounterName(uint32_t code);
-	epro::wstringview GetSetName(uint32_t code);
+	inline epro::wstringview GetSysString(uint32_t code) {
+		return _sysStrings.GetLocale(code);
+	}
+	inline epro::wstringview GetVictoryString(int code) {
+		return _victoryStrings.GetLocale(code);
+	}
+	inline epro::wstringview GetCounterName(uint32_t code) {
+		return _counterStrings.GetLocale(code);
+	}
+	inline epro::wstringview GetSetName(uint32_t code) {
+		return _setnameStrings.GetLocale(code, L"");
+	}
 	std::vector<uint32_t> GetSetCode(std::vector<std::wstring>& setname);
 	std::wstring GetNumString(int num, bool bracket = false);
 	epro::wstringview FormatLocation(uint32_t location, int sequence);
@@ -116,25 +140,25 @@ public:
 
 	std::unordered_map<uint32_t, CardDataM> cards;
 
-	static const wchar_t* unknown_string;
-	static std::string cur_database;
+	static constexpr wchar_t unknown_string[] = L"???";
 	static void CardReader(void* payload, uint32_t code, OCG_CardData* data);
 	static bool deck_sort_lv(CardDataC* l1, CardDataC* l2);
 	static bool deck_sort_atk(CardDataC* l1, CardDataC* l2);
 	static bool deck_sort_def(CardDataC* l1, CardDataC* l2);
 	static bool deck_sort_name(CardDataC* l1, CardDataC* l2);
 private:
+	std::unique_ptr<sqlite3_vfs> irrvfs;
 	template<typename T1, typename T2 = T1>
 	using indexed_map = std::map<uint32_t, std::pair<T1, T2>>;
 
 	class LocaleStringHelper {
 	public:
 		indexed_map<std::wstring> map{};
-		const wchar_t* GetLocale(uint32_t code) {
+		epro::wstringview GetLocale(uint32_t code, epro::wstringview ret = DataManager::unknown_string) {
 			auto search = map.find(code);
 			if(search == map.end() || search->second.first.empty())
-				return nullptr;
-			return search->second.second.size() ? search->second.second.data() : search->second.first.data();
+				return ret;
+			return search->second.second.size() ? search->second.second : search->second.first;
 		}
 		void ClearLocales() {
 			for(auto& elem : map)
@@ -147,7 +171,8 @@ private:
 			map[code].second = val;
 		}
 	};
-	sqlite3* OpenDb(epro::path_stringview file, const char* fielsystem = nullptr);
+	sqlite3* OpenDb(epro::path_stringview file);
+	sqlite3* OpenDb(irr::io::IReadFile* reader);
 	bool ParseDB(sqlite3* pDB);
 	bool ParseLocaleDB(sqlite3* pDB);
 	bool Error(sqlite3* pDB, sqlite3_stmt* pStmt = nullptr);
@@ -157,6 +182,7 @@ private:
 	LocaleStringHelper _victoryStrings;
 	LocaleStringHelper _setnameStrings;
 	LocaleStringHelper _sysStrings;
+	std::string cur_database;
 };
 
 extern DataManager* gDataManager;

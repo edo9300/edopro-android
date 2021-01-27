@@ -81,8 +81,9 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/Android/COSAndroidOperator.cpp \
 				   $(GFRAME_PATH)/generic_duel.cpp \
 				   $(GFRAME_PATH)/gframe.cpp \
 				   $(GFRAME_PATH)/image_downloader.cpp \
-				   $(GFRAME_PATH)/joystick_wrapper.cpp \
 				   $(GFRAME_PATH)/image_manager.cpp \
+				   $(GFRAME_PATH)/ireadfile_sqlite.cpp \
+				   $(GFRAME_PATH)/joystick_wrapper.cpp \
 				   $(GFRAME_PATH)/logging.cpp \
 				   $(GFRAME_PATH)/materials.cpp \
 				   $(GFRAME_PATH)/menu_handler.cpp \
@@ -97,6 +98,7 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/Android/COSAndroidOperator.cpp \
 				   $(GFRAME_PATH)/single_mode.cpp \
 				   $(GFRAME_PATH)/sound_manager.cpp \
 				   $(GFRAME_PATH)/sound_sfml.cpp \
+				   $(GFRAME_PATH)/sound_threaded_backend.cpp \
 				   $(GFRAME_PATH)/utils.cpp \
 				   $(GFRAME_PATH)/utils_gui.cpp \
 				   $(GFRAME_PATH)/windbot.cpp \
