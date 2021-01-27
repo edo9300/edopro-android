@@ -13,3 +13,4 @@ local.properties
 *.iml
 *.directory
 .DS_Store
+aaa.txt
