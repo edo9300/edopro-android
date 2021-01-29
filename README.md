@@ -1,4 +1,4 @@
-# The-good-android-ygopro
+# Edopro-android
 
 ## Building & Installation
 Assuming `ndk-build` is in your PATH
