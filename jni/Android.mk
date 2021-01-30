@@ -5,8 +5,8 @@ LOCAL_MODULE := EDOProClient
 
 LOCAL_CFLAGS := -DYGOPRO_USE_SFML -D_ANDROID -DYGOPRO_BUILD_DLL -Wno-deprecated-declarations
 
-ifndef NDEBUG
-LOCAL_CFLAGS += -g -D_DEBUG 
+ifeq ($(APP_OPTIM),debug)
+LOCAL_CFLAGS += -g -D_DEBUG
 else
 LOCAL_CFLAGS += -O3 
 endif
