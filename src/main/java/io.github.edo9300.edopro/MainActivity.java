@@ -37,6 +37,7 @@ public class MainActivity extends Activity {
 	private final static int PERMISSIONS = 1;
 	private static final String[] REQUIRED_SDK_PERMISSIONS = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE};
 	public static String working_directory;
+	public static boolean changelog;
 	public static ArrayList<String> parameter;
 
 	@Override
@@ -210,6 +211,8 @@ public class MainActivity extends Activity {
 			pass the working directory via parameters, rather than making
 			the app read the working_dir file
 		*/
+		if(changelog)
+			parameter.add(0,  "show_changelog");
 		parameter.add(0, working_directory + "/");
 		parameter.add(0, "-C");
 		Object[] array = parameter.toArray();
@@ -306,6 +309,7 @@ public class MainActivity extends Activity {
 	}
 
 	public void copyAssetsPrompt(final String working_dir) {
+		changelog = false;
 		File file = new File(getFilesDir(),"assets_copied");
 		if(file.exists()){
             try {
@@ -376,6 +380,7 @@ public class MainActivity extends Activity {
 	}
 
     public void copyAssets(String working_dir, boolean isUpdate){
+		changelog = true;
 		Intent intent = new Intent(this, AssetCopy.class);
 		Bundle params = new Bundle();
 		params.putString("workingDir", working_dir);
