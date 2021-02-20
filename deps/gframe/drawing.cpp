@@ -449,7 +449,7 @@ inline void DrawShadowTextPos(irr::gui::CGUITTFont* font, const T& text, const i
 	font->drawustring(text, mainposition, color, hcenter, vcenter, clip);
 }
 //We don't want multiple function signatures per argument combination
-#ifndef _MSC_VER
+#if !defined(_MSC_VER) && !defined(__forceinline)
 #define __forceinline __attribute__((always_inline)) inline
 #endif
 template<typename... Args>
@@ -554,23 +554,23 @@ void Game::DrawMisc() {
 
 #define SKCOLOR(what) skin::LPBAR_##what##_VAL
 #define RECTCOLOR(what) SKCOLOR(what##_TOP_LEFT), SKCOLOR(what##_TOP_RIGHT), SKCOLOR(what##_BOTTOM_LEFT), SKCOLOR(what##_BOTTOM_RIGHT)
-#define	DRAWRECT(rect_pos,what,clip) driver->draw2DRectangleClip(rect_pos, RECTCOLOR(what),nullptr,clip);
+#define	DRAWRECT(rect_pos,what,clip) do { driver->draw2DRectangleClip(rect_pos, RECTCOLOR(what),nullptr,clip); } while(0)
 	if(dInfo.lp[0]) {
 		const auto rectpos = Resize(335, 12, 625, 28);
 		if(dInfo.lp[0] < dInfo.startlp) {
 			auto cliprect = Resize(335, 12, 335 + 290 * dInfo.lp[0] / dInfo.startlp, 28);
-			DRAWRECT(rectpos, 1, &cliprect)
+			DRAWRECT(rectpos, 1, &cliprect);
 		} else {
-			DRAWRECT(rectpos, 1, nullptr)
+			DRAWRECT(rectpos, 1, nullptr);
 		}
 	}
 	if(dInfo.lp[1] > 0) {
 		const auto rectpos = Resize(696, 12, 986, 28);
 		if(dInfo.lp[1] < dInfo.startlp) {
 			auto cliprect = Resize(986 - 290 * dInfo.lp[1] / dInfo.startlp, 12, 986, 28);
-			DRAWRECT(rectpos, 2, &cliprect)
+			DRAWRECT(rectpos, 2, &cliprect);
 		} else {
-			DRAWRECT(rectpos, 2, nullptr)
+			DRAWRECT(rectpos, 2, nullptr);
 		}
 	}
 	
@@ -593,11 +593,11 @@ void Game::DrawMisc() {
 	if(!dInfo.isReplay && !dInfo.isSingleMode && dInfo.player_type < 7 && dInfo.time_limit) {
 		auto rectpos = Resize(525, 34, 625, 44);
 		auto cliprect = Resize(525, 34, 525 + dInfo.time_left[0] * 100 / dInfo.time_limit, 44);
-		DRAWRECT(rectpos, 1, &cliprect)
+		DRAWRECT(rectpos, 1, &cliprect);
 		driver->draw2DRectangleOutline(rectpos, skin::TIMEBAR_1_OUTLINE_VAL);
 		rectpos = Resize(695, 34, 795, 44);
 		cliprect = Resize(795 - dInfo.time_left[1] * 100 / dInfo.time_limit, 34, 795, 44);
-		DRAWRECT(rectpos, 2, &cliprect)
+		DRAWRECT(rectpos, 2, &cliprect);
 		driver->draw2DRectangleOutline(rectpos, skin::TIMEBAR_2_OUTLINE_VAL);
 	}
 
@@ -683,38 +683,61 @@ void Game::DrawStatus(ClientCard* pcard) {
 		x2 = coords.X;
 		y2 = coords.Y;
 	}
-#define VALCLR(what1,what2) (pcard->what1 > pcard->base_##what1 ? skin::DUELFIELD_HIGHER_CARD_##what2##_VAL :\
-	pcard->what1 < pcard->base_##what1 ? skin::DUELFIELD_LOWER_CARD_##what2##_VAL : skin::DUELFIELD_UNCHANGED_CARD_##what2##_VAL)
 
-	auto atk = adFont->getDimension(pcard->atkstring);
-	auto slash = adFont->getDimension(L"/");
+	auto GetAtkColor = [&pcard] {
+		if(pcard->attack > pcard->base_attack)
+			return skin::DUELFIELD_HIGHER_CARD_ATK_VAL;
+		if(pcard->attack < pcard->base_attack)
+			return skin::DUELFIELD_LOWER_CARD_ATK_VAL;
+		return skin::DUELFIELD_UNCHANGED_CARD_ATK_VAL;
+	};
+
+	auto GetDefColor = [&pcard] {
+		if(pcard->defense > pcard->base_defense)
+			return skin::DUELFIELD_HIGHER_CARD_DEF_VAL;
+		if(pcard->defense < pcard->base_defense)
+			return skin::DUELFIELD_LOWER_CARD_DEF_VAL;
+		return skin::DUELFIELD_UNCHANGED_CARD_DEF_VAL;
+	};
+
+	auto GetLevelColor = [&pcard] {
+		if(pcard->type & TYPE_TUNER)
+			return skin::DUELFIELD_CARD_TUNER_LEVEL_VAL;
+		return skin::DUELFIELD_CARD_LEVEL_VAL;
+	};
+
+	const auto atk = adFont->getDimension(pcard->atkstring);
+
+	const auto slash = adFont->getDimension(L"/");
+	const auto half_slash_width = static_cast<int>(std::floor(slash.Width / 2));
+
+	const auto padding_1111 = Resize(1, 1, 1, 1);
+	const auto padding_1011 = Resize(1, 0, 1, 1);
+
 	if(pcard->type & TYPE_LINK) {
 		DrawShadowText(adFont, pcard->atkstring, irr::core::recti(x1 - std::floor(atk.Width / 2), y1, x1 + std::floor(atk.Width / 2), y1 + 1),
-					   Resize(1, 1, 1, 1), VALCLR(attack,ATK), 0xff000000, true);
+					   padding_1111, GetAtkColor(), 0xff000000, true);
 	} else {
-		DrawShadowText(adFont, L"/", irr::core::recti(x1 - std::floor(slash.Width / 2), y1, x1 + std::floor(slash.Width / 2), y1 + 1), Resize(1, 1, 1, 1), 0xffffffff, 0xff000000, true);
-		DrawShadowText(adFont, pcard->atkstring, irr::core::recti(x1 - std::floor(slash.Width / 2) - atk.Width - slash.Width, y1, x1 - std::floor(slash.Width / 2), y1 + 1),
-					   Resize(1, 1, 1, 1), VALCLR(attack, ATK), 0xff000000);
-		DrawShadowText(adFont, pcard->defstring, irr::core::recti(x1 + std::floor(slash.Width / 2) + slash.Width, y1, x1 - std::floor(slash.Width / 2), y1 + 1),
-					   Resize(1, 1, 1, 1), VALCLR(defense, DEF), 0xff000000);
+		DrawShadowText(adFont, L"/", irr::core::recti(x1 - half_slash_width, y1, x1 + half_slash_width, y1 + 1), padding_1111, 0xffffffff, 0xff000000, true);
+		DrawShadowText(adFont, pcard->atkstring, irr::core::recti(x1 - half_slash_width - atk.Width - slash.Width, y1, x1 - half_slash_width, y1 + 1),
+					   padding_1111, GetAtkColor(), 0xff000000);
+		DrawShadowText(adFont, pcard->defstring, irr::core::recti(x1 + half_slash_width + slash.Width, y1, x1 - half_slash_width, y1 + 1),
+					   padding_1111, GetDefColor(), 0xff000000);
 	}
+
 	if (pcard->level != 0 && pcard->rank != 0) {
-		DrawShadowText(adFont, L"/", irr::core::recti(x2 - std::floor(slash.Width / 2), y2, x2 + std::floor(slash.Width / 2), y2 + 1), Resize(1, 1, 1, 1), 0xffffffff, 0xff000000, true);
-		DrawShadowText(adFont, pcard->lvstring, irr::core::recti(x2 - std::floor(slash.Width / 2) - atk.Width - slash.Width, y2, x2 - std::floor(slash.Width / 2), y2 + 1),
-					   Resize(1, 1, 1, 1), (pcard->type & TYPE_TUNER) ? skin::DUELFIELD_CARD_TUNER_LEVEL_VAL : skin::DUELFIELD_CARD_LEVEL_VAL, 0xff000000);
-		DrawShadowText(adFont, pcard->rkstring, irr::core::recti(x2 + std::floor(slash.Width / 2) + slash.Width, y2, x2 - std::floor(slash.Width / 2), y2 + 1),
-					   Resize(1, 1, 1, 1), skin::DUELFIELD_CARD_RANK_VAL, 0xff000000);
+		DrawShadowText(adFont, L"/", irr::core::recti(x2 - half_slash_width, y2, x2 + half_slash_width, y2 + 1), padding_1111, 0xffffffff, 0xff000000, true);
+		DrawShadowText(adFont, pcard->lvstring, irr::core::recti(x2 - half_slash_width - atk.Width - slash.Width, y2, x2 - half_slash_width, y2 + 1),
+					   padding_1111, GetLevelColor(), 0xff000000);
+		DrawShadowText(adFont, pcard->rkstring, irr::core::recti(x2 + half_slash_width + slash.Width, y2, x2 - half_slash_width, y2 + 1),
+					   padding_1111, skin::DUELFIELD_CARD_RANK_VAL, 0xff000000);
 	}
-	else if (pcard->rank != 0) {
-		DrawShadowText(adFont, pcard->rkstring, irr::core::recti(x2, y2, x2 + 1, y2 + 1), Resize(1, 0, 1, 1), skin::DUELFIELD_CARD_RANK_VAL, 0xff000000);
-	}
-	else if (pcard->level != 0) {
-		DrawShadowText(adFont, pcard->lvstring, irr::core::recti(x2, y2, x2 + 1, y2 + 1), Resize(1, 0, 1, 1),
-			(pcard->type & TYPE_TUNER) ? skin::DUELFIELD_CARD_TUNER_LEVEL_VAL : skin::DUELFIELD_CARD_LEVEL_VAL, 0xff000000);
-	}
-	else if (pcard->link != 0) {
-		DrawShadowText(adFont, pcard->linkstring, irr::core::recti(x2, y2, x2 + 1, y2 + 1), Resize(1, 0, 1, 1), skin::DUELFIELD_CARD_LINK_VAL, 0xff000000);
-	}
+	else if (pcard->rank != 0)
+		DrawShadowText(adFont, pcard->rkstring, irr::core::recti(x2, y2, x2 + 1, y2 + 1), padding_1011, skin::DUELFIELD_CARD_RANK_VAL, 0xff000000);
+	else if (pcard->level != 0)
+		DrawShadowText(adFont, pcard->lvstring, irr::core::recti(x2, y2, x2 + 1, y2 + 1), padding_1011, GetLevelColor(), 0xff000000);
+	else if (pcard->link != 0)
+		DrawShadowText(adFont, pcard->linkstring, irr::core::recti(x2, y2, x2 + 1, y2 + 1), padding_1011, skin::DUELFIELD_CARD_LINK_VAL, 0xff000000);
 }
 /*
 Draws the pendulum scale value of a card in the pendulum zone based on its relative position
@@ -998,9 +1021,9 @@ void Game::DrawSpec() {
 		matk.setRotationRadians(atk_r);
 		driver->setTransform(irr::video::ETS_WORLD, matk);
 		driver->setMaterial(matManager.mATK);
-		driver->drawVertexPrimitiveList(&matManager.vArrow[(int)std::round(attack_sv)], 12, matManager.iArrow, 10, irr::video::EVT_STANDARD, irr::scene::EPT_TRIANGLE_STRIP);
-		attack_sv += (240 / 1000.0f) * delta_time;
-		if (attack_sv > 28)
+		driver->drawVertexPrimitiveList(&matManager.vArrow[std::min(static_cast<int>(attack_sv) * 4, 28)], 12, matManager.iArrow, 10, irr::video::EVT_STANDARD, irr::scene::EPT_TRIANGLE_STRIP);
+		attack_sv += (60.0f / 1000.0f) * delta_time;
+		if (static_cast<int>(attack_sv) > 9)
 			attack_sv = 0.0f;
 	}
 	bool showChat = true;
@@ -1354,7 +1377,7 @@ void Game::DrawDeckBd() {
 		DrawShadowText(numFont, deckBuilder.result_string, pos, Resize(0, 1, 0, 1), 0xffffffff, 0xff000000, false, true);
 
 		DRAWRECT(SEARCH_RESULT, 805, 160, 1020, 630);
-		DRAWOUTLINE(SEARCH_RESULT, 805, 160, 1020, 630);
+		DRAWOUTLINE(SEARCH_RESULT, 804, 159, 1020, 630);
 
 		const int prev_pos = deckBuilder.scroll_pos;
 		deckBuilder.scroll_pos = floor(scrFilter->getPos() / DECK_SEARCH_SCROLL_STEP);

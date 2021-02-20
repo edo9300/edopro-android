@@ -47,14 +47,14 @@ namespace porting {
 
 #define EnableMaterial2D(enable) driver->enableMaterial2D(enable)
 #else
-#define EnableMaterial2D(enable) ((void)0);
+#define EnableMaterial2D(enable) ((void)0)
 #endif
 
 uint16_t PRO_VERSION = 0x1352;
 
 namespace ygo {
 
-#ifndef _MSC_VER
+#if !defined(_MSC_VER) && !defined(__forceinline)
 #define __forceinline __attribute__((always_inline)) inline
 #endif
 template<typename... Args>
@@ -159,7 +159,7 @@ bool Game::Initialize() {
 	stAbout = irr::gui::CGUICustomText::addCustomText(L"Project Ignis: EDOPro\n"
 											L"The bleeding-edge automatic duel simulator\n"
 											L"\n"
-											L"Copyright (C) 2020  Edoardo Lolletti (edo9300) and others\n"
+											L"Copyright (C) 2020-2021  Edoardo Lolletti (edo9300) and others\n"
 											L"Card scripts and supporting resources by Project Ignis.\n"
 											L"https://github.com/edo9300/edopro\n"
 											L"https://github.com/edo9300/ygopro-core\n"
@@ -2026,9 +2026,7 @@ void Game::RefreshAiDecks() {
 			ErrorLog(fmt::format("Failed to load WindBot Ignite config json: {}", e.what()));
 		}
 		if(j.is_array()) {
-#ifdef _WIN32
-			WindBot::executablePath = filesystem->getAbsolutePath(EPRO_TEXT("./WindBot")).c_str();
-#elif !defined(__ANDROID__)
+#if !defined(__ANDROID__) && !defined(_WIN32)
 			{
 				auto it = gGameConfig->user_configs.find("posixPathExtension");
 				if(it != gGameConfig->user_configs.end() && it->is_string()) {
@@ -3252,12 +3250,14 @@ std::wstring Game::ReadPuzzleMessage(const std::wstring& script_name) {
 	}
 	return BufferIO::DecodeUTF8s(res);
 }
-epro::path_string Game::FindScript(epro::path_stringview name, MutexLockedIrrArchivedFile* retarchive) {
+epro::path_string Game::FindScript(epro::path_stringview name, irr::io::IReadFile** retarchive) {
 	for(auto& path : script_dirs) {
 		if(path == EPRO_TEXT("archives")) {
 			if(auto tmp = Utils::FindFileInArchives(EPRO_TEXT("script/"), name)) {
 				if(retarchive)
-					*retarchive = std::move(tmp);
+					*retarchive = tmp;
+				else
+					tmp->drop();
 				return path;
 			}
 		} else {
@@ -3271,15 +3271,18 @@ epro::path_string Game::FindScript(epro::path_stringview name, MutexLockedIrrArc
 	return EPRO_TEXT("");
 }
 std::vector<char> Game::LoadScript(epro::stringview _name) {
-	MutexLockedIrrArchivedFile tmp;
+	irr::io::IReadFile* tmp;
 	auto path = FindScript(Utils::ToPathString(_name), &tmp);
 	if(path.size()) {
 		std::vector<char> buffer;
 		if(path == EPRO_TEXT("archives")) {
 			if(tmp) {
-				buffer.resize(tmp.reader->getSize());
-				if(tmp.reader->read(buffer.data(), buffer.size()) == buffer.size())
+				buffer.resize(tmp->getSize());
+				if(tmp->read(buffer.data(), buffer.size()) == buffer.size()) {
+					tmp->drop();
 					return buffer;
+				}
+				tmp->drop();
 			}
 		} else {
 			std::ifstream script(path, std::ifstream::binary);

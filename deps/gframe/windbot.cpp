@@ -3,11 +3,11 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#else
-#include <unistd.h>
-#endif
-#ifdef __ANDROID__
+#elif defined(__ANDROID__)
 #include "Android/porting_android.h"
+#else
+#include <sys/wait.h>
+#include <unistd.h>
 #endif
 #include <fmt/format.h>
 #include "config.h"
@@ -16,45 +16,43 @@
 
 namespace ygo {
 
+#if !defined(_WIN32) && !defined(__ANDROID__)
 epro::path_string WindBot::executablePath{};
+#endif
 uint32_t WindBot::version{ CLIENT_VERSION };
 
-#if defined(_WIN32) || defined(__ANDROID__)
-bool WindBot::Launch(int port, const std::wstring& pass, bool chat, int hand) const {
-#else
-pid_t WindBot::Launch(int port, const std::wstring& pass, bool chat, int hand) const {
-#endif
+WindBot::launch_ret_t WindBot::Launch(int port, epro::wstringview pass, bool chat, int hand) const {
 #ifdef _WIN32
-	auto args = fmt::format(
-		L"./WindBot/WindBot.exe HostInfo=\"{}\" Deck=\"{}\" Port={} Version={} name=\"[AI] {}\" Chat={} {}",
+	//Windows can modify this string
+	auto args = Utils::ToPathString(fmt::format(
+		L"WindBot.exe HostInfo=\"{}\" Deck=\"{}\" Port={} Version={} name=\"[AI] {}\" Chat={} Hand={} AssetPath=./WindBot",
 		pass,
 		deck,
 		port,
 		version,
 		name,
 		chat,
-		hand ? fmt::format(L"Hand={}", hand) : L"");
-	STARTUPINFO si = {};
-	PROCESS_INFORMATION pi = {};
-	si.cb = sizeof(si);
+		hand));
+	STARTUPINFO si{ sizeof(si) };
+	PROCESS_INFORMATION pi{};
 	si.dwFlags = STARTF_USESHOWWINDOW;
 	si.wShowWindow = SW_HIDE;
-	if (CreateProcess(NULL, (TCHAR*)Utils::ToPathString(args).data(), NULL, NULL, FALSE, 0, NULL, executablePath.data(), &si, &pi)) {
+	if(CreateProcess(L"./WindBot/WindBot.exe", &args[0], nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi)) {
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
 		return true;
 	}
 	return false;
 #elif defined(__ANDROID__)
-	std::string param = fmt::format(
-		"HostInfo='{}' Deck='{}' Port={} Version={} Name='[AI] {}' Chat={} Hand={}",
-		BufferIO::EncodeUTF8s(pass),
-		BufferIO::EncodeUTF8s(deck),
+	auto param = BufferIO::EncodeUTF8s(fmt::format(
+		L"HostInfo='{}' Deck='{}' Port={} Version={} Name='[AI] {}' Chat={} Hand={}",
+		pass,
+		deck,
 		port,
 		version,
-		BufferIO::EncodeUTF8s(name),
+		name,
 		static_cast<int>(chat),
-		hand);
+		hand));
 	porting::launchWindbot(param);
 	return true;
 #else
@@ -65,19 +63,23 @@ pid_t WindBot::Launch(int port, const std::wstring& pass, bool chat, int hand) c
 	std::string argName = fmt::format("name=[AI] {}", BufferIO::EncodeUTF8s(name));
 	std::string argChat = fmt::format("Chat={}", chat);
 	std::string argHand = fmt::format("Hand={}", hand);
-	std::string oldpath = getenv("PATH");
-	if(executablePath.length()) {
+	std::string oldpath;
+	if(executablePath.size()) {
+		oldpath = getenv("PATH");
 		std::string envPath = fmt::format("{}:{}", oldpath, executablePath);
 		setenv("PATH", envPath.data(), true);
 	}
-	pid_t pid = vfork();
-	if (pid == 0) {
+	auto pid = vfork();
+	if(pid == 0) {
 		execlp("mono", "WindBot.exe", "./WindBot/WindBot.exe",
 			   argPass.data(), argDeck.data(), argPort.data(), argVersion.data(), argName.data(), argChat.data(),
 			   "AssetPath=./WindBot", hand ? argHand.data() : nullptr, nullptr);
-		exit(EXIT_FAILURE);
+		_exit(EXIT_FAILURE);
 	}
-	setenv("PATH", oldpath.data(), true);
+	if(executablePath.size())
+		setenv("PATH", oldpath.data(), true);
+	if(pid < 0 || waitpid(pid, nullptr, WNOHANG) != 0)
+		pid = 0;
 	return pid;
 #endif
 }
