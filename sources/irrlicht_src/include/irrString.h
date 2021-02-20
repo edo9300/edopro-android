@@ -96,6 +96,7 @@ class string
 public:
 
 	typedef T char_type;
+	typedef T value_type;
 
 	//! Default constructor
 	string()
@@ -524,6 +525,11 @@ public:
 	//! Returns character string
 	/** \return pointer to C-style NUL terminated string. */
 	const T* c_str() const
+	{
+		return array;
+	}
+
+	const T* data() const
 	{
 		return array;
 	}
