@@ -208,9 +208,9 @@ public class MainActivity extends Activity {
 	public void next() {
 		boolean use_windbot = true;
 		try {
-			/*the library seems to crash when the system is using a
-			* language like thai for now just catch and disable it,
-			* but seems to be an issue with embeddinator itself
+			/*
+			* windbot loading might fail, for whatever reason,
+			* disable it if that's the case
 			*/
 			WindBot.initAndroid(working_directory + "/WindBot");
 		} catch(Exception e){
