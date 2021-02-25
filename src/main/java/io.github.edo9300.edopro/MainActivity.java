@@ -133,10 +133,10 @@ public class MainActivity extends Activity {
 				try {
 					File file = new File(getFilesDir(),"assets_copied");
 					if(file.exists() || file.createNewFile()) {
-                        FileWriter wr = (new FileWriter(file));
-                        wr.write(""+BuildConfig.VERSION_CODE);
+						FileWriter wr = (new FileWriter(file));
+						wr.write(""+BuildConfig.VERSION_CODE);
 						wr.flush();
-                    }
+					}
 				} catch (Exception e){
 					Log.e("EDOPro", "error when creating assets_copied file: " + e.getMessage());
 				}
@@ -312,10 +312,10 @@ public class MainActivity extends Activity {
 		changelog = false;
 		File file = new File(getFilesDir(),"assets_copied");
 		if(file.exists()){
-            try {
-                BufferedReader fileReader = new BufferedReader(new FileReader(file));
-                String line = fileReader.readLine();
-                int prevversion = Integer.parseInt(line);
+			try {
+				BufferedReader fileReader = new BufferedReader(new FileReader(file));
+				String line = fileReader.readLine();
+				int prevversion = Integer.parseInt(line);
 				if (prevversion < BuildConfig.VERSION_CODE) {
 					try {
 						PrintWriter pw = new PrintWriter(file);
@@ -327,8 +327,8 @@ public class MainActivity extends Activity {
 				} else
 					next();
 				return;
-            }
-            catch (Exception e) {  }
+			}
+			catch (Exception e) {  }
 		}
 		copyCertificate();
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -339,10 +339,10 @@ public class MainActivity extends Activity {
 					if(!file.createNewFile()){
 						Log.e("EDOPro", "error when creating assets_copied file");
 					} else {
-                        FileWriter wr = (new FileWriter(file));
-                        wr.write(""+BuildConfig.VERSION_CODE);
-                        wr.flush();
-                    }
+						FileWriter wr = (new FileWriter(file));
+						wr.write(""+BuildConfig.VERSION_CODE);
+						wr.flush();
+					}
 				} catch (Exception e){
 					Log.e("EDOPro", "error when creating assets_copied file: " + e.getMessage());
 				}
@@ -353,9 +353,9 @@ public class MainActivity extends Activity {
 				copyAssets(working_dir, false);
 			}
 		}).setCancelable(false).show();
-    }
+	}
 
-    public void copyCertificate(){
+	public void copyCertificate(){
 		try {
 			File certout = new File(getFilesDir(),"cacert.cer");
 			if(certout.exists()){
@@ -379,7 +379,7 @@ public class MainActivity extends Activity {
 		}
 	}
 
-    public void copyAssets(String working_dir, boolean isUpdate){
+	public void copyAssets(String working_dir, boolean isUpdate){
 		changelog = true;
 		Intent intent = new Intent(this, AssetCopy.class);
 		Bundle params = new Bundle();
@@ -387,5 +387,5 @@ public class MainActivity extends Activity {
 		params.putBoolean("isUpdate", isUpdate);
 		intent.putExtras(params);
 		startActivityForResult(intent, 1);
-    }
+	}
 }

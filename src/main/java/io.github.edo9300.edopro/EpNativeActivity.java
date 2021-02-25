@@ -46,7 +46,7 @@ public class EpNativeActivity extends NativeActivity {
 		super.onCreate(savedInstanceState);
 		IntentFilter filter = new IntentFilter();
 		filter.addAction("RUN_WINDBOT");
-        filter.addAction("INPUT_TEXT");
+		filter.addAction("INPUT_TEXT");
 		filter.addAction("MAKE_CHOICE");
 		filter.addAction("INSTALL_UPDATE");
 		filter.addAction("OPEN_SCRIPT");
@@ -76,9 +76,9 @@ public class EpNativeActivity extends NativeActivity {
 	}
 
 	@Override
-    public boolean onKeyDown(int keyCode, KeyEvent event){
-	    return (keyCode == KeyEvent.KEYCODE_BACK || super.onKeyDown(keyCode, event));
-    }
+	public boolean onKeyDown(int keyCode, KeyEvent event){
+		return (keyCode == KeyEvent.KEYCODE_BACK || super.onKeyDown(keyCode, event));
+	}
 
 	private final BroadcastReceiver myReceiver = new BroadcastReceiver() {
 		@Override
@@ -88,9 +88,9 @@ public class EpNativeActivity extends NativeActivity {
 				String args = intent.getStringExtra("args");
 				Log.i("EDOProWindBotIgnite", "Launching WindBot Ignite with " + args + " as parameters.");
 				WindBot.runAndroid(args);
-            } else if("INPUT_TEXT".equals(action)){
+			} else if("INPUT_TEXT".equals(action)){
 				new TextEntry().Show(context, intent.getStringExtra("current"));
-            } else if("MAKE_CHOICE".equals(action)){
+			} else if("MAKE_CHOICE".equals(action)){
 				String[] parameters = intent.getStringArrayExtra("args");
 				AlertDialog.Builder builder = new AlertDialog.Builder(EpNativeActivity.this);
 				// Add the buttons
@@ -197,20 +197,20 @@ public class EpNativeActivity extends NativeActivity {
 		return wm.getConnectionInfo().getIpAddress();
 	}
 
-    public void setClipboard(String text) {
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText("", text);
-        clipboard.setPrimaryClip(clip);
-    }
+	public void setClipboard(String text) {
+		ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+		ClipData clip = ClipData.newPlainText("", text);
+		clipboard.setPrimaryClip(clip);
+	}
 
-    public String getClipboard() {
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        if(!(clipboard.hasPrimaryClip()) || clipboard.getPrimaryClip() == null || (clipboard.getPrimaryClipDescription() == null)
+	public String getClipboard() {
+		ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+		if(!(clipboard.hasPrimaryClip()) || clipboard.getPrimaryClip() == null || (clipboard.getPrimaryClipDescription() == null)
 			|| !(clipboard.getPrimaryClipDescription().hasMimeType(MIMETYPE_TEXT_PLAIN)))
-            return "";
+			return "";
 		ClipData clip = clipboard.getPrimaryClip();
 		return clip.getItemAt(0).getText().toString();
-    }
+	}
 
 	@Override
 	public void onDestroy() {

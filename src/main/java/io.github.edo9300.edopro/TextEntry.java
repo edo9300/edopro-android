@@ -11,8 +11,8 @@ import android.widget.EditText;
 public class TextEntry {
 
 
-    private AlertDialog mTextInputDialog;
-    private EditText mTextInputWidget;
+	private AlertDialog mTextInputDialog;
+	private EditText mTextInputWidget;
 
 	public TextEntry() {
 	}
@@ -47,7 +47,7 @@ public class TextEntry {
 		mTextInputDialog.show();
 	}
 
-    private void pushResult(String text, boolean isenter) {
+	private void pushResult(String text, boolean isenter) {
 		EpNativeActivity.putMessageBoxResult(text, isenter);
 		mTextInputDialog.dismiss();
 	}
