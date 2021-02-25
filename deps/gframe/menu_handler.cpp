@@ -28,24 +28,25 @@
 
 namespace ygo {
 
-void UpdateDeck() {
+static void UpdateDeck() {
 	gGameConfig->lastdeck = mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected());
+	const auto& deck = gdeckManager->current_deck;
 	char deckbuf[0xf000];
 	char* pdeck = deckbuf;
-	const auto totsize = gdeckManager->current_deck.main.size() + gdeckManager->current_deck.extra.size() + gdeckManager->current_deck.side.size();
+	const auto totsize = deck.main.size() + deck.extra.size() + deck.side.size();
 	if(totsize > (sizeof(deckbuf) - 2 * sizeof(uint32_t)))
 		return;
-	BufferIO::Write<uint32_t>(pdeck, gdeckManager->current_deck.main.size() + gdeckManager->current_deck.extra.size());
-	BufferIO::Write<uint32_t>(pdeck, gdeckManager->current_deck.side.size());
-	for(size_t i = 0; i < gdeckManager->current_deck.main.size(); ++i)
-		BufferIO::Write<uint32_t>(pdeck, gdeckManager->current_deck.main[i]->code);
-	for(size_t i = 0; i < gdeckManager->current_deck.extra.size(); ++i)
-		BufferIO::Write<uint32_t>(pdeck, gdeckManager->current_deck.extra[i]->code);
-	for(size_t i = 0; i < gdeckManager->current_deck.side.size(); ++i)
-		BufferIO::Write<uint32_t>(pdeck, gdeckManager->current_deck.side[i]->code);
+	BufferIO::Write<uint32_t>(pdeck, deck.main.size() + deck.extra.size());
+	BufferIO::Write<uint32_t>(pdeck, deck.side.size());
+	for(const auto& pcard : deck.main)
+		BufferIO::Write<uint32_t>(pdeck, pcard->code);
+	for(const auto& pcard : deck.extra)
+		BufferIO::Write<uint32_t>(pdeck, pcard->code);
+	for(const auto& pcard : deck.side)
+		BufferIO::Write<uint32_t>(pdeck, pcard->code);
 	DuelClient::SendBufferToServer(CTOS_UPDATE_DECK, deckbuf, pdeck - deckbuf);
 }
-void LoadReplay() {
+static void LoadReplay() {
 	auto& replay = ReplayMode::cur_replay;
 	if(open_file) {
 		bool res = replay.OpenReplay(open_file_name);
@@ -87,7 +88,7 @@ void LoadReplay() {
 		start_turn = 0;
 	ReplayMode::StartReplay(start_turn, (mainGame->chkYrp->isChecked() || replay.pheader.id == REPLAY_YRP1));
 }
-inline void TriggerEvent(irr::gui::IGUIElement* target, irr::gui::EGUI_EVENT_TYPE type) {
+static inline void TriggerEvent(irr::gui::IGUIElement* target, irr::gui::EGUI_EVENT_TYPE type) {
 	irr::SEvent event;
 	event.EventType = irr::EET_GUI_EVENT;
 	event.GUIEvent.EventType = type;
@@ -95,7 +96,7 @@ inline void TriggerEvent(irr::gui::IGUIElement* target, irr::gui::EGUI_EVENT_TYP
 	ygo::mainGame->device->postEventFromUser(event);
 }
 
-inline void ClickButton(irr::gui::IGUIElement* btn) {
+static inline void ClickButton(irr::gui::IGUIElement* btn) {
 	TriggerEvent(btn, irr::gui::EGET_BUTTON_CLICKED);
 }
 bool MenuHandler::OnEvent(const irr::SEvent& event) {
@@ -192,7 +193,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					auto parsed = DuelClient::ResolveServer(mainGame->ebJoinHost->getText(), mainGame->ebJoinPort->getText());
 					gGameConfig->lasthost = mainGame->ebJoinHost->getText();
 					gGameConfig->lastport = mainGame->ebJoinPort->getText();
-					mainGame->dInfo.secret.pass = BufferIO::EncodeUTF8s(mainGame->ebJoinPass->getText());
+					mainGame->dInfo.secret.pass = BufferIO::EncodeUTF8(mainGame->ebJoinPass->getText());
 					if(DuelClient::StartClient(parsed.first, parsed.second, 0, false)) {
 						mainGame->btnCreateHost->setEnabled(false);
 						mainGame->btnJoinHost->setEnabled(false);
@@ -487,7 +488,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			case BUTTON_BOT_ADD: {
 				try {
 					int port = std::stoi(gGameConfig->serverport);
-					if(mainGame->gBot.LaunchSelected(port, BufferIO::DecodeUTF8s(mainGame->dInfo.secret.pass)))
+					if(mainGame->gBot.LaunchSelected(port, BufferIO::DecodeUTF8(mainGame->dInfo.secret.pass)))
 						break;
 				} catch(...) {}
 				mainGame->PopupMessage(L"Failed to launch windbot");
@@ -517,13 +518,18 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				break;
 			}
 			case BUTTON_LOAD_SINGLEPLAY: {
-				if(mainGame->lstSinglePlayList->isDirectory(mainGame->lstSinglePlayList->getSelected()))
-					mainGame->lstSinglePlayList->enterDirectory(mainGame->lstSinglePlayList->getSelected());
+				const auto& list = mainGame->lstSinglePlayList;
+				const auto selected = list->getSelected();
+				if(list->isDirectory(selected))
+					list->enterDirectory(selected);
 				else {
-					if(!open_file && mainGame->lstSinglePlayList->getSelected() == -1)
+					if(!open_file && (selected == -1))
 						break;
 					SingleMode::singleSignal.SetNoWait(false);
-					SingleMode::StartPlay();
+					SingleMode::DuelOptions opts;
+					if(!open_file)
+						opts.scriptName = BufferIO::EncodeUTF8(list->getListItem(selected, true));
+					SingleMode::StartPlay(opts);
 				}
 				break;
 			}
@@ -695,7 +701,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					auto parsed = DuelClient::ResolveServer(mainGame->ebJoinHost->getText(), mainGame->ebJoinPort->getText());
 					gGameConfig->lasthost = mainGame->ebJoinHost->getText();
 					gGameConfig->lastport = mainGame->ebJoinPort->getText();
-					mainGame->dInfo.secret.pass = BufferIO::EncodeUTF8s(mainGame->ebJoinPass->getText());
+					mainGame->dInfo.secret.pass = BufferIO::EncodeUTF8(mainGame->ebJoinPass->getText());
 					if(DuelClient::StartClient(parsed.first, parsed.second, 0, false)) {
 						mainGame->btnCreateHost->setEnabled(false);
 						mainGame->btnJoinHost->setEnabled(false);
@@ -718,13 +724,16 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			case LISTBOX_SINGLEPLAY_LIST: {
 				if(!mainGame->btnLoadSinglePlay->isEnabled())
 					break;
-				if(mainGame->lstSinglePlayList->isDirectory(mainGame->lstSinglePlayList->getSelected()))
-					mainGame->lstSinglePlayList->enterDirectory(mainGame->lstSinglePlayList->getSelected());
+				const auto& list = mainGame->lstSinglePlayList;
+				const auto selected = list->getSelected();
+				if(selected == -1)
+					break;
+				if(list->isDirectory(selected))
+					list->enterDirectory(selected);
 				else {
-					if(!open_file && (mainGame->lstSinglePlayList->getSelected() == -1))
-						break;
 					SingleMode::singleSignal.SetNoWait(false);
-					SingleMode::StartPlay();
+					SingleMode::DuelOptions opts(BufferIO::EncodeUTF8(list->getListItem(selected, true)));
+					SingleMode::StartPlay(opts);
 				}
 				break;
 			}
@@ -1010,7 +1019,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 						ClickButton(mainGame->btnLoadReplay);
 						return true;
 					} else if(extension == L"pem" || extension == L"cer" || extension == L"crt") {
-						gGameConfig->ssl_certificate_path = BufferIO::EncodeUTF8s(to_open_file);
+						gGameConfig->ssl_certificate_path = BufferIO::EncodeUTF8(to_open_file);
 					}
 					to_open_file.clear();
 				}

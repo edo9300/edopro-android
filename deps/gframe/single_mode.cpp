@@ -82,7 +82,7 @@ restart:
 	DuelClient::rnd.seed(seed);
 	mainGame->dInfo.isSingleMode = true;
 	OCG_Player team = { duelOptions.startingLP, duelOptions.startingDrawCount, duelOptions.drawCountPerTurn };
-	bool hand_test = mainGame->dInfo.isHandTest = open_file && open_file_name == EPRO_TEXT("hand-test-mode");
+	bool hand_test = mainGame->dInfo.isHandTest = (duelOptions.scriptName == "hand-test-mode");
 	if(hand_test)
 		opt |= DUEL_ATTACK_FIRST_TURN;
 	pduel = mainGame->SetupDuel({ DuelClient::rnd(), opt, team, team });
@@ -148,11 +148,11 @@ restart:
 		if(open_file) {
 			script_name = Utils::ToUTF8IfNeeded(open_file_name);
 			if(!mainGame->LoadScript(pduel, script_name)) {
-				script_name = Utils::ToUTF8IfNeeded(EPRO_TEXT("./puzzles/") + open_file_name);
+				script_name = fmt::format("./puzzles/{}" ,script_name);
 				loaded = mainGame->LoadScript(pduel, script_name);
 			}
 		} else {
-			script_name = BufferIO::EncodeUTF8s(mainGame->lstSinglePlayList->getListItem(mainGame->lstSinglePlayList->getSelected(), true));
+			script_name = duelOptions.scriptName;
 			loaded = mainGame->LoadScript(pduel, script_name);
 		}
 		InitReplay();
@@ -376,10 +376,10 @@ bool SingleMode::SinglePlayAnalyze(CoreUtils::Packet packet) {
 				break;
 			pbuf[len] = 0;
 			if(packet.message == MSG_AI_NAME) {
-				mainGame->dInfo.opponames[0] = BufferIO::DecodeUTF8s(pbuf);
+				mainGame->dInfo.opponames[0] = BufferIO::DecodeUTF8(pbuf);
 			} else {
 				std::unique_lock<std::mutex> lock(mainGame->gMutex);
-				mainGame->stMessage->setText(BufferIO::DecodeUTF8s(pbuf).data());
+				mainGame->stMessage->setText(BufferIO::DecodeUTF8(pbuf).data());
 				mainGame->PopupElement(mainGame->wMessage);
 				mainGame->actionSignal.Wait(lock);
 			}
