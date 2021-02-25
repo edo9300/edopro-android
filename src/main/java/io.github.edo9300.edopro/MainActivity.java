@@ -36,9 +36,9 @@ public class MainActivity extends Activity {
 
 	private final static int PERMISSIONS = 1;
 	private static final String[] REQUIRED_SDK_PERMISSIONS = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE};
-	public static String working_directory;
-	public static boolean changelog;
-	public static ArrayList<String> parameter;
+	private static String working_directory;
+	private static boolean changelog;
+	private static ArrayList<String> parameter;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -206,7 +206,16 @@ public class MainActivity extends Activity {
 
 	@SuppressWarnings("ConstantConditions")
 	public void next() {
-		WindBot.initAndroid(working_directory + "/WindBot");
+		boolean use_windbot = true;
+		try {
+			/*the library seems to crash when the system is using a
+			* language like thai for now just catch and disable it,
+			* but seems to be an issue with embeddinator itself
+			*/
+			WindBot.initAndroid(working_directory + "/WindBot");
+		} catch(Exception e){
+			use_windbot = false;
+		}
 		/*
 			pass the working directory via parameters, rather than making
 			the app read the working_dir file
@@ -222,6 +231,7 @@ public class MainActivity extends Activity {
 		}
 		Intent intent = new Intent(this, EpNativeActivity.class);
 		intent.putExtra("ARGUMENTS", strArr);
+		intent.putExtra("USE_WINDBOT", use_windbot);
 		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 		startActivity(intent);
 	}

@@ -26,8 +26,10 @@ import java.io.File;
 import static android.content.ClipDescription.MIMETYPE_TEXT_PLAIN;
 public class EpNativeActivity extends NativeActivity {
 
-	private static native void putComboBoxResult(int index);
+	public static native void putComboBoxResult(int index);
 	public static native void putMessageBoxResult(String text, boolean isenter);
+
+	private boolean use_windbot;
 
 	static {
 		//on 4.2 libraries aren't properly loaded automatically
@@ -44,6 +46,8 @@ public class EpNativeActivity extends NativeActivity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		Bundle ex = getIntent().getExtras();
+		use_windbot = ex.getBoolean("USE_WINDBOT",true);
 		IntentFilter filter = new IntentFilter();
 		filter.addAction("RUN_WINDBOT");
 		filter.addAction("INPUT_TEXT");
@@ -123,7 +127,9 @@ public class EpNativeActivity extends NativeActivity {
 	};
 
 	@SuppressWarnings("unused")
-	public void launchWindbot(String parameters){
+	public void launchWindbot(String parameters) {
+		if(!use_windbot)
+			return;
 		Intent intent = new Intent();
 		intent.putExtra("args", parameters);
 		intent.setAction("RUN_WINDBOT");
