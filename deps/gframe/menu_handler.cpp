@@ -34,7 +34,7 @@ static void UpdateDeck() {
 	char deckbuf[0xf000];
 	char* pdeck = deckbuf;
 	const auto totsize = deck.main.size() + deck.extra.size() + deck.side.size();
-	if(totsize > (sizeof(deckbuf) - 2 * sizeof(uint32_t)))
+	if((totsize * sizeof(uint32_t)) > (sizeof(deckbuf) - 2 * sizeof(uint32_t)))
 		return;
 	BufferIO::Write<uint32_t>(pdeck, deck.main.size() + deck.extra.size());
 	BufferIO::Write<uint32_t>(pdeck, deck.side.size());
@@ -931,7 +931,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			}
 			case SERVER_CHOICE: {
 				ServerLobby::RefreshRooms();
-				break;
+				return false;
 			}
 			default: break;
 			}
