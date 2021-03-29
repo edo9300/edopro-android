@@ -58,23 +58,18 @@ public:
 			DepthStencil->drop();
 	}
 
-	virtual void setTexture(const core::array<ITexture*>& texture, ITexture* depthStencil, const core::array<E_CUBE_SURFACE>& cubeSurfaces) _IRR_OVERRIDE_
+	virtual void setTexture(const core::array<ITexture*>& textures, ITexture* depthStencil, const core::array<E_CUBE_SURFACE>& cubeSurfaces) _IRR_OVERRIDE_
 	{
 		bool needSizeUpdate = false;
 
 		// Set color attachments.
-		if ((Texture != texture) || (CubeSurfaces != cubeSurfaces))
+		if ((Texture != textures) || (CubeSurfaces != cubeSurfaces))
 		{
 			needSizeUpdate = true;
-			CubeSurfaces = cubeSurfaces;
 
-			for (u32 i = 0; i < Texture.size(); ++i)
-			{
-				if (Texture[i])
-					Texture[i]->drop();
-			}
+			core::array<ITexture*> prevTextures(Texture);
 
-			if (texture.size() > static_cast<u32>(ColorAttachment))
+			if (textures.size() > static_cast<u32>(ColorAttachment))
 			{
 				core::stringc message = "This GPU supports up to ";
 				message += static_cast<u32>(ColorAttachment);
@@ -83,11 +78,11 @@ public:
 				os::Printer::log(message.c_str(), ELL_WARNING);
 			}
 
-			Texture.set_used(core::min_(texture.size(), static_cast<u32>(ColorAttachment)));
+			Texture.set_used(core::min_(textures.size(), static_cast<u32>(ColorAttachment)));
 
 			for (u32 i = 0; i < Texture.size(); ++i)
 			{
-				TOpenGLTexture* currentTexture = (texture[i] && texture[i]->getDriverType() == DriverType) ? static_cast<TOpenGLTexture*>(texture[i]) : 0;
+				TOpenGLTexture* currentTexture = (textures[i] && textures[i]->getDriverType() == DriverType) ? static_cast<TOpenGLTexture*>(textures[i]) : 0;
 
 				GLuint textureID = 0;
 
@@ -98,7 +93,7 @@ public:
 
 				if (textureID != 0)
 				{
-					Texture[i] = texture[i];
+					Texture[i] = textures[i];
 					Texture[i]->grab();
 				}
 				else
@@ -107,6 +102,18 @@ public:
 				}
 			}
 
+			for (u32 i = 0; i < prevTextures.size(); ++i)
+			{
+				if (prevTextures[i])
+					prevTextures[i]->drop();
+			}
+
+			RequestTextureUpdate = true;
+		}
+
+		if (CubeSurfaces != cubeSurfaces)
+		{
+			CubeSurfaces = cubeSurfaces;
 			RequestTextureUpdate = true;
 		}
 
@@ -122,21 +129,27 @@ public:
 			needSizeUpdate = true;
 			TOpenGLTexture* currentTexture = (depthStencil && depthStencil->getDriverType() == DriverType) ? static_cast<TOpenGLTexture*>(depthStencil) : 0;
 
-			GLuint textureID = 0;
-
 			if (currentTexture)
 			{	
 				if (currentTexture->getType() == ETT_2D)
-					textureID = currentTexture->getOpenGLTextureName();
-				else
-					os::Printer::log("This driver doesn't support depth/stencil to cubemaps.", ELL_WARNING);
-			}
+				{
+					GLuint textureID = currentTexture->getOpenGLTextureName();
 
-			const ECOLOR_FORMAT textureFormat = (textureID != 0) ? depthStencil->getColorFormat() : ECF_UNKNOWN;
-			if (IImage::isDepthFormat(textureFormat))
-			{
-				DepthStencil = depthStencil;
-				DepthStencil->grab();
+					const ECOLOR_FORMAT textureFormat = (textureID != 0) ? depthStencil->getColorFormat() : ECF_UNKNOWN;
+					if (IImage::isDepthFormat(textureFormat))
+					{
+						DepthStencil = depthStencil;
+						DepthStencil->grab();
+					}
+					else
+					{
+						os::Printer::log("Ignoring depth/stencil texture without depth color format.", ELL_WARNING);
+					}
+				}
+				else
+				{
+					os::Printer::log("This driver doesn't support depth/stencil to cubemaps.", ELL_WARNING);
+				}
 			}
 
 			RequestDepthStencilUpdate = true;
@@ -261,6 +274,9 @@ public:
 					AssignedDepth = false;
 					AssignedStencil = false;
 				}
+#ifdef _DEBUG
+				Driver->testGLError(__LINE__);
+#endif
 
 				RequestDepthStencilUpdate = false;
 			}

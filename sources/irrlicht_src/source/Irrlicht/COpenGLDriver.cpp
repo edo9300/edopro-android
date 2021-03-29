@@ -2587,7 +2587,9 @@ void COpenGLDriver::setBasicRenderStates(const SMaterial& material, const SMater
 	}
 
     // Blend Factor
-	if (IR(material.BlendFactor) & 0xFFFFFFFF)
+	if (IR(material.BlendFactor) & 0xFFFFFFFF	// TODO: why the & 0xFFFFFFFF?
+		&& material.MaterialType != EMT_ONETEXTURE_BLEND
+		)
 	{
         E_BLEND_FACTOR srcRGBFact = EBF_ZERO;
         E_BLEND_FACTOR dstRGBFact = EBF_ZERO;
@@ -2612,18 +2614,30 @@ void COpenGLDriver::setBasicRenderStates(const SMaterial& material, const SMater
 	// Polygon Offset
 	if (queryFeature(EVDF_POLYGON_OFFSET) && (resetAllRenderStates ||
 		lastmaterial.PolygonOffsetDirection != material.PolygonOffsetDirection ||
-		lastmaterial.PolygonOffsetFactor != material.PolygonOffsetFactor))
+		lastmaterial.PolygonOffsetFactor != material.PolygonOffsetFactor ||
+		lastmaterial.PolygonOffsetSlopeScale != material.PolygonOffsetSlopeScale ||
+		lastmaterial.PolygonOffsetDepthBias != material.PolygonOffsetDepthBias ))
 	{
 		glDisable(lastmaterial.Wireframe?GL_POLYGON_OFFSET_LINE:lastmaterial.PointCloud?GL_POLYGON_OFFSET_POINT:GL_POLYGON_OFFSET_FILL);
-		if (material.PolygonOffsetFactor)
+		if ( material.PolygonOffsetSlopeScale || material.PolygonOffsetDepthBias )
 		{
-			glDisable(material.Wireframe?GL_POLYGON_OFFSET_LINE:material.PointCloud?GL_POLYGON_OFFSET_POINT:GL_POLYGON_OFFSET_FILL);
 			glEnable(material.Wireframe?GL_POLYGON_OFFSET_LINE:material.PointCloud?GL_POLYGON_OFFSET_POINT:GL_POLYGON_OFFSET_FILL);
+
+			glPolygonOffset(material.PolygonOffsetSlopeScale, material.PolygonOffsetDepthBias);
 		}
-		if (material.PolygonOffsetDirection==EPO_BACK)
-			glPolygonOffset(1.0f, (GLfloat)material.PolygonOffsetFactor);
+		else if (material.PolygonOffsetFactor)
+		{
+			glEnable(material.Wireframe?GL_POLYGON_OFFSET_LINE:material.PointCloud?GL_POLYGON_OFFSET_POINT:GL_POLYGON_OFFSET_FILL);
+
+			if (material.PolygonOffsetDirection==EPO_BACK)
+				glPolygonOffset(1.0f, (GLfloat)material.PolygonOffsetFactor);
+			else
+				glPolygonOffset(-1.0f, (GLfloat)-material.PolygonOffsetFactor);
+		}
 		else
-			glPolygonOffset(-1.0f, (GLfloat)-material.PolygonOffsetFactor);
+		{
+			glPolygonOffset(0.0f, 0.f);
+		}
 	}
 
 	// thickness
@@ -2738,7 +2752,7 @@ void COpenGLDriver::setTextureRenderStates(const SMaterial& material, bool reset
 				statesCache.IsCached = false;
 
 #ifdef GL_VERSION_2_1
-			if (Version >= 210)
+			if (Version >= 201)
 			{
 				if (!statesCache.IsCached || material.TextureLayer[i].LODBias != statesCache.LODBias)
 				{
@@ -3277,6 +3291,11 @@ void COpenGLDriver::drawStencilShadowVolume(const core::array<core::vector3df>& 
 #ifdef GL_NV_depth_clamp
 	if (FeatureAvailable[IRR_NV_depth_clamp])
 		glEnable(GL_DEPTH_CLAMP_NV);
+#elif defined(GL_ARB_depth_clamp)
+	if (FeatureAvailable[IRR_ARB_depth_clamp])
+	{
+		glEnable(GL_DEPTH_CLAMP);
+	}
 #endif
 
 	// The first parts are not correctly working, yet.
@@ -3358,6 +3377,11 @@ void COpenGLDriver::drawStencilShadowVolume(const core::array<core::vector3df>& 
 #ifdef GL_NV_depth_clamp
 	if (FeatureAvailable[IRR_NV_depth_clamp])
 		glDisable(GL_DEPTH_CLAMP_NV);
+#elif defined(GL_ARB_depth_clamp)
+	if (FeatureAvailable[IRR_ARB_depth_clamp])
+	{
+		glDisable(GL_DEPTH_CLAMP);
+	}
 #endif
 
 	glDisable(GL_POLYGON_OFFSET_FILL);
@@ -3598,6 +3622,11 @@ bool COpenGLDriver::queryTextureFormat(ECOLOR_FORMAT format) const
 	return getColorFormatParameters(format, dummyInternalFormat, dummyPixelFormat, dummyPixelType, &dummyConverter);
 }
 
+bool COpenGLDriver::needsTransparentRenderPass(const irr::video::SMaterial& material) const
+{
+	return CNullDriver::needsTransparentRenderPass(material) || material.isAlphaBlendOperation();
+}
+
 //! Only used by the internal engine. Used to notify the driver that
 //! the window was resized.
 void COpenGLDriver::OnResize(const core::dimension2d<u32>& size)
@@ -3638,19 +3667,15 @@ s32 COpenGLDriver::getPixelShaderConstantID(const c8* name)
 //! Sets a vertex shader constant.
 void COpenGLDriver::setVertexShaderConstant(const f32* data, s32 startRegister, s32 constantAmount)
 {
-#ifdef GL_ARB_vertex_program
 	for (s32 i=0; i<constantAmount; ++i)
 		extGlProgramLocalParameter4fv(GL_VERTEX_PROGRAM_ARB, startRegister+i, &data[i*4]);
-#endif
 }
 
 //! Sets a pixel shader constant.
 void COpenGLDriver::setPixelShaderConstant(const f32* data, s32 startRegister, s32 constantAmount)
 {
-#ifdef GL_ARB_fragment_program
 	for (s32 i=0; i<constantAmount; ++i)
 		extGlProgramLocalParameter4fv(GL_FRAGMENT_PROGRAM_ARB, startRegister+i, &data[i*4]);
-#endif
 }
 
 //! Sets a constant for the vertex shader based on an index.
@@ -3666,6 +3691,12 @@ bool COpenGLDriver::setVertexShaderConstant(s32 index, const s32* ints, int coun
 	return setPixelShaderConstant(index, ints, count);
 }
 
+//! Uint interface for the above.
+bool COpenGLDriver::setVertexShaderConstant(s32 index, const u32* ints, int count)
+{
+	return setPixelShaderConstant(index, ints, count);
+}
+
 //! Sets a constant for the pixel shader based on an index.
 bool COpenGLDriver::setPixelShaderConstant(s32 index, const f32* floats, int count)
 {
@@ -3675,6 +3706,12 @@ bool COpenGLDriver::setPixelShaderConstant(s32 index, const f32* floats, int cou
 
 //! Int interface for the above.
 bool COpenGLDriver::setPixelShaderConstant(s32 index, const s32* ints, int count)
+{
+	os::Printer::log("Error: Please call services->setPixelShaderConstant(), not VideoDriver->setPixelShaderConstant().");
+	return false;
+}
+
+bool COpenGLDriver::setPixelShaderConstant(s32 index, const u32* ints, int count)
 {
 	os::Printer::log("Error: Please call services->setPixelShaderConstant(), not VideoDriver->setPixelShaderConstant().");
 	return false;
@@ -3714,7 +3751,7 @@ s32 COpenGLDriver::addHighLevelShaderMaterial(
 	u32 verticesOut,
 	IShaderConstantSetCallBack* callback,
 	E_MATERIAL_TYPE baseMaterial,
-	s32 userData, E_GPU_SHADING_LANGUAGE shadingLang)
+	s32 userData)
 {
 	s32 nr = -1;
 
@@ -3743,6 +3780,9 @@ IVideoDriver* COpenGLDriver::getVideoDriver()
 ITexture* COpenGLDriver::addRenderTargetTexture(const core::dimension2d<u32>& size,
 	const io::path& name, const ECOLOR_FORMAT format)
 {
+	if ( IImage::isCompressedFormat(format) )
+		return 0;
+
 	//disable mip-mapping
 	bool generateMipLevels = getTextureCreationFlag(ETCF_CREATE_MIP_MAPS);
 	setTextureCreationFlag(ETCF_CREATE_MIP_MAPS, false);
@@ -3770,6 +3810,9 @@ ITexture* COpenGLDriver::addRenderTargetTexture(const core::dimension2d<u32>& si
 //! Creates a render target texture for a cubemap
 ITexture* COpenGLDriver::addRenderTargetTextureCubemap(const irr::u32 sideLen, const io::path& name, const ECOLOR_FORMAT format)
 {
+	if ( IImage::isCompressedFormat(format) )
+		return 0;
+
 	//disable mip-mapping
 	bool generateMipLevels = getTextureCreationFlag(ETCF_CREATE_MIP_MAPS);
 	setTextureCreationFlag(ETCF_CREATE_MIP_MAPS, false);
@@ -3928,7 +3971,8 @@ IImage* COpenGLDriver::createScreenShot(video::ECOLOR_FORMAT format, video::E_RE
 	if (format==video::ECF_UNKNOWN)
 		format=getColorFormat();
 
-	if (IImage::isRenderTargetOnlyFormat(format) || IImage::isCompressedFormat(format) || IImage::isDepthFormat(format))
+	// TODO: Maybe we could support more formats (floating point and some of those beyond ECF_R8), didn't really try yet 
+	if (IImage::isCompressedFormat(format) || IImage::isDepthFormat(format) || IImage::isFloatingPointFormat(format) || format >= ECF_R8)
 		return 0;
 
 	// allows to read pixels in top-to-bottom order
@@ -4166,6 +4210,8 @@ GLenum COpenGLDriver::getZBufferBits() const
 bool COpenGLDriver::getColorFormatParameters(ECOLOR_FORMAT format, GLint& internalFormat, GLenum& pixelFormat,
 	GLenum& pixelType, void(**converter)(const void*, s32, void*)) const
 {
+	// NOTE: Converter variable not used here, but don't remove, it's used in the OGL-ES drivers.
+
 	bool supported = false;
 	internalFormat = GL_RGBA;
 	pixelFormat = GL_RGBA;
@@ -4188,7 +4234,7 @@ bool COpenGLDriver::getColorFormatParameters(ECOLOR_FORMAT format, GLint& intern
 	case ECF_R8G8B8:
 		supported = true;
 		internalFormat = GL_RGB;
-		pixelFormat = GL_BGR;
+		pixelFormat = GL_RGB;
 		pixelType = GL_UNSIGNED_BYTE;
 		break;
 	case ECF_A8R8G8B8:
@@ -4199,10 +4245,13 @@ bool COpenGLDriver::getColorFormatParameters(ECOLOR_FORMAT format, GLint& intern
 			pixelType = GL_UNSIGNED_INT_8_8_8_8_REV;
 		break;
 	case ECF_DXT1:
-		supported = true;
-		internalFormat = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
-		pixelFormat = GL_BGRA_EXT;
-		pixelType = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+		if (queryOpenGLFeature(COpenGLExtensionHandler::IRR_EXT_texture_compression_s3tc))
+		{
+			supported = true;
+			internalFormat = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+			pixelFormat = GL_BGRA_EXT;
+			pixelType = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+		}
 		break;
 	case ECF_DXT2:
 	case ECF_DXT3:

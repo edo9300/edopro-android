@@ -146,6 +146,8 @@ namespace irr
 
 		void initXAtoms();
 
+		void initXInput2();
+
 		bool switchToFullscreen(bool reset=false);
 
 #ifdef _IRR_COMPILE_WITH_X11_
@@ -238,16 +240,18 @@ namespace irr
 			}
 
 			//! Returns the current position of the mouse cursor.
-			virtual const core::position2d<s32>& getPosition() _IRR_OVERRIDE_
+			virtual const core::position2d<s32>& getPosition(bool updateCursor) _IRR_OVERRIDE_
 			{
-				updateCursorPos();
+				if ( updateCursor )
+					updateCursorPos();
 				return CursorPos;
 			}
 
 			//! Returns the current position of the mouse cursor.
-			virtual core::position2d<f32> getRelativePosition() _IRR_OVERRIDE_
+			virtual core::position2d<f32> getRelativePosition(bool updateCursor) _IRR_OVERRIDE_
 			{
-				updateCursorPos();
+				if ( updateCursor )
+					updateCursorPos();
 
 				if (!UseReferenceRect)
 				{

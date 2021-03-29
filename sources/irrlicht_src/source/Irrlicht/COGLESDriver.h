@@ -226,11 +226,17 @@ namespace video
 		//! Int interface for the above.
 		virtual bool setVertexShaderConstant(s32 index, const s32* ints, int count) _IRR_OVERRIDE_;
 
+		//! Uint interface for the above.
+		virtual bool setVertexShaderConstant(s32 index, const u32* ints, int count) _IRR_OVERRIDE_;
+
 		//! Sets a constant for the pixel shader based on an index.
 		virtual bool setPixelShaderConstant(s32 index, const f32* floats, int count) _IRR_OVERRIDE_;
 
 		//! Int interface for the above.
 		virtual bool setPixelShaderConstant(s32 index, const s32* ints, int count) _IRR_OVERRIDE_;
+
+		//! Uint interface for the above.
+		virtual bool setPixelShaderConstant(s32 index, const u32* ints, int count) _IRR_OVERRIDE_;
 
 		//! Sets a vertex shader constant.
 		virtual void setVertexShaderConstant(const f32* data, s32 startRegister, s32 constantAmount=1) _IRR_OVERRIDE_;
@@ -248,7 +254,7 @@ namespace video
 			E_PIXEL_SHADER_TYPE psCompileTarget, const c8* geometryShaderProgram, const c8* geometryShaderEntryPointName,
 			E_GEOMETRY_SHADER_TYPE gsCompileTarget, scene::E_PRIMITIVE_TYPE inType, scene::E_PRIMITIVE_TYPE outType,
 			u32 verticesOut, IShaderConstantSetCallBack* callback, E_MATERIAL_TYPE baseMaterial,
-			s32 userData, E_GPU_SHADING_LANGUAGE shadingLang) _IRR_OVERRIDE_;
+			s32 userData) _IRR_OVERRIDE_;
 
 		//! Returns pointer to the IGPUProgrammingServices interface.
 		virtual IGPUProgrammingServices* getGPUProgrammingServices() _IRR_OVERRIDE_;
@@ -296,6 +302,9 @@ namespace video
 
 		//! Check if the driver supports creating textures with the given color format
 		virtual bool queryTextureFormat(ECOLOR_FORMAT format) const _IRR_OVERRIDE_;
+
+		//! Used by some SceneNodes to check if a material should be rendered in the transparent render pass
+		virtual bool needsTransparentRenderPass(const irr::video::SMaterial& material) const _IRR_OVERRIDE_;
 
 		//! Convert E_BLEND_FACTOR to OpenGL equivalent
 		GLenum getGLBlend(E_BLEND_FACTOR factor) const;

@@ -1842,7 +1842,9 @@ void COGLES1Driver::setBasicRenderStates(const SMaterial& material, const SMater
 	}
 
     // Blend Factor
-	if (IR(material.BlendFactor) & 0xFFFFFFFF)
+	if (IR(material.BlendFactor) & 0xFFFFFFFF	// TODO: why the & 0xFFFFFFFF?
+			&& material.MaterialType != EMT_ONETEXTURE_BLEND
+		)
 	{
         E_BLEND_FACTOR srcRGBFact = EBF_ZERO;
         E_BLEND_FACTOR dstRGBFact = EBF_ZERO;
@@ -1863,6 +1865,8 @@ void COGLES1Driver::setBasicRenderStates(const SMaterial& material, const SMater
 			CacheHandler->setBlendFunc(getGLBlend(srcRGBFact), getGLBlend(dstRGBFact));
         }
 	}
+
+	// TODO: Polygon Offset. Not sure if it was left out deliberately or if it won't work with this driver.
 
 	// thickness
 	if (resetAllRenderStates || lastmaterial.Thickness != material.Thickness)
@@ -2680,6 +2684,11 @@ bool COGLES1Driver::setVertexShaderConstant(s32 index, const s32* ints, int coun
 	return setPixelShaderConstant(index, ints, count);
 }
 
+bool COGLES1Driver::setVertexShaderConstant(s32 index, const u32* ints, int count)
+{
+	return setPixelShaderConstant(index, ints, count);
+}
+
 //! Sets a constant for the pixel shader based on an index.
 bool COGLES1Driver::setPixelShaderConstant(s32 index, const f32* floats, int count)
 {
@@ -2689,6 +2698,12 @@ bool COGLES1Driver::setPixelShaderConstant(s32 index, const f32* floats, int cou
 
 //! Int interface for the above.
 bool COGLES1Driver::setPixelShaderConstant(s32 index, const s32* ints, int count)
+{
+	os::Printer::log("Error: Please use IMaterialRendererServices from IShaderConstantSetCallBack::OnSetConstants not VideoDriver->setPixelShaderConstant().");
+	return false;
+}
+
+bool COGLES1Driver::setPixelShaderConstant(s32 index, const u32* ints, int count)
 {
 	os::Printer::log("Error: Please use IMaterialRendererServices from IShaderConstantSetCallBack::OnSetConstants not VideoDriver->setPixelShaderConstant().");
 	return false;
@@ -2741,8 +2756,7 @@ s32 COGLES1Driver::addHighLevelShaderMaterial(
 	u32 verticesOut,
 	IShaderConstantSetCallBack* callback,
 	E_MATERIAL_TYPE baseMaterial,
-	s32 userData,
-	E_GPU_SHADING_LANGUAGE shadingLang)
+	s32 userData)
 {
 	os::Printer::log("No shader support.");
 	return -1;
@@ -3328,6 +3342,11 @@ bool COGLES1Driver::queryTextureFormat(ECOLOR_FORMAT format) const
 	GLenum dummyPixelType;
 	void (*dummyConverter)(const void*, s32, void*);
 	return getColorFormatParameters(format, dummyInternalFormat, dummyPixelFormat, dummyPixelType, &dummyConverter);
+}
+
+bool COGLES1Driver::needsTransparentRenderPass(const irr::video::SMaterial& material) const
+{
+	return CNullDriver::needsTransparentRenderPass(material) || material.isAlphaBlendOperation();
 }
 
 COGLES1CacheHandler* COGLES1Driver::getCacheHandler() const

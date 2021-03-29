@@ -608,9 +608,13 @@ bool COpenGLSLMaterialRenderer::setVertexShaderConstant(s32 index, const s32* in
 	return setPixelShaderConstant(index, ints, count);
 }
 
+bool COpenGLSLMaterialRenderer::setVertexShaderConstant(s32 index, const u32* ints, int count)
+{
+	return setPixelShaderConstant(index, ints, count);
+}
+
 bool COpenGLSLMaterialRenderer::setPixelShaderConstant(s32 index, const f32* floats, int count)
 {
-#ifdef GL_ARB_shader_objects
 	if(index < 0 || UniformInfo[index].location < 0)
 		return false;
 
@@ -633,8 +637,26 @@ bool COpenGLSLMaterialRenderer::setPixelShaderConstant(s32 index, const f32* flo
 		case GL_FLOAT_MAT2:
 			Driver->extGlUniformMatrix2fv(UniformInfo[index].location, count/4, false, floats);
 			break;
+		case GL_FLOAT_MAT2x3:
+			Driver->extGlUniformMatrix2x3fv(UniformInfo[index].location, count/6, false, floats);
+			break;
+		case GL_FLOAT_MAT2x4:
+			Driver->extGlUniformMatrix2x4fv(UniformInfo[index].location, count/8, false, floats);
+			break;
+		case GL_FLOAT_MAT3x2:
+			Driver->extGlUniformMatrix3x2fv(UniformInfo[index].location, count/6, false, floats);
+			break;
 		case GL_FLOAT_MAT3:
 			Driver->extGlUniformMatrix3fv(UniformInfo[index].location, count/9, false, floats);
+			break;
+		case GL_FLOAT_MAT3x4:
+			Driver->extGlUniformMatrix3x4fv(UniformInfo[index].location, count/12, false, floats);
+			break;
+		case GL_FLOAT_MAT4x2:
+			Driver->extGlUniformMatrix4x2fv(UniformInfo[index].location, count/8, false, floats);
+			break;
+		case GL_FLOAT_MAT4x3:
+			Driver->extGlUniformMatrix4x3fv(UniformInfo[index].location, count/12, false, floats);
 			break;
 		case GL_FLOAT_MAT4:
 			Driver->extGlUniformMatrix4fv(UniformInfo[index].location, count/16, false, floats);
@@ -648,7 +670,7 @@ bool COpenGLSLMaterialRenderer::setPixelShaderConstant(s32 index, const f32* flo
 			{
 				if(floats)
 				{
-					const GLint id = static_cast<const GLint>(*floats);
+					const GLint id = static_cast<GLint>(*floats);
 					Driver->extGlUniform1iv(UniformInfo[index].location, 1, &id);
 				}
 				else
@@ -660,14 +682,10 @@ bool COpenGLSLMaterialRenderer::setPixelShaderConstant(s32 index, const f32* flo
 			break;
 	}
 	return status;
-#else
-	return false;
-#endif
 }
 
 bool COpenGLSLMaterialRenderer::setPixelShaderConstant(s32 index, const s32* ints, int count)
 {
-#ifdef GL_ARB_shader_objects
 	if(index < 0 || UniformInfo[index].location < 0)
 		return false;
 
@@ -704,9 +722,36 @@ bool COpenGLSLMaterialRenderer::setPixelShaderConstant(s32 index, const s32* int
 			break;
 	}
 	return status;
-#else
-	return false;
+}
+
+bool COpenGLSLMaterialRenderer::setPixelShaderConstant(s32 index, const u32* ints, int count)
+{
+	if(index < 0 || UniformInfo[index].location < 0)
+		return false;
+
+	bool status = true;
+
+	switch (UniformInfo[index].type)
+	{
+		case GL_UNSIGNED_INT:
+			Driver->extGlUniform1uiv(UniformInfo[index].location, count, reinterpret_cast<const GLuint*>(ints));
+			break;
+#if defined(GL_VERSION_3_0)
+		case GL_UNSIGNED_INT_VEC2:
+			Driver->extGlUniform2uiv(UniformInfo[index].location, count/2, reinterpret_cast<const GLuint*>(ints));
+			break;
+		case GL_UNSIGNED_INT_VEC3:
+			Driver->extGlUniform3uiv(UniformInfo[index].location, count/3, reinterpret_cast<const GLuint*>(ints));
+			break;
+		case GL_UNSIGNED_INT_VEC4:
+			Driver->extGlUniform4uiv(UniformInfo[index].location, count/4, reinterpret_cast<const GLuint*>(ints));
+			break;
 #endif
+		default:
+			status = false;
+			break;
+	}
+	return status;
 }
 
 IVideoDriver* COpenGLSLMaterialRenderer::getVideoDriver()

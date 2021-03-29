@@ -110,11 +110,11 @@ namespace scene
 		virtual void deserializeAttributes(io::IAttributes* in, io::SAttributeReadWriteOptions* options=0) _IRR_OVERRIDE_;
 
 	private:
-		void resetCursorPos();
 
 		void allKeysUp();
 
 		gui::ICursorControl *CursorControl;
+		bool GrabMouse;
 
 		f32 MaxVerticalAngle;
 		bool NoVerticalMovement;
@@ -130,6 +130,7 @@ namespace scene
 
 		core::array<SKeyMap> KeyMap;
 		core::position2d<f32> CenterCursor, CursorPos;
+		bool HadMouseEvent;
 
 		bool CursorKeys[EKA_COUNT];
 

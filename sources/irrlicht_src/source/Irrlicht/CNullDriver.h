@@ -147,7 +147,7 @@ namespace video
 			SColor color = SColor(255,255,255,255)) _IRR_OVERRIDE_;
 
 		//! draws an 2d image
-		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<s32>& destPos) _IRR_OVERRIDE_;
+		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<s32>& destPos, bool useAlphaChannelOfTexture) _IRR_OVERRIDE_;
 
 		//! draws a set of 2d images, using a color and the alpha
 		/** channel of the texture if desired. The images are drawn
@@ -299,7 +299,7 @@ namespace video
 		virtual void addExternalImageWriter(IImageWriter* writer) _IRR_OVERRIDE_;
 
 		//! Draws a shadow volume into the stencil buffer. To draw a stencil shadow, do
-		//! this: Frist, draw all geometry. Then use this method, to draw the shadow
+		//! this: First, draw all geometry. Then use this method, to draw the shadow
 		//! volume. Then, use IVideoDriver::drawStencilShadow() to visualize the shadow.
 		virtual void drawStencilShadowVolume(const core::array<core::vector3df>& triangles,
 			bool zfail=true, u32 debugDataVisible=0) _IRR_OVERRIDE_;
@@ -547,7 +547,7 @@ namespace video
 			s32 userData=0) _IRR_OVERRIDE_;
 
 		//! Returns pointer to material renderer or null
-		virtual IMaterialRenderer* getMaterialRenderer(u32 idx) _IRR_OVERRIDE_;
+		virtual IMaterialRenderer* getMaterialRenderer(u32 idx) const _IRR_OVERRIDE_;
 
 		//! Returns amount of currently available material renderers.
 		virtual u32 getMaterialRendererCount() const _IRR_OVERRIDE_;
@@ -572,7 +572,7 @@ namespace video
 			u32 verticesOut = 0,
 			IShaderConstantSetCallBack* callback = 0,
 			E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-			s32 userData = 0, E_GPU_SHADING_LANGUAGE shadingLang = EGSL_DEFAULT) _IRR_OVERRIDE_;
+			s32 userData = 0) _IRR_OVERRIDE_;
 
 		//! Like IGPUProgrammingServices::addShaderMaterial() (look there for a detailed description),
 		//! but tries to load the programs from files.
@@ -591,7 +591,7 @@ namespace video
 			u32 verticesOut = 0,
 			IShaderConstantSetCallBack* callback = 0,
 			E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-			s32 userData = 0, E_GPU_SHADING_LANGUAGE shadingLang = EGSL_DEFAULT) _IRR_OVERRIDE_;
+			s32 userData = 0) _IRR_OVERRIDE_;
 
 		//! Like IGPUProgrammingServices::addShaderMaterial() (look there for a detailed description),
 		//! but tries to load the programs from files.
@@ -610,7 +610,7 @@ namespace video
 			u32 verticesOut = 0,
 			IShaderConstantSetCallBack* callback = 0,
 			E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-			s32 userData = 0, E_GPU_SHADING_LANGUAGE shadingLang = EGSL_DEFAULT) _IRR_OVERRIDE_;
+			s32 userData = 0) _IRR_OVERRIDE_;
 
 		//! Returns a pointer to the mesh manipulator.
 		virtual scene::IMeshManipulator* getMeshManipulator() _IRR_OVERRIDE_;
@@ -680,6 +680,9 @@ namespace video
 
 		//! Returns the maximum texture size supported.
 		virtual core::dimension2du getMaxTextureSize() const _IRR_OVERRIDE_;
+
+		//! Used by some SceneNodes to check if a material should be rendered in the transparent render pass
+		virtual bool needsTransparentRenderPass(const irr::video::SMaterial& material) const _IRR_OVERRIDE_;
 
 		//! Color conversion convenience function
 		/** Convert an image (as array of pixels) from source to destination
@@ -757,24 +760,18 @@ namespace video
 			return (f32) getAverage ( p[(y * pitch) + x] );
 		}
 
-		inline bool getWriteZBuffer(const SMaterial&material) const
+		inline bool getWriteZBuffer(const SMaterial& material) const
 		{
-			if (material.ZWriteEnable)
+			switch ( material.ZWriteEnable )
 			{
-				if (!AllowZWriteOnTransparent)
-				{
-					switch (material.ZWriteFineControl)
-					{
-					case EZI_ONLY_NON_TRANSPARENT:
-						return !material.isTransparent();
-					case EZI_ZBUFFER_FLAG:
-						return true;
-					}
-				}
-				else
+				case video::EZW_OFF:
+					return false;
+				case video::EZW_AUTO:
+					return AllowZWriteOnTransparent || ! needsTransparentRenderPass(material);
+				case video::EZW_ON:
 					return true;
 			}
-			return false;
+			return true; // never should get here, but some compilers don't know and complain
 		}
 
 		struct SSurface

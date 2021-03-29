@@ -13,6 +13,7 @@ LOCAL_CFLAGS += -g -D_DEBUG
 else
 LOCAL_CFLAGS += -fexpensive-optimizations -O3
 endif
+LOCAL_CFLAGS += -DPNG_ARM_NEON_OPT=0
 
 LOCAL_C_INCLUDES := ../../../include
 LOCAL_C_INCLUDES += ../zlib ../jpeglib ../libpng
@@ -31,6 +32,7 @@ LOCAL_SRC_FILES := \
 					aesGladman/pwd2key.cpp \
 					aesGladman/sha1.cpp \
 					aesGladman/sha2.cpp \
+					burning_shader_color.cpp \
 					C3DSMeshFileLoader.cpp \
 					CAnimatedMeshHalfLife.cpp \
 					CAnimatedMeshMD2.cpp \
@@ -221,6 +223,7 @@ LOCAL_SRC_FILES := \
 					CTRGouraudWire.cpp \
 					CTriangleBBSelector.cpp \
 					CTriangleSelector.cpp \
+					CTRGouraudNoZ2.cpp \
 					CTRNormalMap.cpp \
 					CTRStencilShadow.cpp \
 					CTRTextureBlend.cpp \
@@ -244,6 +247,7 @@ LOCAL_SRC_FILES := \
 					CTRTextureLightMap2_M4.cpp \
 					CTRTextureLightMapGouraud2_M4.cpp \
 					CTRTextureWire2.cpp \
+					CTR_transparent_reflection_2_layer.cpp \
 					CVideoModeList.cpp \
 					CVolumeLightSceneNode.cpp \
 					CWADReader.cpp \

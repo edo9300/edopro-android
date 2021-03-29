@@ -18,7 +18,7 @@ namespace video
 {
 
 
-//! Enumeration flags telling the video driver in which format textures should be created.
+//! Enumeration flags used to tell the video driver with setTextureCreationFlag in which format textures should be created.
 enum E_TEXTURE_CREATION_FLAG
 {
 	/** Forces the driver to create 16 bit textures always, independent of
@@ -28,16 +28,19 @@ enum E_TEXTURE_CREATION_FLAG
 	the space in memory.
 	When using this flag, it does not make sense to use the flags
 	ETCF_ALWAYS_32_BIT, ETCF_OPTIMIZED_FOR_QUALITY, or
-	ETCF_OPTIMIZED_FOR_SPEED at the same time. */
+	ETCF_OPTIMIZED_FOR_SPEED at the same time. 
+	Not all texture formats are affected (usually those up to ECF_A8R8G8B8). */
 	ETCF_ALWAYS_16_BIT = 0x00000001,
 
 	/** Forces the driver to create 32 bit textures always, independent of
 	which format the file on disk has. Please note that some drivers (like
 	the software device) will ignore this, because they are only able to
 	create and use 16 bit textures.
+	Default is true.
 	When using this flag, it does not make sense to use the flags
 	ETCF_ALWAYS_16_BIT, ETCF_OPTIMIZED_FOR_QUALITY, or
-	ETCF_OPTIMIZED_FOR_SPEED at the same time. */
+	ETCF_OPTIMIZED_FOR_SPEED at the same time. 
+	Not all texture formats are affected (usually those up to ECF_A8R8G8B8). */
 	ETCF_ALWAYS_32_BIT = 0x00000002,
 
 	/** Lets the driver decide in which format the textures are created and
@@ -45,20 +48,27 @@ enum E_TEXTURE_CREATION_FLAG
 	chooses the format in which the texture was stored on disk.
 	When using this flag, it does not make sense to use the flags
 	ETCF_ALWAYS_16_BIT, ETCF_ALWAYS_32_BIT, or ETCF_OPTIMIZED_FOR_SPEED at
-	the same time. */
+	the same time. 
+	Not all texture formats are affected (usually those up to ECF_A8R8G8B8). */
 	ETCF_OPTIMIZED_FOR_QUALITY = 0x00000004,
 
 	/** Lets the driver decide in which format the textures are created and
 	tries to create them maximizing render speed.
 	When using this flag, it does not make sense to use the flags
 	ETCF_ALWAYS_16_BIT, ETCF_ALWAYS_32_BIT, or ETCF_OPTIMIZED_FOR_QUALITY,
-	at the same time. */
+	at the same time. 
+	Not all texture formats are affected (usually those up to ECF_A8R8G8B8). */
 	ETCF_OPTIMIZED_FOR_SPEED = 0x00000008,
 
-	/** Automatically creates mip map levels for the textures. */
+	/** Creates textures with mipmap levels. 
+	If disabled textures can not have mipmaps.
+	Default is true. */
 	ETCF_CREATE_MIP_MAPS = 0x00000010,
 
-	/** Discard any alpha layer and use non-alpha color format. */
+	/** Discard any alpha layer and use non-alpha color format. 
+	Warning: This may lead to getting 24-bit texture formats which 
+	         are often badly supported by drivers. So it's generally
+			 not recommended to enable this flag.	*/
 	ETCF_NO_ALPHA_CHANNEL = 0x00000020,
 
 	//! Allow the Driver to use Non-Power-2-Textures
@@ -69,9 +79,23 @@ enum E_TEXTURE_CREATION_FLAG
 	/** Enabling this makes calls to ITexture::lock a lot faster, but costs main memory.
 	Currently only used in combination with OpenGL drivers.
 	NOTE: Disabling this does not yet work correctly with alpha-textures.
-	So the default is off for now (but might change with Irrlicht 1.9 if we get the alpha-troubles fixed).
+	So the default is on for now (but might change with Irrlicht 1.9 if we get the alpha-troubles fixed).
 	*/
 	ETCF_ALLOW_MEMORY_COPY = 0x00000080,
+
+	//! Enable automatic updating mip maps when the base texture changes.
+	/** Default is true.
+	This flag is only used when ETCF_CREATE_MIP_MAPS is also enabled and if the driver supports it.
+	Please note:
+	- On D3D (and maybe older OGL?) you can no longer manually set mipmap data when enabled 
+	 (for example mips from image loading will be ignored).
+	- On D3D (and maybe older OGL?) texture locking for mipmap levels usually won't work anymore.
+	- On new OGL this flag is ignored.
+	- When disabled you do _not_ get hardware mipmaps on D3D, so mipmap generation can be slower.
+	- When disabled you can still update your mipmaps when the texture changed by manually calling regenerateMipMapLevels.
+	- You can still call regenerateMipMapLevels when this flag is enabled (it will be a hint on d3d to update mips immediately)
+	  */
+	ETCF_AUTO_GENERATE_MIP_MAPS = 0x00000100,
 
 	/** This flag is never used, it only forces the compiler to compile
 	these enumeration values to 32 bit. */
@@ -187,7 +211,8 @@ public:
 
 	//! Unlock function. Must be called after a lock() to the texture.
 	/** One should avoid to call unlock more than once before another lock.
-	The last locked mip level will be unlocked. */
+	The last locked mip level will be unlocked. 
+	You may want to call regenerateMipMapLevels() after this when you changed any data.	*/
 	virtual void unlock() = 0;
 
 	//! Regenerates the mip map levels of the texture.
@@ -197,8 +222,8 @@ public:
 	data. The data has to be a continuous pixel data for all mipmaps until
 	1x1 pixel. Each mipmap has to be half the width and height of the previous
 	level. At least one pixel will be always kept.
-	\param layer It informs a texture about layer which needs
-	mipmaps regeneration. */
+	\param layer It informs a texture about which cubemap or texture array layer 
+	needs mipmap regeneration. */
 	virtual void regenerateMipMapLevels(void* data = 0, u32 layer = 0) = 0;
 
 	//! Get original size of the texture.

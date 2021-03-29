@@ -143,14 +143,14 @@ namespace
 
 		//! creates an instance of this prefab
 		virtual scene::ISceneNode* addInstance(scene::ISceneNode* parent,
-			scene::ISceneManager* mgr)
+			scene::ISceneManager* mgr) _IRR_OVERRIDE_
 		{
 			// empty implementation
 			return 0;
 		}
 
 		//! returns id of this prefab
-		virtual const core::stringc& getId()
+		virtual const core::stringc& getId() _IRR_OVERRIDE_
 		{
 			return Id;
 		}
@@ -177,7 +177,7 @@ namespace
 
 		//! creates an instance of this prefab
 		virtual scene::ISceneNode* addInstance(scene::ISceneNode* parent,
-			scene::ISceneManager* mgr)
+			scene::ISceneManager* mgr) _IRR_OVERRIDE_
 		{
 			#ifdef COLLADA_READER_DEBUG
 			os::Printer::log("COLLADA: Constructing light instance", Id.c_str(), ELL_DEBUG);
@@ -213,7 +213,7 @@ namespace
 
 		//! creates an instance of this prefab
 		virtual scene::ISceneNode* addInstance(scene::ISceneNode* parent,
-			scene::ISceneManager* mgr)
+			scene::ISceneManager* mgr) _IRR_OVERRIDE_
 		{
 			#ifdef COLLADA_READER_DEBUG
 			os::Printer::log("COLLADA: Constructing mesh instance", Id.c_str(), ELL_DEBUG);
@@ -251,7 +251,7 @@ namespace
 
 		//! creates an instance of this prefab
 		virtual scene::ISceneNode* addInstance(scene::ISceneNode* parent,
-			scene::ISceneManager* mgr)
+			scene::ISceneManager* mgr) _IRR_OVERRIDE_
 		{
 			#ifdef COLLADA_READER_DEBUG
 			os::Printer::log("COLLADA: Constructing camera instance", Id.c_str(), ELL_DEBUG);
@@ -285,7 +285,7 @@ namespace
 
 		//! creates an instance of this prefab
 		virtual scene::ISceneNode* addInstance(scene::ISceneNode* parent,
-			scene::ISceneManager* mgr)
+			scene::ISceneManager* mgr) _IRR_OVERRIDE_
 		{
 			#ifdef COLLADA_READER_DEBUG
 			os::Printer::log("COLLADA: Constructing scene instance", Id.c_str(), ELL_DEBUG);
@@ -1541,7 +1541,7 @@ void CColladaFileLoader::readEffect(io::IXMLReaderUTF8* reader, SColladaEffect *
 	if ((effect->Transparency != 0.0f) && (effect->Transparency != 1.0f))
 	{
 		effect->Mat.MaterialType = irr::video::EMT_TRANSPARENT_VERTEX_ALPHA;
-		effect->Mat.ZWriteEnable = false;
+		effect->Mat.ZWriteEnable = video::EZW_OFF;
 	}
 
 	video::E_TEXTURE_CLAMP twu = video::ETC_REPEAT;
@@ -1658,7 +1658,7 @@ void CColladaFileLoader::readBindMaterialSection(io::IXMLReaderUTF8* reader, con
 						if ((material->Transparency!=0.0f) && (material->Transparency!=1.0f))
 						{
 							toBind[i]->getMaterial().MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
-							toBind[i]->getMaterial().ZWriteEnable = false;
+							toBind[i]->getMaterial().ZWriteEnable = video::EZW_OFF;
 						}
 					}
 					SceneManager->getMeshManipulator()->setVertexColors(&tmpmesh,material->Mat.DiffuseColor);

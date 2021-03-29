@@ -139,7 +139,7 @@ void CSoftwareDriver::selectRightTriangleRenderer()
 					renderer = ETR_TEXTURE_GOURAUD_ADD;
 				}
 				else
-				if ((Material.ZBuffer==ECFN_DISABLED) && !Material.ZWriteEnable)
+				if ((Material.ZBuffer==ECFN_DISABLED) && Material.ZWriteEnable == video::EZW_OFF)
 					renderer = ETR_TEXTURE_GOURAUD_NOZ;
 				else
 				{
@@ -250,6 +250,11 @@ ITexture* CSoftwareDriver::createDeviceDependentTexture(const io::path& name, II
 	CSoftwareTexture* texture = new CSoftwareTexture(image, name, false);
 
 	return texture;
+}
+
+ITexture* CSoftwareDriver::createDeviceDependentTextureCubemap(const io::path& name, const core::array<IImage*>& image)
+{
+	return 0;
 }
 
 bool CSoftwareDriver::setRenderTargetEx(IRenderTarget* target, u16 clearFlag, SColor clearColor, f32 clearDepth, u8 clearStencil)

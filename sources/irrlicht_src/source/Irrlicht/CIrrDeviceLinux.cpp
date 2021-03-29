@@ -26,6 +26,10 @@
 #include <X11/XKBlib.h>
 #include <X11/Xatom.h>
 
+#if defined(_IRR_LINUX_X11_XINPUT2_)
+#include <X11/extensions/XInput2.h>
+#endif
+
 #if defined(_IRR_COMPILE_WITH_OGLES1_) || defined(_IRR_COMPILE_WITH_OGLES2_)
 #include "CEGLManager.h"
 #endif
@@ -89,13 +93,16 @@ namespace
 	Atom X_ATOM_NETWM_MAXIMIZE_VERT;
 	Atom X_ATOM_NETWM_MAXIMIZE_HORZ;
 	Atom X_ATOM_NETWM_STATE;
+
+	Atom X_ATOM_WM_DELETE_WINDOW;
+
+#if defined(_IRR_LINUX_X11_XINPUT2_)
+	int XI_EXTENSIONS_OPCODE;
+#endif
 };
 
 namespace irr
 {
-
-const char wmDeleteWindow[] = "WM_DELETE_WINDOW";
-
 //! constructor
 CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	: CIrrDeviceStub(param),
@@ -139,6 +146,7 @@ CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 		// create the window, only if we do not use the null device
 		if (!createWindow())
 			return;
+		setResizable(param.WindowResizable);
 	}
 
 	// create cursor control
@@ -488,9 +496,8 @@ bool CIrrDeviceLinux::createWindow()
 
 		XMapRaised(XDisplay, XWindow);
 		CreationParams.WindowId = (void*)XWindow;
-		Atom wmDelete;
-		wmDelete = XInternAtom(XDisplay, wmDeleteWindow, True);
-		XSetWMProtocols(XDisplay, XWindow, &wmDelete, 1);
+		X_ATOM_WM_DELETE_WINDOW = XInternAtom(XDisplay, "WM_DELETE_WINDOW", True);
+		XSetWMProtocols(XDisplay, XWindow, &X_ATOM_WM_DELETE_WINDOW, 1);
 		if (CreationParams.Fullscreen)
 		{
 			XSetInputFocus(XDisplay, XWindow, RevertToParent, CurrentTime);
@@ -568,6 +575,8 @@ bool CIrrDeviceLinux::createWindow()
 	Atom WMCheck = XInternAtom(XDisplay, "_NET_SUPPORTING_WM_CHECK", true);
 	if (WMCheck != None)
 		HasNetWM = true;
+
+	initXInput2();
 
 #endif // #ifdef _IRR_COMPILE_WITH_X11_
 	return true;
@@ -1045,8 +1054,7 @@ bool CIrrDeviceLinux::run()
 
 			case ClientMessage:
 				{
-					char *atom = XGetAtomName(XDisplay, event.xclient.message_type);
-					if (*atom == *wmDeleteWindow)
+					if (static_cast<Atom>(event.xclient.data.l[0]) == X_ATOM_WM_DELETE_WINDOW && X_ATOM_WM_DELETE_WINDOW != None)
 					{
 						os::Printer::log("Quit message received.", ELL_INFORMATION);
 						Close = true;
@@ -1059,7 +1067,6 @@ bool CIrrDeviceLinux::run()
 						irrevent.UserEvent.UserData2 = static_cast<size_t>(event.xclient.data.l[1]);
 						postEventFromUser(irrevent);
 					}
-					XFree(atom);
 				}
 				break;
 
@@ -1106,6 +1113,28 @@ bool CIrrDeviceLinux::run()
 					XFlush (XDisplay);
 				}
 				break;
+#if defined(_IRR_LINUX_X11_XINPUT2_)
+				case GenericEvent:
+				{
+					XGenericEventCookie *cookie = &event.xcookie;
+					if (XGetEventData(XDisplay, cookie) && cookie->extension == XI_EXTENSIONS_OPCODE && XI_EXTENSIONS_OPCODE
+					&& (cookie->evtype == XI_TouchUpdate || cookie->evtype == XI_TouchBegin || cookie->evtype == XI_TouchEnd))
+					{
+						XIDeviceEvent *de = (XIDeviceEvent *) cookie->data;
+
+						irrevent.EventType = EET_TOUCH_INPUT_EVENT;
+
+						irrevent.TouchInput.Event = cookie->evtype == XI_TouchUpdate ? ETIE_MOVED : (cookie->evtype == XI_TouchBegin ? ETIE_PRESSED_DOWN : ETIE_LEFT_UP);
+
+						irrevent.TouchInput.ID = de->detail;
+						irrevent.TouchInput.X = de->event_x;
+						irrevent.TouchInput.Y = de->event_y;
+
+						postEventFromUser(irrevent);
+					}
+				}
+				break;
+#endif
 
 			default:
 				break;
@@ -1988,6 +2017,42 @@ void CIrrDeviceLinux::initXAtoms()
 	X_ATOM_NETWM_MAXIMIZE_VERT = XInternAtom(XDisplay, "_NET_WM_STATE_MAXIMIZED_VERT", true);
 	X_ATOM_NETWM_MAXIMIZE_HORZ = XInternAtom(XDisplay, "_NET_WM_STATE_MAXIMIZED_HORZ", true);
 	X_ATOM_NETWM_STATE = XInternAtom(XDisplay, "_NET_WM_STATE", true);
+#endif
+}
+
+void CIrrDeviceLinux::initXInput2()
+{
+#if defined(_IRR_LINUX_X11_XINPUT2_)
+	int ev=0;
+	int err=0;
+	if (!XQueryExtension(XDisplay, "XInputExtension", &XI_EXTENSIONS_OPCODE, &ev, &err))
+	{
+		os::Printer::log("X Input extension not available.", ELL_WARNING);
+		return;
+	}
+
+	int major = 2;
+	int minor = 3;
+	int rc = XIQueryVersion(XDisplay, &major, &minor);
+	if ( rc != Success )
+	{
+		os::Printer::log("No XI2 support.", ELL_WARNING);
+		return;
+	}
+
+	// So far we only use XInput2 for touch events.
+	// So we enable those and disable all other events for now.
+	XIEventMask eventMask;
+	unsigned char mask[XIMaskLen(XI_TouchEnd)];
+	memset(mask, 0, sizeof(mask));
+	eventMask.deviceid = XIAllMasterDevices;
+	eventMask.mask_len = sizeof(mask);
+	eventMask.mask = mask;
+	XISetMask(eventMask.mask, XI_TouchBegin);
+	XISetMask(eventMask.mask, XI_TouchUpdate);
+	XISetMask(eventMask.mask, XI_TouchEnd);
+
+	XISelectEvents(XDisplay, XWindow, &eventMask, 1);
 #endif
 }
 

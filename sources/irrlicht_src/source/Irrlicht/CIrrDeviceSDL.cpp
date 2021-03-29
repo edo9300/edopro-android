@@ -187,7 +187,7 @@ CIrrDeviceSDL::CIrrDeviceSDL(const SIrrlichtCreationParameters& param)
 	Screen((SDL_Surface*)param.WindowId), SDL_Flags(SDL_ANYFORMAT),
 	MouseX(0), MouseY(0), MouseXRel(0), MouseYRel(0), MouseButtonStates(0),
 	Width(param.WindowSize.Width), Height(param.WindowSize.Height),
-	Resizable(false), WindowHasFocus(false), WindowMinimized(false)
+	Resizable(param.WindowResizable), WindowMinimized(false)
 {
 	#ifdef _DEBUG
 	setDebugName("CIrrDeviceSDL");
@@ -249,6 +249,8 @@ CIrrDeviceSDL::CIrrDeviceSDL(const SIrrlichtCreationParameters& param)
 
 	if ( CreationParams.Fullscreen )
 		SDL_Flags |= SDL_FULLSCREEN;
+	else if ( Resizable )
+		SDL_Flags |= SDL_RESIZABLE;
 	if (CreationParams.DriverType == video::EDT_OPENGL)
 		SDL_Flags |= SDL_OPENGL;
 	else if (CreationParams.Doublebuffer)
@@ -447,12 +449,7 @@ void CIrrDeviceSDL::createDriver()
 
 	case video::EDT_DIRECT3D9:
 		#ifdef _IRR_COMPILE_WITH_DIRECT3D_9_
-
-		VideoDriver = video::createDirectX9Driver(CreationParams, FileSystem, HWnd);
-		if (!VideoDriver)
-		{
-			os::Printer::log("Could not create DIRECT3D9 Driver.", ELL_ERROR);
-		}
+		os::Printer::log("SDL device does not support DIRECT3D9 driver. Try another one.", ELL_ERROR);
 		#else
 		os::Printer::log("DIRECT3D9 Driver was not compiled into this dll. Try another one.", ELL_ERROR);
 		#endif // _IRR_COMPILE_WITH_DIRECT3D_9_
@@ -716,10 +713,6 @@ bool CIrrDeviceSDL::run()
 			break;
 
 		case SDL_ACTIVEEVENT:
-			if ((SDL_event.active.state == SDL_APPMOUSEFOCUS) ||
-					(SDL_event.active.state == SDL_APPINPUTFOCUS))
-				WindowHasFocus = (SDL_event.active.gain==1);
-			else
 			if (SDL_event.active.state == SDL_APPACTIVE)
 				WindowMinimized = (SDL_event.active.gain!=1);
 			break;
@@ -1012,15 +1005,34 @@ video::IVideoModeList* CIrrDeviceSDL::getVideoModeList()
 	{
 		// enumerate video modes.
 		const SDL_VideoInfo *vi = SDL_GetVideoInfo();
-		SDL_Rect **modes = SDL_ListModes(vi->vfmt, SDL_Flags);
-		if (modes != 0)
+
+		SDL_PixelFormat pixelFormat = *(vi->vfmt);
+
+		core::array<Uint8> checkBitsPerPixel;
+		checkBitsPerPixel.push_back(8);
+		checkBitsPerPixel.push_back(16);
+		checkBitsPerPixel.push_back(24);
+		checkBitsPerPixel.push_back(32);
+		if ( pixelFormat.BitsPerPixel > 32 )
+			checkBitsPerPixel.push_back(pixelFormat.BitsPerPixel);
+
+		for ( u32 i=0; i<checkBitsPerPixel.size(); ++i)
 		{
-			if (modes == (SDL_Rect **)-1)
-				os::Printer::log("All modes available.\n");
-			else
+			pixelFormat.BitsPerPixel = checkBitsPerPixel[i];
+			SDL_Rect **modes = SDL_ListModes(&pixelFormat, SDL_Flags|SDL_FULLSCREEN);
+			if (modes != 0)
 			{
-				for (u32 i=0; modes[i]; ++i)
-					VideoModeList->addMode(core::dimension2d<u32>(modes[i]->w, modes[i]->h), vi->vfmt->BitsPerPixel);
+				if (modes == (SDL_Rect **)-1)
+				{
+					core::stringc strLog("All modes available for bit-depth ");
+					strLog += core::stringc(pixelFormat.BitsPerPixel);
+					os::Printer::log(strLog.c_str());
+				}
+				else
+				{
+					for (u32 i=0; modes[i]; ++i)
+						VideoModeList->addMode(core::dimension2d<u32>(modes[i]->w, modes[i]->h), vi->vfmt->BitsPerPixel);
+				}
 			}
 		}
 	}
@@ -1028,7 +1040,6 @@ video::IVideoModeList* CIrrDeviceSDL::getVideoModeList()
 	return VideoModeList;
 #endif // !_IRR_EMSCRIPTEN_PLATFORM_
 }
-
 
 //! Sets if the window should be resizable in windowed mode.
 void CIrrDeviceSDL::setResizable(bool resize)
@@ -1039,10 +1050,21 @@ void CIrrDeviceSDL::setResizable(bool resize)
 #else // !_IRR_EMSCRIPTEN_PLATFORM_
 	if (resize != Resizable)
 	{
+#if defined(_IRR_COMPILE_WITH_OPENGL_) && defined(_IRR_WINDOWS_)
+		if ( SDL_Flags & SDL_OPENGL )
+		{
+			// For unknown reasons the hack with sharing resources which was added in Irrlicht 1.8.5 for this no longer works in 1.9
+			// But at least we got a new WindowResizable flag since Irrlicht 1.9.
+			os::Printer::log("setResizable not supported with this device/driver combination. Use SIrrCreationParameters.WindowResizable instead.", ELL_WARNING);
+			return;
+		}
+#endif
+
 		if (resize)
 			SDL_Flags |= SDL_RESIZABLE;
 		else
 			SDL_Flags &= ~SDL_RESIZABLE;
+
 		Screen = SDL_SetVideoMode( 0, 0, 0, SDL_Flags );
 		Resizable = resize;
 	}
@@ -1099,17 +1121,16 @@ bool CIrrDeviceSDL::isWindowActive() const
 		if ( emVisibility.hidden )
 			return false;
 	}
-
-	// TODO: not sure yet if/what WindowHasFocus and WindowMinimized do in sdl/emscripten
 #endif
-	return (WindowHasFocus && !WindowMinimized);
+	const Uint8 appState = SDL_GetAppState();
+	return (appState&SDL_APPACTIVE && appState&SDL_APPINPUTFOCUS) ? true : false;
 }
 
 
 //! returns if window has focus.
 bool CIrrDeviceSDL::isWindowFocused() const
 {
-	return WindowHasFocus;
+	return (SDL_GetAppState()&SDL_APPINPUTFOCUS) ? true : false;
 }
 
 

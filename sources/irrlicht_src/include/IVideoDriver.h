@@ -382,7 +382,9 @@ namespace video
 		\param format The color format of the render target. Floating point formats are supported.
 		\return Pointer to the created texture or 0 if the texture
 		could not be created. This pointer should not be dropped. See
-		IReferenceCounted::drop() for more information. */
+		IReferenceCounted::drop() for more information.
+		You may want to remove it from driver texture cache with removeTexture if you no longer need it.
+		*/
 		virtual ITexture* addRenderTargetTexture(const core::dimension2d<u32>& size,
 				const io::path& name = "rt", const ECOLOR_FORMAT format = ECF_UNKNOWN) =0;
 
@@ -793,9 +795,11 @@ namespace video
 		//! Draws a 2d image without any special effects
 		/** \param texture Pointer to texture to use.
 		\param destPos Upper left 2d destination position where the
-		image will be drawn. */
+		image will be drawn. 
+		\param useAlphaChannelOfTexture: If true, the alpha channel of
+		the texture is used to draw the image.*/
 		virtual void draw2DImage(const video::ITexture* texture,
-			const core::position2d<s32>& destPos) =0;
+			const core::position2d<s32>& destPos, bool useAlphaChannelOfTexture=false) =0;
 
 		//! Draws a 2d image using a color
 		/** (if color is other than
@@ -1238,7 +1242,10 @@ namespace video
 		\param data A byte array with pixel color information
 		\param ownForeignMemory If true, the image will use the data
 		pointer directly and own it afterward. If false, the memory
-		will by copied internally.
+		will by copied internally. 
+		WARNING: Setting this to 'true' will not work across dll boundaries.
+		So unless you link Irrlicht statically you should keep this to 'false'.
+		The parameter is mainly for internal usage.
 		\param deleteMemory Whether the memory is deallocated upon
 		destruction.
 		\return The created image.
@@ -1323,7 +1330,7 @@ namespace video
 		the E_MATERIAL_TYPE enum or a value which was returned by
 		addMaterialRenderer().
 		\return Pointer to material renderer or null if not existing. */
-		virtual IMaterialRenderer* getMaterialRenderer(u32 idx) =0;
+		virtual IMaterialRenderer* getMaterialRenderer(u32 idx) const = 0;
 
 		//! Get amount of currently available material renderers.
 		/** \return Amount of currently available material renderers. */
@@ -1482,7 +1489,7 @@ namespace video
 		other flags can be changed, though some might have to effect
 		in most cases.
 		Please note that you have to enable/disable this effect with
-		enableInitMaterial2D(). This effect is costly, as it increases
+		enableMaterial2D(). This effect is costly, as it increases
 		the number of state changes considerably. Always reset the
 		values when done.
 		\return Material reference which should be altered to reflect
@@ -1532,6 +1539,9 @@ namespace video
 		//! Check if the driver supports creating textures with the given color format
 		/**	\return True if the format is available, false if not. */
 		virtual bool queryTextureFormat(ECOLOR_FORMAT format) const = 0;
+
+		//! Used by some SceneNodes to check if a material should be rendered in the transparent render pass
+		virtual bool needsTransparentRenderPass(const irr::video::SMaterial& material) const = 0;
 	};
 
 } // end namespace video

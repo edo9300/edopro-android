@@ -746,6 +746,11 @@ ITexture* CD3D9Driver::createDeviceDependentTexture(const io::path& name, IImage
 	imageArray.push_back(image);
 
 	CD3D9Texture* texture = new CD3D9Texture(name, imageArray, ETT_2D, this);
+	if ( !texture->getDX9Texture() )
+	{
+		texture->drop();
+		return 0;
+	}
 
 	return texture;
 }
@@ -753,6 +758,12 @@ ITexture* CD3D9Driver::createDeviceDependentTexture(const io::path& name, IImage
 ITexture* CD3D9Driver::createDeviceDependentTextureCubemap(const io::path& name, const core::array<IImage*>& image)
 {
 	CD3D9Texture* texture = new CD3D9Texture(name, image, ETT_CUBEMAP, this);
+
+	if ( !texture->getDX9CubeTexture() )
+	{
+		texture->drop();
+		return 0;
+	}
 
 	return texture;
 }
@@ -1491,7 +1502,7 @@ void CD3D9Driver::draw2DImage(const video::ITexture* texture,
 
 	s16 indices[6] = {0,1,2,0,2,3};
 
-	setActiveTexture(0, const_cast<video::ITexture*>(texture));
+	setActiveTexture(0, texture);
 
 	setRenderStates2DMode(useColor[0].getAlpha()<255 || useColor[1].getAlpha()<255 ||
 			useColor[2].getAlpha()<255 || useColor[3].getAlpha()<255,
@@ -1528,7 +1539,7 @@ void CD3D9Driver::draw2DImageBatch(const video::ITexture* texture,
 	if (!texture)
 		return;
 
-	if (!setActiveTexture(0, const_cast<video::ITexture*>(texture)))
+	if (!setActiveTexture(0, texture))
 		return;
 
 	setRenderStates2DMode(color.getAlpha()<255, true, useAlphaChannelOfTexture);
@@ -1678,7 +1689,7 @@ void CD3D9Driver::draw2DImage(const video::ITexture* texture,
 	if (!sourceRect.isValid())
 		return;
 
-	if (!setActiveTexture(0, const_cast<video::ITexture*>(texture)))
+	if (!setActiveTexture(0, texture))
 		return;
 
 	core::position2d<s32> targetPos = pos;
@@ -2208,7 +2219,9 @@ void CD3D9Driver::setBasicRenderStates(const SMaterial& material, const SMateria
 	}
 
     // Blend Factor
-	if (IR(material.BlendFactor) & 0xFFFFFFFF)
+	if (IR(material.BlendFactor) & 0xFFFFFFFF	// TODO: why the & 0xFFFFFFFF?
+		&& material.MaterialType != EMT_ONETEXTURE_BLEND
+		)
 	{
         E_BLEND_FACTOR srcRGBFact = EBF_ZERO;
         E_BLEND_FACTOR dstRGBFact = EBF_ZERO;
@@ -2226,9 +2239,16 @@ void CD3D9Driver::setBasicRenderStates(const SMaterial& material, const SMateria
 	// Polygon offset
 	if (queryFeature(EVDF_POLYGON_OFFSET) && (resetAllRenderstates ||
 		lastmaterial.PolygonOffsetDirection != material.PolygonOffsetDirection ||
-		lastmaterial.PolygonOffsetFactor != material.PolygonOffsetFactor))
+		lastmaterial.PolygonOffsetFactor != material.PolygonOffsetFactor ||
+		lastmaterial.PolygonOffsetSlopeScale != material.PolygonOffsetSlopeScale ||
+		lastmaterial.PolygonOffsetDepthBias != material.PolygonOffsetDepthBias ))
 	{
-		if (material.PolygonOffsetFactor)
+		if ( material.PolygonOffsetSlopeScale || material.PolygonOffsetDepthBias )
+		{
+			pID3DDevice->SetRenderState(D3DRS_SLOPESCALEDEPTHBIAS, F2DW(material.PolygonOffsetSlopeScale));
+			pID3DDevice->SetRenderState(D3DRS_DEPTHBIAS, F2DW(material.PolygonOffsetDepthBias));
+		}
+		else if (material.PolygonOffsetFactor)
 		{
 			if (material.PolygonOffsetDirection==EPO_BACK)
 			{
@@ -2390,9 +2410,8 @@ void CD3D9Driver::setRenderStatesStencilShadowMode(bool zfail, u32 debugDataVisi
 		pID3DDevice->SetRenderState(D3DRS_STENCILMASK, 0xffffffff);
 		pID3DDevice->SetRenderState(D3DRS_STENCILWRITEMASK, 0xffffffff);
 
-		pID3DDevice->SetRenderState( D3DRS_ALPHABLENDENABLE, TRUE );
-		pID3DDevice->SetRenderState( D3DRS_SRCBLEND, D3DBLEND_ZERO );
-		pID3DDevice->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_ONE );
+		BridgeCalls->setBlend(true);
+		BridgeCalls->setBlendFunc(D3DBLEND_ZERO, D3DBLEND_ONE);
 
 		pID3DDevice->SetRenderState(D3DRS_ZENABLE, TRUE);
 		pID3DDevice->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESS);
@@ -2895,10 +2914,9 @@ bool CD3D9Driver::retrieveDevice(int numTries, int msSleepBetweenTries)
 //! resets the device
 bool CD3D9Driver::reset()
 {
-	u32 i;
 	os::Printer::log("Resetting D3D9 device.", ELL_INFORMATION);
 
-	for (i = 0; i<RenderTargets.size(); ++i)
+	for (u32 i = 0; i<RenderTargets.size(); ++i)
 	{
 		if (RenderTargets[i]->getDriverType() == EDT_DIRECT3D9)
 		{
@@ -2920,7 +2938,7 @@ bool CD3D9Driver::reset()
 				tex->releaseTexture();
 		}
 	}
-	for (i=0; i<Textures.size(); ++i)
+	for (u32 i=0; i<Textures.size(); ++i)
 	{
 		if (Textures[i].Surface->isRenderTarget())
 		{
@@ -2930,7 +2948,7 @@ bool CD3D9Driver::reset()
 				tex->releaseTexture();
 		}
 	}
-	for (i=0; i<OcclusionQueries.size(); ++i)
+	for (u32 i=0; i<OcclusionQueries.size(); ++i)
 	{
 		if (OcclusionQueries[i].PID)
 		{
@@ -3010,12 +3028,12 @@ bool CD3D9Driver::reset()
 	}
 
 	// restore RTTs
-	for (i=0; i<Textures.size(); ++i)
+	for (u32 i=0; i<Textures.size(); ++i)
 	{
 		if (Textures[i].Surface->isRenderTarget())
 			((CD3D9Texture*)(Textures[i].Surface))->generateRenderTarget();
 	}
-	for (i = 0; i<RenderTargets.size(); ++i)
+	for (u32 i = 0; i<RenderTargets.size(); ++i)
 	{
 		if (RenderTargets[i]->getDriverType() == EDT_DIRECT3D9)
 		{
@@ -3039,7 +3057,7 @@ bool CD3D9Driver::reset()
 	}
 
 	// restore occlusion queries
-	for (i=0; i<OcclusionQueries.size(); ++i)
+	for (u32 i=0; i<OcclusionQueries.size(); ++i)
 	{
 		pID3DDevice->CreateQuery(D3DQUERYTYPE_OCCLUSION, reinterpret_cast<IDirect3DQuery9**>(&OcclusionQueries[i].PID));
 	}
@@ -3159,6 +3177,19 @@ bool CD3D9Driver::setVertexShaderConstant(s32 index, const s32* ints, int count)
 }
 
 
+//! Uint interface for the above.
+bool CD3D9Driver::setVertexShaderConstant(s32 index, const u32* ints, int count)
+{
+	if (Material.MaterialType >= 0 && Material.MaterialType < (s32)MaterialRenderers.size())
+	{
+		CD3D9MaterialRenderer* r = (CD3D9MaterialRenderer*)MaterialRenderers[Material.MaterialType].Renderer;
+		return r->setVariable(true, index, ints, count);
+	}
+
+	return false;
+}
+
+
 //! Sets a constant for the pixel shader based on an index.
 bool CD3D9Driver::setPixelShaderConstant(s32 index, const f32* floats, int count)
 {
@@ -3183,6 +3214,20 @@ bool CD3D9Driver::setPixelShaderConstant(s32 index, const s32* ints, int count)
 
 	return false;
 }
+
+
+//! Uint interface for the above.
+bool CD3D9Driver::setPixelShaderConstant(s32 index, const u32* ints, int count)
+{
+	if (Material.MaterialType >= 0 && Material.MaterialType < (s32)MaterialRenderers.size())
+	{
+		CD3D9MaterialRenderer* r = (CD3D9MaterialRenderer*)MaterialRenderers[Material.MaterialType].Renderer;
+		return r->setVariable(false, index, ints, count);
+	}
+
+	return false;
+}
+
 
 
 //! Adds a new material renderer to the VideoDriver, using pixel and/or
@@ -3217,7 +3262,7 @@ s32 CD3D9Driver::addHighLevelShaderMaterial(
 		scene::E_PRIMITIVE_TYPE inType, scene::E_PRIMITIVE_TYPE outType,
 		u32 verticesOut,
 		IShaderConstantSetCallBack* callback,
-		E_MATERIAL_TYPE baseMaterial, s32 userData, E_GPU_SHADING_LANGUAGE shadingLang)
+		E_MATERIAL_TYPE baseMaterial, s32 userData)
 {
 	s32 nr = -1;
 
@@ -3252,6 +3297,9 @@ ITexture* CD3D9Driver::addRenderTargetTexture(const core::dimension2d<u32>& size
 											  const io::path& name,
 											  const ECOLOR_FORMAT format)
 {
+	if ( IImage::isCompressedFormat(format) )
+		return 0;
+
 	CD3D9Texture* tex = new CD3D9Texture(this, size, name, ETT_2D, format);
 	if (tex)
 	{
@@ -3270,6 +3318,9 @@ ITexture* CD3D9Driver::addRenderTargetTexture(const core::dimension2d<u32>& size
 ITexture* CD3D9Driver::addRenderTargetTextureCubemap(const irr::u32 sideLen,
 	const io::path& name, const ECOLOR_FORMAT format)
 {
+	if ( IImage::isCompressedFormat(format) )
+		return 0;
+
 	CD3D9Texture* tex = new CD3D9Texture(this, core::dimension2d<u32>(sideLen, sideLen), name, ETT_CUBEMAP, format);
 	if (tex)
 	{
@@ -3317,7 +3368,8 @@ IImage* CD3D9Driver::createScreenShot(video::ECOLOR_FORMAT format, video::E_REND
 	if (format==video::ECF_UNKNOWN)
 		format=getColorFormat();
 
-	if (IImage::isRenderTargetOnlyFormat(format) || IImage::isCompressedFormat(format) || IImage::isDepthFormat(format))
+	// TODO: Maybe we could support more formats (floating point and some of those beyond ECF_R8), didn't really try yet 
+	if (IImage::isCompressedFormat(format) || IImage::isDepthFormat(format) || IImage::isFloatingPointFormat(format) || format >= ECF_R8)
 		return 0;
 
 	// query the screen dimensions of the current adapter
@@ -3475,6 +3527,7 @@ D3DFORMAT CD3D9Driver::getD3DFormatFromColorFormat(ECOLOR_FORMAT format) const
 			return D3DFMT_R8G8B8;
 		case ECF_A8R8G8B8:
 			return D3DFMT_A8R8G8B8;
+
 		case ECF_DXT1:
 			return D3DFMT_DXT1;
 		case ECF_DXT2:
@@ -3497,6 +3550,16 @@ D3DFORMAT CD3D9Driver::getD3DFormatFromColorFormat(ECOLOR_FORMAT format) const
 			return D3DFMT_G32R32F;
 		case ECF_A32B32G32R32F:
 			return D3DFMT_A32B32G32R32F;
+
+		case ECF_R8:
+			return D3DFMT_A8;	// not correct, but somewhat similar
+		case ECF_R8G8:
+			return D3DFMT_A8L8;	// not correct, but somewhat similar
+		case ECF_R16:
+			return D3DFMT_L16;	// not correct, but somewhat similar
+		case ECF_R16G16:
+			return D3DFMT_G16R16;	// flipped :-(
+
 		case ECF_D16:
 			return D3DFMT_D16;
 		case ECF_D24S8:
@@ -3551,6 +3614,11 @@ core::dimension2du CD3D9Driver::getMaxTextureSize() const
 bool CD3D9Driver::queryTextureFormat(ECOLOR_FORMAT format) const
 {
 	return getD3DFormatFromColorFormat(format) != D3DFMT_UNKNOWN;
+}
+
+bool CD3D9Driver::needsTransparentRenderPass(const irr::video::SMaterial& material) const
+{
+	return CNullDriver::needsTransparentRenderPass(material) || material.isAlphaBlendOperation();
 }
 
 u32 CD3D9Driver::getD3DBlend(E_BLEND_FACTOR factor) const

@@ -19,7 +19,8 @@ namespace video
 {
 	class ITexture;
 
-	//! Flag for EMT_ONETEXTURE_BLEND, ( BlendFactor ) BlendFunc = source * sourceFactor + dest * destFactor
+	//! Flag for MaterialTypeParam (in combination with EMT_ONETEXTURE_BLEND) or for BlendFactor
+	//! BlendFunc = source * sourceFactor + dest * destFactor
 	enum E_BLEND_FACTOR
 	{
 		EBF_ZERO	= 0,		//!< src & dest	(0, 0, 0, 0)
@@ -199,7 +200,7 @@ namespace video
 		//! All typical anti-alias and smooth modes
 		EAAM_FULL_BASIC=15,
 		//! Enhanced anti-aliasing for transparent materials
-		/** Usually used with EMT_TRANSPARENT_ALPHA_REF and multisampling. */
+		/** Usually used with EMT_TRANSPARENT_ALPHA_CHANNEL_REF and multisampling. */
 		EAAM_ALPHA_TO_COVERAGE=16
 	};
 
@@ -226,8 +227,8 @@ namespace video
 		ECM_DIFFUSE_AND_AMBIENT
 	};
 
-	//! Flags for the definition of the polygon offset feature
-	/** These flags define whether the offset should be into the screen, or towards the eye. */
+	//! DEPRECATED. Will be removed after Irrlicht 1.9.
+	/** Flags for the definition of the polygon offset feature. These flags define whether the offset should be into the screen, or towards the eye. */
 	enum E_POLYGON_OFFSET
 	{
 		//! Push pixel towards the far plane, away from the eye
@@ -247,15 +248,32 @@ namespace video
 		0
 	};
 
-	//! Fine-tuning for SMaterial.ZWriteFineControl
-	enum E_ZWRITE_FINE_CONTROL
+	//! For SMaterial.ZWriteEnable
+	enum E_ZWRITE
 	{
-		//! Default. Only write zbuffer when When SMaterial::ZBuffer is true and SMaterial::isTransparent() returns false.
-		EZI_ONLY_NON_TRANSPARENT,
-		//! Writing will just be based on SMaterial::ZBuffer value, transparency is ignored.
-		//! Needed mostly for certain shader materials as SMaterial::isTransparent will always return false for those.
-		EZI_ZBUFFER_FLAG
+		//! zwrite always disabled for this material
+		EZW_OFF = 0,
+
+		//! This is the default setting for SMaterial and tries to handle things automatically.
+		//! This is also the value which is set when SMaterial::setFlag(EMF_ZWRITE_ENABLE) is enabled.
+		//! Usually zwriting is enabled non-transparent materials - as far as Irrlicht can recognize those.
+		//! Basically Irrlicht tries to handle the zwriting for you and assumes transparent materials don't need it.
+		//! This is addionally affected by IVideoDriver::setAllowZWriteOnTransparent
+		EZW_AUTO,
+
+		//! zwrite always enabled for this material
+		EZW_ON
 	};
+
+	//! Names for E_ZWRITE
+	const c8* const ZWriteNames[] =
+	{
+		"Off",
+		"Auto",
+		"On",
+		0
+	};
+
 
 
 	//! Maximum number of texture an SMaterial can have.
@@ -266,13 +284,13 @@ namespace video
 
 	//! By default this is identical to MATERIAL_MAX_TEXTURES
 	/** Users can modify this value if they are certain they don't need all
-		available textures per material in their application. For example if you 
+		available textures per material in their application. For example if you
 		never need more than 2 textures per material you can set this to 2.
 
-		We (mostly) avoid dynamic memory in SMaterial, so the extra memory 
-		will still be allocated. But by lowering MATERIAL_MAX_TEXTURES_USED the 
-		material comparisons and assignments can be faster. Also several other 
-		places in the engine can be faster when reducing this value to the limit 
+		We (mostly) avoid dynamic memory in SMaterial, so the extra memory
+		will still be allocated. But by lowering MATERIAL_MAX_TEXTURES_USED the
+		material comparisons and assignments can be faster. Also several other
+		places in the engine can be faster when reducing this value to the limit
 		you need.
 
 		NOTE: This should only be changed once and before any call to createDevice.
@@ -294,10 +312,10 @@ namespace video
 			ZBuffer(ECFN_LESSEQUAL), AntiAliasing(EAAM_SIMPLE), ColorMask(ECP_ALL),
 			ColorMaterial(ECM_DIFFUSE), BlendOperation(EBO_NONE), BlendFactor(0.0f),
 			PolygonOffsetFactor(0), PolygonOffsetDirection(EPO_FRONT),
+			PolygonOffsetDepthBias(0.f), PolygonOffsetSlopeScale(0.f),
 			Wireframe(false), PointCloud(false), GouraudShading(true),
-			Lighting(true), ZWriteEnable(true), BackfaceCulling(true), FrontfaceCulling(false),
-			FogEnable(false), NormalizeNormals(false), UseMipMaps(true),
-			ZWriteFineControl(EZI_ONLY_NON_TRANSPARENT)
+			Lighting(true), ZWriteEnable(EZW_AUTO), BackfaceCulling(true), FrontfaceCulling(false),
+			FogEnable(false), NormalizeNormals(false), UseMipMaps(true)
 		{ }
 
 		//! Copy constructor
@@ -350,8 +368,9 @@ namespace video
 			BlendFactor = other.BlendFactor;
 			PolygonOffsetFactor = other.PolygonOffsetFactor;
 			PolygonOffsetDirection = other.PolygonOffsetDirection;
+			PolygonOffsetDepthBias = other.PolygonOffsetDepthBias;
+			PolygonOffsetSlopeScale = other.PolygonOffsetSlopeScale;
 			UseMipMaps = other.UseMipMaps;
-			ZWriteFineControl = other.ZWriteFineControl;
 
 			return *this;
 		}
@@ -413,8 +432,8 @@ namespace video
 		f32 Shininess;
 
 		//! Free parameter, dependent on the material type.
-		/** Mostly ignored, used for example in EMT_PARALLAX_MAP_SOLID
-		and EMT_TRANSPARENT_ALPHA_CHANNEL. */
+		/** Mostly ignored, used for example in EMT_PARALLAX_MAP_SOLID,
+		EMT_TRANSPARENT_ALPHA_CHANNEL and EMT_ONETEXTURE_BLEND. */
 		f32 MaterialTypeParam;
 
 		//! Second free parameter, dependent on the material type.
@@ -456,18 +475,45 @@ namespace video
 
 		//! Store the blend factors
 		/** textureBlendFunc/textureBlendFuncSeparate functions should be used to write
-		properly blending factors to this parameter. If you use EMT_ONETEXTURE_BLEND
-		type for this material, this field should be equal to MaterialTypeParam. */
+		properly blending factors to this parameter. 
+		Due to historical reasons this parameter is not used for material type 
+		EMT_ONETEXTURE_BLEND which uses MaterialTypeParam instead for the blend factor.
+		It's generally used only for materials without any blending otherwise (like EMT_SOLID).
+		It's main use is to allow having shader materials which can enable/disable 
+		blending after they have been created. 
+		When you set this you usually also have to set BlendOperation to a value != EBO_NONE
+		(setting it to EBO_ADD is probably the most common one value). */
 		f32 BlendFactor;
 
-		//! Factor specifying how far the polygon offset should be made
-		/** Specifying 0 disables the polygon offset. The direction is specified separately.
-		The factor can be from 0 to 7.*/
+		//! DEPRECATED. Will be removed after Irrlicht 1.9. Please use PolygonOffsetDepthBias instead.
+		/** Factor specifying how far the polygon offset should be made.
+		Specifying 0 disables the polygon offset. The direction is specified separately.
+		The factor can be from 0 to 7.
+		Note: This probably never worked on Direct3D9 (was coded for D3D8 which had different value ranges)	*/
 		u8 PolygonOffsetFactor:3;
 
-		//! Flag defining the direction the polygon offset is applied to.
-		/** Can be to front or to back, specified by values from E_POLYGON_OFFSET. */
+		//! DEPRECATED. Will be removed after Irrlicht 1.9.
+		/** Flag defining the direction the polygon offset is applied to.
+		Can be to front or to back, specified by values from E_POLYGON_OFFSET. 	*/
 		E_POLYGON_OFFSET PolygonOffsetDirection:1;
+
+		//! A constant z-buffer offset for a polygon/line/point
+		/** The range of the value is driver specific.
+		On OpenGL you get units which are multiplied by the smallest value that is guaranteed to produce a resolvable offset.
+		On D3D9 you can pass a range between -1 and 1. But you should likely divide it by the range of the depthbuffer.
+		Like dividing by 65535.0 for a 16 bit depthbuffer. Thought it still might produce too large of a bias.
+		Some article (https://aras-p.info/blog/2008/06/12/depth-bias-and-the-power-of-deceiving-yourself/)
+		recommends multiplying by 2.0*4.8e-7 (and strangely on both 16 bit and 24 bit).	*/
+		f32 PolygonOffsetDepthBias;
+
+		//! Variable Z-Buffer offset based on the slope of the polygon.
+		/** For polygons looking flat at a camera you could use 0 (for example in a 2D game)
+		But in most cases you will have polygons rendered at a certain slope.
+		The driver will calculate the slope for you and this value allows to scale that slope.
+		The complete polygon offset is: PolygonOffsetSlopeScale*slope + PolygonOffsetDepthBias
+		A good default here is to use 1.f if you want to push the polygons away from the camera
+		and -1.f to pull them towards the camera.  */
+		f32 PolygonOffsetSlopeScale;
 
 		//! Draw as wireframe or filled triangles? Default: false
 		/** The user can access a material flag using
@@ -484,12 +530,10 @@ namespace video
 		//! Will this material be lighted? Default: true
 		bool Lighting:1;
 
-		//! Is the zbuffer writeable or is it read-only. Default: true.
-		/** This flag is forced to false if the MaterialType is a
-		transparent type and the scene parameter
-		ALLOW_ZWRITE_ON_TRANSPARENT is not set. If you set this parameter
-		to true, make sure that ZBuffer value is other than ECFN_DISABLED */
-		bool ZWriteEnable:1;
+		//! Is the zbuffer writable or is it read-only. Default: EZW_AUTO.
+		/** If this parameter is not EZW_OFF, you probably also want to set ZBuffer 
+		to values other than ECFN_DISABLED */
+		E_ZWRITE ZWriteEnable:2;
 
 		//! Is backface culling enabled? Default: true
 		bool BackfaceCulling:1;
@@ -507,11 +551,6 @@ namespace video
 		//! Shall mipmaps be used if available
 		/** Sometimes, disabling mipmap usage can be useful. Default: true */
 		bool UseMipMaps:1;
-
-		//! Give more control how the ZWriteEnable flag is interpreted
-		/** Note that there is also the global flag AllowZWriteOnTransparent
-		which when set acts like all materials have set EZI_ALLOW_ON_TRANSPARENT. */
-		E_ZWRITE_FINE_CONTROL ZWriteFineControl:1;
 
 		//! Gets the texture transformation matrix for level i
 		/** \param i The desired level. Must not be larger than MATERIAL_MAX_TEXTURES
@@ -579,7 +618,7 @@ namespace video
 				case EMF_ZBUFFER:
 					ZBuffer = value; break;
 				case EMF_ZWRITE_ENABLE:
-					ZWriteEnable = value; break;
+					ZWriteEnable = value ? EZW_AUTO : EZW_OFF; break;
 				case EMF_BACK_FACE_CULLING:
 					BackfaceCulling = value; break;
 				case EMF_FRONT_FACE_CULLING:
@@ -635,7 +674,8 @@ namespace video
 				case EMF_POLYGON_OFFSET:
 					PolygonOffsetFactor = value?1:0;
 					PolygonOffsetDirection = EPO_BACK;
-					break;
+					PolygonOffsetSlopeScale = value?1.f:0.f;
+					PolygonOffsetDepthBias = value?1.f:0.f;
 				default:
 					break;
 			}
@@ -659,7 +699,7 @@ namespace video
 				case EMF_ZBUFFER:
 					return ZBuffer!=ECFN_DISABLED;
 				case EMF_ZWRITE_ENABLE:
-					return ZWriteEnable;
+					return ZWriteEnable != EZW_OFF;
 				case EMF_BACK_FACE_CULLING:
 					return BackfaceCulling;
 				case EMF_FRONT_FACE_CULLING:
@@ -691,7 +731,7 @@ namespace video
 				case EMF_BLEND_FACTOR:
 					return BlendFactor != 0.f;
 				case EMF_POLYGON_OFFSET:
-					return PolygonOffsetFactor != 0;
+					return PolygonOffsetFactor != 0 || PolygonOffsetDepthBias != 0.f;
 			}
 
 			return false;
@@ -729,8 +769,9 @@ namespace video
 				BlendFactor != b.BlendFactor ||
 				PolygonOffsetFactor != b.PolygonOffsetFactor ||
 				PolygonOffsetDirection != b.PolygonOffsetDirection ||
-				UseMipMaps != b.UseMipMaps ||
-				ZWriteFineControl != b.ZWriteFineControl;
+				PolygonOffsetDepthBias != b.PolygonOffsetDepthBias ||
+				PolygonOffsetSlopeScale != b.PolygonOffsetSlopeScale ||
+				UseMipMaps != b.UseMipMaps
 				;
 			for (u32 i=0; (i<MATERIAL_MAX_TEXTURES_USED) && !different; ++i)
 			{
@@ -745,14 +786,9 @@ namespace video
 		inline bool operator==(const SMaterial& b) const
 		{ return !(b!=*this); }
 
-		bool isTransparent() const
+		//! Check if material needs alpha blending
+		bool isAlphaBlendOperation() const
 		{
-			if ( MaterialType==EMT_TRANSPARENT_ADD_COLOR ||
-				MaterialType==EMT_TRANSPARENT_ALPHA_CHANNEL ||
-				MaterialType==EMT_TRANSPARENT_VERTEX_ALPHA ||
-				MaterialType==EMT_TRANSPARENT_REFLECTION_2_LAYER )
-				return true;
-
 			if (BlendOperation != EBO_NONE && BlendFactor != 0.f)
 			{
 				E_BLEND_FACTOR srcRGBFact = EBF_ZERO;
@@ -770,6 +806,19 @@ namespace video
 					return true;
 				}
 			}
+			return false;
+		}
+
+		//! Check for some fixed-function transparent types. Still used internally, but might be deprecated soon.
+		//! You probably should not use this anymore, IVideoDriver::needsTransparentRenderPass is more useful in most situations
+		//! as it asks the material renders directly what they do with the material.
+		bool isTransparent() const
+		{
+			if ( MaterialType==EMT_TRANSPARENT_ADD_COLOR ||
+				MaterialType==EMT_TRANSPARENT_ALPHA_CHANNEL ||
+				MaterialType==EMT_TRANSPARENT_VERTEX_ALPHA ||
+				MaterialType==EMT_TRANSPARENT_REFLECTION_2_LAYER )
+				return true;
 
 			return false;
 		}

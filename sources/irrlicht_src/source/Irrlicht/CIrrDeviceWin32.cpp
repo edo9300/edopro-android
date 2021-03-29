@@ -695,29 +695,22 @@ namespace
 		HWND hWnd;
 		irr::CIrrDeviceWin32* irrDev;
 	};
-	irr::core::list<SEnvMapper> EnvMap;
+	// NOTE: This is global. We can have more than one Irrlicht Device at same time.
+	irr::core::array<SEnvMapper> EnvMap;
 
 	HKL KEYBOARD_INPUT_HKL=0;
 	unsigned int KEYBOARD_INPUT_CODEPAGE = 1252;
 }
 
-SEnvMapper* getEnvMapperFromHWnd(HWND hWnd)
-{
-	irr::core::list<SEnvMapper>::Iterator it = EnvMap.begin();
-	for (; it!= EnvMap.end(); ++it)
-		if ((*it).hWnd == hWnd)
-			return &(*it);
-
-	return 0;
-}
-
-
 irr::CIrrDeviceWin32* getDeviceFromHWnd(HWND hWnd)
 {
-	irr::core::list<SEnvMapper>::Iterator it = EnvMap.begin();
-	for (; it!= EnvMap.end(); ++it)
-		if ((*it).hWnd == hWnd)
-			return (*it).irrDev;
+	const irr::u32 end = EnvMap.size();
+	for ( irr::u32 i=0; i < end; ++i )
+	{
+		const SEnvMapper& env = EnvMap[i];
+		if ( env.hWnd == hWnd )
+			return env.irrDev;
+	}
 
 	return 0;
 }
@@ -1001,8 +994,8 @@ namespace irr
 
 //! constructor
 CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
-: CIrrDeviceStub(params), ChangedToFullScreen(false), Resized(false),
-	ExternalWindow(false), Win32CursorControl(0), JoyControl(0), HWnd(0)
+: CIrrDeviceStub(params), HWnd(0), ChangedToFullScreen(false), Resized(false),
+	ExternalWindow(false), Win32CursorControl(0), JoyControl(0)
 {
 	#ifdef _DEBUG
 	setDebugName("CIrrDeviceWin32");
@@ -1057,11 +1050,7 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
 		clientSize.right = CreationParams.WindowSize.Width;
 		clientSize.bottom = CreationParams.WindowSize.Height;
 
-		DWORD style = WS_POPUP;
-
-		if (!CreationParams.Fullscreen)
-			style = WS_SYSMENU | WS_BORDER | WS_CAPTION | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
-
+		DWORD style = getWindowStyle(CreationParams.Fullscreen, CreationParams.WindowResizable);
 		AdjustWindowRect(&clientSize, style, FALSE);
 
 		const s32 realWidth = clientSize.right - clientSize.left;
@@ -1163,13 +1152,11 @@ CIrrDeviceWin32::~CIrrDeviceWin32()
 	delete JoyControl;
 
 	// unregister environment
-
-	irr::core::list<SEnvMapper>::Iterator it = EnvMap.begin();
-	for (; it!= EnvMap.end(); ++it)
+	for (u32 i=0; i< EnvMap.size(); ++i)
 	{
-		if ((*it).hWnd == HWnd)
+		if (EnvMap[i].hWnd == HWnd)
 		{
-			EnvMap.erase(it);
+			EnvMap.erase(i);
 			break;
 		}
 	}
@@ -1339,6 +1326,17 @@ void CIrrDeviceWin32::resizeIfNecessary()
 }
 
 
+DWORD CIrrDeviceWin32::getWindowStyle(bool fullscreen, bool resizable) const
+{
+	if ( fullscreen )
+		return WS_POPUP;
+
+	if ( resizable )
+		return WS_THICKFRAME | WS_SYSMENU | WS_CAPTION | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+
+	return WS_BORDER | WS_SYSMENU | WS_CAPTION | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
+}
+
 //! sets the caption of the window
 void CIrrDeviceWin32::setWindowCaption(const wchar_t* text)
 {
@@ -1402,12 +1400,12 @@ bool CIrrDeviceWin32::present(video::IImage* image, void* windowId, core::rect<s
 //! notifies the device that it should close itself
 void CIrrDeviceWin32::closeDevice()
 {
-	MSG msg;
-	PeekMessage(&msg, NULL, WM_QUIT, WM_QUIT, PM_REMOVE);
-	PostQuitMessage(0);
-	PeekMessage(&msg, NULL, WM_QUIT, WM_QUIT, PM_REMOVE);
 	if (!ExternalWindow)
 	{
+		MSG msg;
+		PeekMessage(&msg, NULL, WM_QUIT, WM_QUIT, PM_REMOVE);
+		PostQuitMessage(0);
+		PeekMessage(&msg, NULL, WM_QUIT, WM_QUIT, PM_REMOVE);
 		DestroyWindow(HWnd);
 		const fschar_t* ClassName = __TEXT("CIrrDeviceWin32");
 		HINSTANCE hInstance = GetModuleHandle(0);
@@ -1439,7 +1437,7 @@ bool CIrrDeviceWin32::isWindowMinimized() const
 	plc.length=sizeof(WINDOWPLACEMENT);
 	bool ret=false;
 	if (GetWindowPlacement(HWnd,&plc))
-		ret=(plc.showCmd & SW_SHOWMINIMIZED)!=0;
+		ret = plc.showCmd == SW_SHOWMINIMIZED;
 	return ret;
 }
 
@@ -1710,11 +1708,12 @@ void CIrrDeviceWin32::getWindowsVersion(core::stringc& out)
 					(LPBYTE) szProductType, &dwBufLen);
 			RegCloseKey( hKey );
 
-			if (_strcmpi( "WINNT", szProductType) == 0 )
+			
+			if (irr::core::stringc("WINNT").equals_ignore_case(szProductType))
 				out.append("Professional ");
-			if (_strcmpi( "LANMANNT", szProductType) == 0)
+			if (irr::core::stringc("LANMANNT").equals_ignore_case(szProductType))
 				out.append("Server ");
-			if (_strcmpi( "SERVERNT", szProductType) == 0)
+			if (irr::core::stringc("SERVERNT").equals_ignore_case(szProductType))
 				out.append("Advanced Server ");
 		}
 
@@ -1800,13 +1799,7 @@ void CIrrDeviceWin32::setResizable(bool resize)
 	if (ExternalWindow || !getVideoDriver() || CreationParams.Fullscreen)
 		return;
 
-	LONG_PTR style = WS_POPUP;
-
-	if (!resize)
-		style = WS_SYSMENU | WS_BORDER | WS_CAPTION | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
-	else
-		style = WS_THICKFRAME | WS_SYSMENU | WS_CAPTION | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
-
+	LONG_PTR style = (LONG_PTR)getWindowStyle(false, resize);
 	if (!SetWindowLongPtr(HWnd, GWL_STYLE, style))
 		os::Printer::log("Could not change window style.");
 
