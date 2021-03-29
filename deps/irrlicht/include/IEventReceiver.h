@@ -37,14 +37,14 @@ namespace irr
         //! A touch input event.
 		EET_TOUCH_INPUT_EVENT,
 
-        //! A accelerometer event.
-        EET_ACCELEROMETER_EVENT,
+		//! A accelerometer event.
+		EET_ACCELEROMETER_EVENT,
 
-        //! A gyroscope event.
-        EET_GYROSCOPE_EVENT,
+		//! A gyroscope event.
+		EET_GYROSCOPE_EVENT,
 
-        //! A device motion event.
-        EET_DEVICE_MOTION_EVENT,
+		//! A device motion event.
+		EET_DEVICE_MOTION_EVENT,
 
 		//! A joystick (joypad, gamepad) input event.
 		/** Joystick events are created by polling all connected joysticks once per
@@ -416,13 +416,13 @@ struct SEvent
     //! Any kind of touch event.
 	struct STouchInput
 	{
-        // Touch ID.
-        size_t ID;
+		// Touch ID.
+		size_t ID;
 
-        // X position of simple touch.
+		// X position of simple touch.
 		s32 X;
 
-        // Y position of simple touch.
+		// Y position of simple touch.
 		s32 Y;
 
 		// number of current touches
@@ -432,45 +432,42 @@ struct SEvent
 		ETOUCH_INPUT_EVENT Event;
 	};
 
-    //! Any kind of accelerometer event.
+	//! Any kind of accelerometer event.
 	struct SAccelerometerEvent
 	{
-
-        // X acceleration.
+		// X acceleration.
 		f64 X;
 
-        // Y acceleration.
+		// Y acceleration.
 		f64 Y;
 
-        // Z acceleration.
+		// Z acceleration.
 		f64 Z;
 	};
 
     //! Any kind of gyroscope event.
 	struct SGyroscopeEvent
 	{
-
-        // X rotation.
+		// X rotation.
 		f64 X;
 
-        // Y rotation.
+		// Y rotation.
 		f64 Y;
 
-        // Z rotation.
+		// Z rotation.
 		f64 Z;
 	};
 
-    //! Any kind of device motion event.
+	//! Any kind of device motion event.
 	struct SDeviceMotionEvent
 	{
-
-        // X angle - roll.
+		// X angle - roll.
 		f64 X;
 
-        // Y angle - pitch.
+		// Y angle - pitch.
 		f64 Y;
 
-        // Z angle - yaw.
+		// Z angle - yaw.
 		f64 Z;
 	};
 
@@ -584,10 +581,10 @@ struct SEvent
 		struct SGUIEvent GUIEvent;
 		struct SMouseInput MouseInput;
 		struct SKeyInput KeyInput;
-        struct STouchInput TouchInput;
-        struct SAccelerometerEvent AccelerometerEvent;
-        struct SGyroscopeEvent GyroscopeEvent;
-        struct SDeviceMotionEvent DeviceMotionEvent;
+		struct STouchInput TouchInput;
+		struct SAccelerometerEvent AccelerometerEvent;
+		struct SGyroscopeEvent GyroscopeEvent;
+		struct SDeviceMotionEvent DeviceMotionEvent;
 		struct SJoystickEvent JoystickEvent;
 		struct SLogEvent LogEvent;
 		struct SUserEvent UserEvent;
@@ -641,8 +638,8 @@ struct SJoystickInfo
 	u32 Axes;
 
 	//! An indication of whether the joystick has a POV hat.
-	/** A Windows device will identify the presence or absence or the POV hat.  A
-	 *  Linux device cannot, and will always return POV_HAT_UNKNOWN. */
+	/** A Windows device will identify the presence or absence of the POV hat.
+	 *  A Linux device cannot, and will always return POV_HAT_UNKNOWN. */
 	enum
 	{
 		//! A hat is definitely present.
