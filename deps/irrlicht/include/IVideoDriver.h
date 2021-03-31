@@ -1542,6 +1542,9 @@ namespace video
 
 		//! Used by some SceneNodes to check if a material should be rendered in the transparent render pass
 		virtual bool needsTransparentRenderPass(const irr::video::SMaterial& material) const = 0;
+
+		//! Toggles vsync
+		virtual void setVsync(bool enabled) = 0;
 	};
 
 } // end namespace video
