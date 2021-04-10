@@ -15,6 +15,7 @@ import android.os.Bundle;
 import android.support.v4.content.FileProvider;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import libwindbot.windbot.WindBot;
@@ -50,6 +51,7 @@ public class EpNativeActivity extends NativeActivity {
 		use_windbot = ex.getBoolean("USE_WINDBOT",true);
 		IntentFilter filter = new IntentFilter();
 		filter.addAction("RUN_WINDBOT");
+		filter.addAction("ATTACH_WINDBOT_DATABASE");
 		filter.addAction("INPUT_TEXT");
 		filter.addAction("MAKE_CHOICE");
 		filter.addAction("INSTALL_UPDATE");
@@ -92,6 +94,10 @@ public class EpNativeActivity extends NativeActivity {
 				String args = intent.getStringExtra("args");
 				Log.i("EDOProWindBotIgnite", "Launching WindBot Ignite with " + args + " as parameters.");
 				WindBot.runAndroid(args);
+			} else if ("ATTACH_WINDBOT_DATABASE".equals(action)) {
+				String args = intent.getStringExtra("args");
+				Log.i("EDOProWindBotIgnite", "Loading database: " +args+".");
+				WindBot.addDatabase(args);
 			} else if("INPUT_TEXT".equals(action)){
 				new TextEntry().Show(context, intent.getStringExtra("current"));
 			} else if("MAKE_CHOICE".equals(action)){
@@ -133,6 +139,16 @@ public class EpNativeActivity extends NativeActivity {
 		Intent intent = new Intent();
 		intent.putExtra("args", parameters);
 		intent.setAction("RUN_WINDBOT");
+		getApplicationContext().sendBroadcast(intent);
+	}
+
+	@SuppressWarnings("unused")
+	public void addWindbotDatabase(String database) {
+		if(!use_windbot)
+			return;
+		Intent intent = new Intent();
+		intent.putExtra("args", database);
+		intent.setAction("ATTACH_WINDBOT_DATABASE");
 		getApplicationContext().sendBroadcast(intent);
 	}
 
