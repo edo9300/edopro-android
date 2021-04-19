@@ -1848,7 +1848,6 @@ bool Game::MainLoop() {
 			unzip_started = true;
 			gClientUpdater->StartUnzipper(Game::UpdateUnzipBar, mainGame);
 		}
-#ifndef __ANDROID__
 #ifdef __APPLE__
 		// Recent versions of macOS break OpenGL vsync while offscreen, resulting in
 		// astronomical FPS and CPU usage. As a workaround, while the game window is
@@ -1867,7 +1866,6 @@ bool Game::MainLoop() {
 				}
 			}
 		}
-#endif
 		while(cur_time >= 1000) {
 			fpsCounter->setText(fmt::format(gDataManager->GetSysString(1444), fps).data());
 			fps = 0;
@@ -2014,7 +2012,8 @@ bool Game::ApplySkin(const epro::path_string& skinname, bool reload, bool firstr
 void Game::RefreshDeck(irr::gui::IGUIComboBox* cbDeck) {
 	cbDeck->clear();
 	for(auto& file : Utils::FindFiles(EPRO_TEXT("./deck/"), { EPRO_TEXT("ydk") })) {
-		cbDeck->addItem(Utils::ToUnicodeIfNeeded(file.substr(0, file.size() - 4)).data());
+		file.erase(file.size() - 4);
+		cbDeck->addItem(Utils::ToUnicodeIfNeeded(file).data());
 	}
 	for(size_t i = 0; i < cbDeck->getItemCount(); ++i) {
 		if(gGameConfig->lastdeck == cbDeck->getItem(i)) {
