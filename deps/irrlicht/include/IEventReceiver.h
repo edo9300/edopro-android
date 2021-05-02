@@ -82,6 +82,11 @@ namespace irr
 		//! Application state events like a resume, pause etc.
 		EET_APPLICATION_EVENT,
 
+
+		//to handle file/text dropping on the window
+		EET_DROP_EVENT,
+
+
 		//! This enum is never used, it only forces the compiler to
 		//! compile these enumeration values to 32 bit.
 		EGUIET_FORCE_32_BIT = 0x7fffffff
@@ -168,6 +173,21 @@ namespace irr
 		EMBSM_FORCE_32_BIT = 0x7fffffff
 	};
 
+	enum EDROP_TYPE {
+		//! Text was dropped on the window.
+		DROP_TEXT = 0,
+
+		//! A file was dropped on the window.
+		DROP_FILE,
+
+		//! Dropping begin.
+		DROP_START,
+
+		//! All dropped files have been parsed.
+		DROP_END,
+
+		DROP_FORCE_32_BIT = 0x7fffffff
+	};
     //! Enumeration for all touch input events
 	enum ETOUCH_INPUT_EVENT
 	{
@@ -540,6 +560,24 @@ struct SEvent
 		ELOG_LEVEL Level;
 	};
 
+
+
+	//! Any kind of drop event.
+	struct SDropEvent {
+		//! Pointer to text/path which has been dropped
+		const wchar_t* Text;
+
+		//! X position of drop event
+		s32 X;
+
+		//! Y position of drop event
+		s32 Y;
+
+		//! Type of drop
+		EDROP_TYPE DropType;
+	};
+
+
 	//! Any kind of user event.
 	struct SUserEvent
 	{
@@ -587,6 +625,7 @@ struct SEvent
 		struct SDeviceMotionEvent DeviceMotionEvent;
 		struct SJoystickEvent JoystickEvent;
 		struct SLogEvent LogEvent;
+		struct SDropEvent DropEvent;
 		struct SUserEvent UserEvent;
 		struct SSystemEvent SystemEvent;
 		struct SApplicationEvent ApplicationEvent;

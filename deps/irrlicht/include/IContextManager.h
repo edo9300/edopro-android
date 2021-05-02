@@ -51,8 +51,11 @@ namespace video
         //! Swap buffers.
         virtual bool swapBuffers() =0;
 		
-		// generic vsync setting method for several extensions
+		//! Generic vsync setting method for several extensions
 		virtual void swapInterval(int interval) =0;
+
+		//! Context dependent getProcAddress or equivalent function
+		virtual void* loadFunction(const char* function_name) =0;
 	};
 
 } // end namespace video
