@@ -1493,7 +1493,7 @@ bool Game::MainLoop() {
 	int fps = 0;
 	bool was_connected = false;
 	bool update_prompted = false;
-	bool unzip_started = false;
+	bool update_checked = false;
 	if(!driver->queryFeature(irr::video::EVDF_TEXTURE_NPOT)) {
 		auto SetClamp = [](irr::video::SMaterialLayer layer[irr::video::MATERIAL_MAX_TEXTURES]) {
 			layer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
@@ -1787,9 +1787,16 @@ bool Game::MainLoop() {
 			PopupElement(wQuery);
 			show_changelog = false;
 		}
-		if(!unzip_started && gClientUpdater->UpdateDownloaded()) {
-			unzip_started = true;
-			gClientUpdater->StartUnzipper(Game::UpdateUnzipBar, mainGame);
+		if(!update_checked && gClientUpdater->UpdateDownloaded()) {
+			if(gClientUpdater->UpdateFailed()) {
+				update_checked = true;
+				HideElement(updateWindow);
+				stMessage->setText(gDataManager->GetSysString(1467).data());
+				PopupElement(wMessage);
+			} else {
+				update_checked = true;
+				gClientUpdater->StartUnzipper(Game::UpdateUnzipBar, mainGame);
+			}
 		}
 #ifdef __APPLE__
 		// Recent versions of macOS break OpenGL vsync while offscreen, resulting in
@@ -2214,8 +2221,8 @@ void Game::LoadServers() {
 				try {
 					ServerInfo tmp_server;
 					tmp_server.name = BufferIO::DecodeUTF8(obj.at("name").get_ref<std::string&>());
-					tmp_server.address = BufferIO::DecodeUTF8(obj.at("address").get_ref<std::string&>());
-					tmp_server.roomaddress = BufferIO::DecodeUTF8(obj.at("roomaddress").get_ref<std::string&>());
+					tmp_server.address = obj.at("address").get<std::string>();
+					tmp_server.roomaddress = obj.at("roomaddress").get<std::string>();
 					tmp_server.roomlistport = obj.at("roomlistport").get<int>();
 					tmp_server.duelport = obj.at("duelport").get<int>();
 					int i = serverChoice->addItem(tmp_server.name.data());
@@ -3206,7 +3213,7 @@ void Game::ValidateName(irr::gui::IGUIElement* obj) {
 	if(text.size() != wcslen(obj->getText()))
 		obj->setText(text.data());
 }
-std::wstring Game::ReadPuzzleMessage(const std::wstring& script_name) {
+std::wstring Game::ReadPuzzleMessage(epro::wstringview script_name) {
 	std::ifstream infile(Utils::ToPathString(script_name), std::ifstream::in);
 	std::string str;
 	std::string res = "";

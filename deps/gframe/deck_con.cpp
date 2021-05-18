@@ -190,7 +190,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 #undef CHECK
 				options.duelFlags |= mainGame->chkHandTestNoShuffle->isChecked() ? DUEL_PSEUDO_SHUFFLE : 0;
 				SingleMode::singleSignal.SetNoWait(false);
-				SingleMode::StartPlay(options);
+				SingleMode::StartPlay(std::move(options));
 				break;
 			}
 			case BUTTON_HAND_TEST_CANCEL: {
@@ -1207,7 +1207,7 @@ bool DeckBuilder::CheckCard(CardDataM* data, SEARCH_MODIFIER modifier, const std
 		};
 		const auto strings = data->GetStrings();
 		if(modifier & SEARCH_MODIFIER_NAME_ONLY) {
-			return checkNeg(Utils::ContainsSubstring(strings->name, tokens, true));
+			return checkNeg(Utils::ContainsSubstring(strings->uppercase_name, tokens));
 		} else if(modifier & SEARCH_MODIFIER_ARCHETYPE_ONLY) {
 			if(set_code.empty() && tokens.size() > 0 && tokens.front().size())
 				return checkNeg(false);

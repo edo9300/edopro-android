@@ -175,13 +175,21 @@ namespace ygo {
 #else
 		if(auto dir = opendir(path.data())) {
 			while(auto dirp = readdir(dir)) {
+				bool isdir = false;
 #ifdef _DIRENT_HAVE_D_TYPE //avoid call to format and stat
-				const bool isdir = dirp->d_type == DT_DIR;
-#else
-				Stat fileStat;
-				stat(fmt::format("{}{}", path, dirp->d_name).data(), &fileStat);
-				const bool isdir = !!S_ISDIR(fileStat.st_mode);
+				if(dirp->d_type != DT_LNK && dirp->d_type != DT_UNKNOWN) {
+					isdir = dirp->d_type == DT_DIR;
+					if(!isdir && dirp->d_type != DT_REG) //not a folder or file, skip
+						continue;
+				} else
 #endif
+				{
+					Stat fileStat;
+					stat(fmt::format("{}{}", path, dirp->d_name).data(), &fileStat);
+					isdir = !!S_ISDIR(fileStat.st_mode);
+					if(!isdir && !S_ISREG(fileStat.st_mode)) //not a folder or file, skip
+						continue;
+				}
 				cb(dirp->d_name, isdir);
 			}
 			closedir(dir);
@@ -306,38 +314,16 @@ namespace ygo {
 		return ret;
 #endif
 	}
-	bool Utils::ContainsSubstring(epro::wstringview input, const std::vector<std::wstring>& tokens, bool convertInputCasing, bool convertTokenCasing) {
-		static std::vector<std::wstring> alttokens;
-		static std::wstring casedinput;
+	bool Utils::ContainsSubstring(epro::wstringview input, const std::vector<std::wstring>& tokens) {
 		if (input.empty() || tokens.empty())
 			return false;
-		if(convertInputCasing) {
-			casedinput = ToUpperNoAccents<std::wstring>({ input.data(), input.size() });
-			input = casedinput;
-		}
-		if (convertTokenCasing) {
-			alttokens.clear();
-			for (const auto& token : tokens)
-				alttokens.push_back(ToUpperNoAccents(token));
-		}
 		std::size_t pos1, pos2 = 0;
-		for (auto& token : convertTokenCasing ? alttokens : tokens) {
-			if ((pos1 = input.find(token, pos2)) == epro::wstringview::npos)
+		for (const auto& token : tokens) {
+			if((pos1 = input.find(token, pos2)) == epro::wstringview::npos)
 				return false;
 			pos2 = pos1 + token.size();
 		}
 		return true;
-	}
-	bool Utils::ContainsSubstring(epro::wstringview input, epro::wstringview token, bool convertInputCasing, bool convertTokenCasing) {
-		if (input.empty() && !token.empty())
-			return false;
-		if (token.empty())
-			return true;
-		if(convertInputCasing) {
-			return ToUpperNoAccents<std::wstring>(input.data()).find(convertTokenCasing ? ToUpperNoAccents<std::wstring>(token.data()).data() : token.data()) != std::wstring::npos;
-		} else {
-			return input.find(convertTokenCasing ? ToUpperNoAccents<std::wstring>(token.data()).data() : token.data()) != epro::wstringview::npos;
-		}
 	}
 	bool Utils::CreatePath(epro::path_stringview path, epro::path_string workingdir) {
 		const bool wasempty = workingdir.empty();
