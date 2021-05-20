@@ -23,7 +23,7 @@ git submodule update --init --recursive --force
 cd ..
 
 rsync -ar --exclude='.*' --exclude='*.sh' --exclude='script/.*' \
-	--exclude='expansions/.*' --exclude='expansions/ci' --exclude='expansions/README.md' \
+	--exclude='expansions/.*' --exclude='expansions/ci' --exclude='expansions/*rerelease*' --exclude='expansions/README.md' \
 	--exclude=textures/Backup --exclude=puzzles \
 	Distribution/ $ASSETS
 
@@ -31,7 +31,7 @@ cd Distribution
 
 git diff -z --name-only --diff-filter=d $BASE_REF | xargs -0 -I {} \
 	rsync -arR --exclude='.*' --exclude='*.sh'  --exclude='config/system.conf' \
-		--exclude='expansions/**' --exclude='script/**' \
+		--exclude='expansions/.*' --exclude='expansions/ci' --exclude='expansions/*rerelease*' --exclude='expansions/README.md' --exclude='script/**' \
 		--exclude=textures/Backup --exclude='puzzles/**' \
 		{} ../$UPDATES/
 cd ..
