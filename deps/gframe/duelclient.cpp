@@ -8,6 +8,8 @@
 #ifndef _WIN32
 #include <arpa/inet.h>
 #include <unistd.h>
+#else
+#include <ws2tcpip.h>
 #endif
 #include "game_config.h"
 #include <irrlicht.h>
@@ -673,7 +675,8 @@ void DuelClient::HandleSTOCPacketLan2(char* data, uint32_t len) {
 		mainGame->deckBuilder.results.clear();
 		mainGame->deckBuilder.hovered_code = 0;
 		mainGame->deckBuilder.is_draging = false;
-		gdeckManager->pre_deck = gdeckManager->current_deck;
+		gdeckManager->pre_deck = gdeckManager->sent_deck;
+		gdeckManager->current_deck = gdeckManager->sent_deck;
 		mainGame->device->setEventReceiver(&mainGame->deckBuilder);
 		mainGame->dInfo.isFirst = (mainGame->dInfo.player_type < mainGame->dInfo.team1) || (mainGame->dInfo.player_type >=7);
 		mainGame->dInfo.isTeam1 = mainGame->dInfo.isFirst;

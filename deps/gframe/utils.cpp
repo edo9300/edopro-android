@@ -22,8 +22,6 @@ using Stat = struct stat;
 #if defined(__linux__)
 #include <sys/sendfile.h>
 #include <fcntl.h>
-#include <sys/sendfile.h>
-#include <fcntl.h>
 #elif defined(__APPLE__)
 #import <CoreFoundation/CoreFoundation.h>
 #include <mach-o/dyld.h>
@@ -37,6 +35,10 @@ using Stat = struct stat;
 #include <IOSOperator.h>
 #include "config.h"
 #include "bufferio.h"
+#if defined(__MINGW32__) && defined(UNICODE)
+#include <fcntl.h>
+#include <ext/stdio_filebuf.h>
+#endif
 
 #if defined(_WIN32) && defined(_MSC_VER)
 namespace WindowsWeirdStuff {
@@ -341,12 +343,12 @@ namespace ygo {
 		return true;
 	}
 
-	epro::path_stringview Utils::GetExePath() {
-		static epro::path_string binarypath = []()->epro::path_string {
+	const epro::path_string& Utils::GetExePath() {
+		static const epro::path_string binarypath = []()->epro::path_string {
 #ifdef _WIN32
 			TCHAR exepath[MAX_PATH];
 			GetModuleFileName(nullptr, exepath, MAX_PATH);
-			return Utils::NormalizePath(exepath, false);
+			return Utils::NormalizePath<TCHAR>(exepath, false);
 #elif defined(__linux__) && !defined(__ANDROID__)
 			epro::path_char buff[PATH_MAX];
 			ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
@@ -376,13 +378,13 @@ namespace ygo {
 		return binarypath;
 	}
 
-	epro::path_stringview Utils::GetExeFolder() {
-		static epro::path_string binarypath = GetFilePath(GetExePath());
+	const epro::path_string& Utils::GetExeFolder() {
+		static const epro::path_string binarypath = GetFilePath(GetExePath());
 		return binarypath;
 	}
 
-	epro::path_stringview Utils::GetCorePath() {
-		static epro::path_string binarypath = [] {
+	const epro::path_string& Utils::GetCorePath() {
+		static const epro::path_string binarypath = [] {
 #ifdef _WIN32
 			return fmt::format(EPRO_TEXT("{}/ocgcore.dll"), GetExeFolder());
 #else
@@ -426,7 +428,15 @@ namespace ygo {
 				int percentage = 0;
 				auto reader = archive->createAndOpenFile(i);
 				if(reader) {
-					std::ofstream out(fmt::format(EPRO_TEXT("{}/{}") , dest, filename), std::ofstream::binary);
+#if defined(__MINGW32__) && defined(UNICODE)
+					auto fd = _wopen(fmt::format(EPRO_TEXT("{}/{}"), dest, filename).data(), _O_WRONLY | _O_BINARY);
+					if(fd == -1)
+						return false;
+					__gnu_cxx::stdio_filebuf<char> b(fd, std::ios::out);
+					std::ostream out(&b);
+#else
+					std::ofstream out(fmt::format(EPRO_TEXT("{}/{}"), dest, filename), std::ofstream::binary);
+#endif
 					int r, rx = reader->getSize();
 					if(payload) {
 						payload->is_new = true;
@@ -449,7 +459,6 @@ namespace ygo {
 							callback(payload);
 						}
 					}
-					out.close();
 					reader->drop();
 				}
 			}

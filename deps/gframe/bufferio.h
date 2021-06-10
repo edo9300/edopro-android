@@ -21,7 +21,7 @@ public:
 		insert_data(vec, &val, sizeof(T));
 	}
 	inline static void Read(char*& p, void* dest, size_t size) {
-		memcpy(dest, p, size);
+		std::memcpy(dest, p, size);
 		p += size;
 	}
 	template<typename T>
@@ -185,10 +185,9 @@ public:
 		return EncodeUTF8internal<false>(wsrc, out);
 	}
 	static std::string EncodeUTF8(epro::wstringview source) {
-		thread_local std::vector<char> res;
-		res.reserve(source.size() * sizeof(wchar_t) + 1);
-		const size_t size = EncodeUTF8(source.data(), res.data());
-		return { res.data(), size };
+		std::string res(source.size() * sizeof(wchar_t) + 1, L'\0');
+		res.resize(EncodeUTF8(source.data(), &res[0]));
+		return res;
 	}
 	// UTF-8 to UTF-16/UTF-32
 	static inline int DecodeUTF8(const char* src, wchar_t* out, size_t size) {
@@ -198,15 +197,15 @@ public:
 		return DecodeUTF8internal<false>(src, out);
 	}
 	static std::wstring DecodeUTF8(epro::stringview source) {
-		thread_local std::vector<wchar_t> res;
-		res.reserve(source.size() + 1);
-		const size_t size = DecodeUTF8(source.data(), res.data());
-		return { res.data(), size };
+		std::wstring res(source.size() + 1, '\0');
+		res.resize(DecodeUTF8(source.data(), &res[0]));
+		return res;
 	}
 	// UTF-16 to UTF-16/UTF-32
 	static inline int DecodeUTF16(const uint16_t* source, wchar_t* out, size_t size) {
 		if(sizeof(wchar_t) == sizeof(uint16_t)) {
-			wcsncpy(out, (const wchar_t*)source, size);
+			wcsncpy(out, (const wchar_t*)source, size - 1);
+			out[size - 1] = L'\0';
 			return wcslen(out) + 1;
 		} else {
 			return DecodeUTF16internal<true>(source, out, size) + 1;
@@ -223,7 +222,8 @@ public:
 	// UTF-16/UTF-32 to UTF-16
 	static inline int EncodeUTF16(const wchar_t* source, uint16_t* out, size_t size) {
 		if(sizeof(wchar_t) == sizeof(uint16_t)) {
-			wcsncpy((wchar_t*)out, source, size);
+			wcsncpy((wchar_t*)out, source, size - 1);
+			out[size - 1] = L'\0';
 			return wcslen((wchar_t*)out) + 1;
 		} else {
 			return EncodeUTF16internal<true>(source, out, size) + 1;

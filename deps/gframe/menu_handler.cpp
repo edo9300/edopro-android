@@ -33,8 +33,9 @@ static void UpdateDeck() {
 	const auto& deck = gdeckManager->current_deck;
 	char deckbuf[0xf000];
 	char* pdeck = deckbuf;
+	static constexpr auto max_deck_size = sizeof(deckbuf) / sizeof(uint32_t) - 2;
 	const auto totsize = deck.main.size() + deck.extra.size() + deck.side.size();
-	if((totsize * sizeof(uint32_t)) > (sizeof(deckbuf) - 2 * sizeof(uint32_t)))
+	if(totsize > max_deck_size)
 		return;
 	BufferIO::Write<uint32_t>(pdeck, deck.main.size() + deck.extra.size());
 	BufferIO::Write<uint32_t>(pdeck, deck.side.size());
@@ -45,6 +46,7 @@ static void UpdateDeck() {
 	for(const auto& pcard : deck.side)
 		BufferIO::Write<uint32_t>(pdeck, pcard->code);
 	DuelClient::SendBufferToServer(CTOS_UPDATE_DECK, deckbuf, pdeck - deckbuf);
+	gdeckManager->sent_deck = gdeckManager->current_deck;
 }
 static void LoadReplay() {
 	auto& replay = ReplayMode::cur_replay;
@@ -622,15 +624,20 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			}
 			case BUTTON_FILE_SAVE: {
 				mainGame->HideElement(mainGame->wFileSave);
-				if(prev_operation == BUTTON_RENAME_REPLAY) {
-					auto oldname = Utils::ToPathString(mainGame->lstReplayList->getListItem(prev_sel, true));
+				irr::gui::CGUIFileSelectListBox* list = nullptr;
+				if(prev_operation == BUTTON_RENAME_REPLAY)
+					list = mainGame->lstReplayList;
+				else if(prev_operation == BUTTON_RENAME_SINGLEPLAY)
+					list = mainGame->lstSinglePlayList;
+				if(list) {
+					auto oldname = Utils::ToPathString(list->getListItem(prev_sel, true));
 					auto oldpath = Utils::GetFilePath(oldname);
 					auto extension = Utils::GetFileExtension(oldname, false);
 					auto newname = Utils::ToPathString(mainGame->ebFileSaveName->getText());
-					if (Utils::GetFileExtension(newname, false) != extension)
+					if(Utils::GetFileExtension(newname, false) != extension)
 						newname.append(1, EPRO_TEXT('.')).append(extension);
-					if(Replay::RenameReplay(oldname, oldpath + newname))
-						mainGame->lstReplayList->refreshList();
+					if(Utils::FileMove(oldname, oldpath + newname))
+						list->refreshList();
 					else
 						mainGame->PopupMessage(gDataManager->GetSysString(1365));
 				}

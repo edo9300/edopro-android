@@ -38,6 +38,10 @@
 #include "utils_gui.h"
 #include "custom_skin_enum.h"
 #include "joystick_wrapper.h"
+#if defined(__MINGW32__) && defined(UNICODE)
+#include <fcntl.h>
+#include <ext/stdio_filebuf.h>
+#endif
 
 #ifdef __ANDROID__
 #include "CGUICustomComboBox/CGUICustomComboBox.h"
@@ -776,7 +780,7 @@ bool Game::Initialize() {
 	btnSecond = env->addButton(Scale(10, 60, 220, 85), wFTSelect, BUTTON_SECOND, gDataManager->GetSysString(101).data());
 	defaultStrings.emplace_back(btnSecond, 101);
 	//message (310)
-	wMessage = env->addWindow(Scale(510 - 175, 200, 510 + 175, 340), false, gDataManager->GetSysString(1216).data());
+	wMessage = env->addWindow(Scale(490, 200, 840, 340), false, gDataManager->GetSysString(1216).data());
 	defaultStrings.emplace_back(wMessage, 1216);
 	wMessage->getCloseButton()->setVisible(false);
 	wMessage->setVisible(false);
@@ -1597,15 +1601,6 @@ bool Game::MainLoop() {
 			}
 			cores_to_load.clear();
 		}
-		if (coreJustLoaded) {
-			if (stMessage->getText() == gDataManager->GetSysString(1430))
-				HideElement(wMessage);
-			RefreshUICoreVersion();
-			env->setFocus(stACMessage);
-			stACMessage->setText(fmt::format(gDataManager->GetSysString(1431), corename).data());
-			PopupElement(wACMessage, 30);
-			coreJustLoaded = false;
-		}
 #endif //YGOPRO_BUILD_DLL
 		for(auto& repo : gRepoManager->GetRepoStatus()) {
 			repoInfoGui[repo.first].progress1->setProgress(repo.second);
@@ -1638,6 +1633,17 @@ bool Game::MainLoop() {
 			should_refresh_hands = true;
 			OnResize();
 		}
+#ifdef YGOPRO_BUILD_DLL
+		if(coreJustLoaded) {
+			if(stMessage->getText() == gDataManager->GetSysString(1430))
+				HideElement(wMessage);
+			RefreshUICoreVersion();
+			env->setFocus(stACMessage);
+			stACMessage->setText(fmt::format(gDataManager->GetSysString(1431), corename).data());
+			PopupElement(wACMessage, 30);
+			coreJustLoaded = false;
+		}
+#endif //YGOPRO_BUILD_DLL
 		frame_counter += (float)delta_time * 60.0f/1000.0f;
 		float remainder;
 		frame_counter = std::modf(frame_counter, &remainder);
@@ -1650,8 +1656,10 @@ bool Game::MainLoop() {
 		atkdy = (float)sin(atkframe);
 		driver->beginScene(true, true, irr::video::SColor(0, 0, 0, 0));
 		gMutex.lock();
-		if(should_refresh_hands && dInfo.isInDuel)
+		if(should_refresh_hands && dInfo.isInDuel) {
+			should_refresh_hands = false;
 			dField.RefreshHandHitboxes();
+		}
 		if(dInfo.isInDuel) {
 			if(dInfo.isReplay)
 				discord.UpdatePresence(DiscordWrapper::REPLAY);
@@ -1779,7 +1787,7 @@ bool Game::MainLoop() {
 		} else if (show_changelog) {
 			std::lock_guard<std::mutex> lock(gMutex);
 			menuHandler.prev_operation = ACTION_SHOW_CHANGELOG;
-			stQMessage->setText(gDataManager->GetSysString(1443).data());
+			stQMessage->setText(gDataManager->GetSysString(1451).data());
 			SetCentered(wQuery);
 			PopupElement(wQuery);
 			show_changelog = false;
@@ -1821,8 +1829,8 @@ bool Game::MainLoop() {
 				if(dInfo.time_left[dInfo.time_player])
 					dInfo.time_left[dInfo.time_player]--;
 		}
-		// if(gGameConfig->maxFPS != -1 || gGameConfig->vsync)
-			// std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		if(gGameConfig->maxFPS != -1 || gGameConfig->vsync)
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 	discord.UpdatePresence(DiscordWrapper::TERMINATE);
 	replaySignal.SetNoWait(true);
@@ -3211,7 +3219,17 @@ void Game::ValidateName(irr::gui::IGUIElement* obj) {
 		obj->setText(text.data());
 }
 std::wstring Game::ReadPuzzleMessage(epro::wstringview script_name) {
-	std::ifstream infile(Utils::ToPathString(script_name), std::ifstream::in);
+#if defined(__MINGW32__) && defined(UNICODE)
+	auto fd = _wopen(Utils::ToPathString(script_name).data(), _O_RDONLY);
+	if(fd == -1)
+		return {};
+	__gnu_cxx::stdio_filebuf<char> b(fd, std::ios::in);
+	std::istream infile(&b);
+#else
+	std::ifstream infile(Utils::ToPathString(script_name));
+#endif
+	if(infile.fail())
+		return {};
 	std::string str;
 	std::string res = "";
 	size_t start = std::string::npos;
@@ -3275,8 +3293,16 @@ std::vector<char> Game::LoadScript(epro::stringview _name) {
 				tmp->drop();
 			}
 		} else {
+#if defined(__MINGW32__) && defined(UNICODE)
+			auto fd = _wopen(path.data(), _O_RDONLY | _O_BINARY);
+			if(fd == -1)
+				return {};
+			__gnu_cxx::stdio_filebuf<char> b(fd, std::ios::in);
+			std::istream script(&b);
+#else
 			std::ifstream script(path, std::ifstream::binary);
-			if(script.is_open()) {
+#endif
+			if(!script.fail()) {
 				buffer.insert(buffer.begin(), std::istreambuf_iterator<char>(script), std::istreambuf_iterator<char>());
 				return buffer;
 			}
