@@ -49,13 +49,15 @@ static int parse_filter(const wchar_t* pstr, uint32_t& type) {
 	return 0;
 }
 
-static bool check_set_code(const CardDataC& data, const std::vector<uint32_t>& setcodes) {
-	auto card_setcodes = data.setcodes;
-	if (data.alias) {
-		auto _data = gDataManager->GetCardData(data.alias);
-		if(_data)
-			card_setcodes = _data->setcodes;
-	}
+static bool check_set_code(const CardDataC& data, const std::vector<uint16_t>& setcodes) {
+	const auto& card_setcodes = [&data] {
+		if(data.alias) {
+			auto _data = gDataManager->GetCardData(data.alias);
+			if(_data)
+				return _data->setcodes;
+		}
+		return data.setcodes;
+	}();
 	if(setcodes.empty())
 		return card_setcodes.empty();
 	for(auto& set_code : setcodes) {
@@ -1081,7 +1083,7 @@ void DeckBuilder::FilterCards(bool force_refresh) {
 	}
 	mainGame->scrFilter->setPos(0);
 }
-bool DeckBuilder::CheckCard(CardDataM* data, SEARCH_MODIFIER modifier, const std::vector<std::wstring>& tokens, const std::vector<uint32_t>& set_code) {
+bool DeckBuilder::CheckCard(CardDataM* data, SEARCH_MODIFIER modifier, const std::vector<std::wstring>& tokens, const std::vector<uint16_t>& set_code) {
 	if(data->_data.type & TYPE_TOKEN  || data->_data.ot & SCOPE_HIDDEN || ((data->_data.ot & SCOPE_OFFICIAL) != data->_data.ot && (!mainGame->chkAnime->isChecked() && !filterList->whitelist)))
 		return false;
 	switch(filter_type) {
