@@ -29,6 +29,7 @@ public class EpNativeActivity extends NativeActivity {
 
 	public static native void putComboBoxResult(int index);
 	public static native void putMessageBoxResult(String text, boolean isenter);
+	public static native void errorDialogReturn();
 
 	private boolean use_windbot;
 
@@ -56,6 +57,7 @@ public class EpNativeActivity extends NativeActivity {
 		filter.addAction("MAKE_CHOICE");
 		filter.addAction("INSTALL_UPDATE");
 		filter.addAction("OPEN_SCRIPT");
+		filter.addAction("SHOW_ERROR_WINDOW");
 		registerReceiver(myReceiver, filter);
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 	}
@@ -128,6 +130,21 @@ public class EpNativeActivity extends NativeActivity {
 				fileIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 				fileIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
 				startActivity(fileIntent);
+			} else if("SHOW_ERROR_WINDOW".equals(action)){
+				String message_context = intent.getStringExtra("context");
+				String message = intent.getStringExtra("message");
+				Log.i("EDOPro", "Received show error dialog " + message_context + " "+message);
+				AlertDialog.Builder builder = new AlertDialog.Builder(EpNativeActivity.this);
+				builder.setTitle(message_context);
+				builder.setMessage(message);
+				builder.setPositiveButton("Close", new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						errorDialogReturn();
+					}
+				});
+				builder.setCancelable(false);
+				AlertDialog dialog = builder.create();
+				dialog.show();
 			}
 		}
 	};
@@ -195,6 +212,15 @@ public class EpNativeActivity extends NativeActivity {
 		Intent intent = new Intent();
 		intent.putExtra("args", path);
 		intent.setAction("OPEN_SCRIPT");
+		getApplicationContext().sendBroadcast(intent);
+	}
+
+	@SuppressWarnings("unused")
+	public void showErrorDialog(String context, String message) {
+		Intent intent = new Intent();
+		intent.putExtra("context", context);
+		intent.putExtra("message", message);
+		intent.setAction("SHOW_ERROR_WINDOW");
 		getApplicationContext().sendBroadcast(intent);
 	}
 
