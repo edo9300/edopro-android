@@ -137,7 +137,7 @@ public class EpNativeActivity extends NativeActivity {
 				AlertDialog.Builder builder = new AlertDialog.Builder(EpNativeActivity.this);
 				builder.setTitle(message_context);
 				builder.setMessage(message);
-				builder.setPositiveButton("Close", new DialogInterface.OnClickListener() {
+				builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int id) {
 						errorDialogReturn();
 					}
