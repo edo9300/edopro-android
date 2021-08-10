@@ -592,7 +592,7 @@ void android_main(android_app *app) {
 	//no longer needed after ndk 15c
 	//app_dummy();
 	retval = main(params.size(), (char**)params.data());
+
 	porting::cleanupAndroid();
-	
 	exit(retval);
 }

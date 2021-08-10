@@ -90,7 +90,7 @@ struct GameConfig
 #endif
 	bool hideHandsInReplays{ false };
 	bool chkAnime{ false };
-#ifdef __APPLE__
+#ifdef EDOPRO_MACOS
 	bool ctrlClickIsRMB{ true };
 #else
 	bool ctrlClickIsRMB{ false };
@@ -103,6 +103,7 @@ struct GameConfig
 	int soundVolume{ 20 };
 	bool loopMusic{ true };
 	bool noClientUpdates{ false };
+	bool logDownloadErrors{ false };
 	bool controller_input{ false };
 	epro::path_string skin{ EPRO_TEXT("none") };
 	epro::path_string locale{ EPRO_TEXT("English") };

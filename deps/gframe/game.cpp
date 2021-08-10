@@ -646,7 +646,7 @@ bool Game::Initialize() {
 #ifdef __ANDROID__
 	gSettings.chkFullscreen->setChecked(true);
 	gSettings.chkFullscreen->setEnabled(false);
-#elif defined(__APPLE__)
+#elif defined(EDOPRO_MACOS)
 	gSettings.chkFullscreen->setEnabled(false);
 #endif
 	gSettings.chkScaleBackground = env->addCheckBox(gGameConfig->scale_background, Scale(15, 95, 320, 120), sPanel, CHECKBOX_SCALE_BACKGROUND, gDataManager->GetSysString(2061).data());
@@ -801,6 +801,7 @@ bool Game::Initialize() {
 	wACMessage->getCloseButton()->setVisible(false);
 	wACMessage->setVisible(false);
 	wACMessage->setDrawBackground(false);
+	wACMessage->setDraggable(false);
 	stACMessage = irr::gui::CGUICustomText::addCustomText(L"", true, env, wACMessage, -1, Scale(0, 0, 350, 60), true);
 	stACMessage->setWordWrap(true);
 	stACMessage->setBackgroundColor(skin::DUELFIELD_ANNOUNCE_TEXT_BACKGROUND_COLOR_VAL);
@@ -1810,7 +1811,7 @@ bool Game::MainLoop() {
 				gClientUpdater->StartUnzipper(Game::UpdateUnzipBar, mainGame);
 			}
 		}
-#ifdef __APPLE__
+#ifdef EDOPRO_MACOS
 		// Recent versions of macOS break OpenGL vsync while offscreen, resulting in
 		// astronomical FPS and CPU usage. As a workaround, while the game window is
 		// fully occluded, the game is restricted to 30 FPS.
@@ -2006,7 +2007,7 @@ void Game::RefreshLFLists() {
 }
 void Game::RefreshAiDecks() {
 	gBot.bots.clear();
-	std::ifstream windbots("WindBot/bots.json");
+	std::ifstream windbots("./WindBot/bots.json");
 	if (windbots.good()) {
 		nlohmann::json j;
 		try {

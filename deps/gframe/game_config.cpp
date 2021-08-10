@@ -88,7 +88,7 @@ static irr::video::E_DRIVER_TYPE getDriverType(std::string& value) {
 		return irr::video::EDT_DIRECT3D9;
 #endif
 #endif
-#ifndef __APPLE__
+#if !defined(EDOPRO_MACOS) && IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
 	if(value == "OGLES1")
 		return irr::video::EDT_OGLES1;
 	if(value == "OGLES2")
@@ -182,6 +182,7 @@ bool GameConfig::Load(const epro::path_char* filename) {
 			DESERIALIZE_BOOL(discordIntegration)
 			DESERIALIZE_BOOL(loopMusic)
 			DESERIALIZE_BOOL(noClientUpdates)
+			DESERIALIZE_BOOL(logDownloadErrors)
 			DESERIALIZE_BOOL(alternative_phase_layout)
 #ifdef WIN32
 			DESERIALIZE_BOOL(showConsole)
@@ -391,6 +392,7 @@ bool GameConfig::Save(const epro::path_char* filename) {
 	SERIALIZE(saveHandTest);
 	SERIALIZE(discordIntegration);
 	SERIALIZE(noClientUpdates);
+	SERIALIZE(logDownloadErrors);
 #ifdef __ANDROID__
 	conf_file << "native_keyboard = "    << native_keyboard << "\n";
 	conf_file << "native_mouse = "       << native_mouse << "\n";
