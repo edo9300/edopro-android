@@ -15,7 +15,6 @@ import android.os.Bundle;
 import android.support.v4.content.FileProvider;
 import android.util.Log;
 import android.view.KeyEvent;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import libwindbot.windbot.WindBot;
@@ -245,19 +244,47 @@ public class EpNativeActivity extends NativeActivity {
 		return wm.getConnectionInfo().getIpAddress();
 	}
 
-	public void setClipboard(String text) {
-		ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-		ClipData clip = ClipData.newPlainText("", text);
-		clipboard.setPrimaryClip(clip);
+	public void setClipboard(final String text) {
+		EpNativeActivity.this.runOnUiThread(new Runnable() {
+			@Override
+			public void run(){
+				ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+				ClipData clip = ClipData.newPlainText("", text);
+				clipboard.setPrimaryClip(clip);
+			}
+		});
+	}
+
+	class RunnableObject implements Runnable {
+		public String result = "";
+		public void run () {
+			ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+			if(!(clipboard.hasPrimaryClip()) || clipboard.getPrimaryClip() == null || (clipboard.getPrimaryClipDescription() == null)
+					|| !(clipboard.getPrimaryClipDescription().hasMimeType(MIMETYPE_TEXT_PLAIN))) {
+				result = "";
+			} else {
+				ClipData clip = clipboard.getPrimaryClip();
+				result = clip.getItemAt(0).getText().toString();
+			}
+			synchronized(this)
+			{
+				this.notify();
+			}
+		}
 	}
 
 	public String getClipboard() {
-		ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-		if(!(clipboard.hasPrimaryClip()) || clipboard.getPrimaryClip() == null || (clipboard.getPrimaryClipDescription() == null)
-			|| !(clipboard.getPrimaryClipDescription().hasMimeType(MIMETYPE_TEXT_PLAIN)))
-			return "";
-		ClipData clip = clipboard.getPrimaryClip();
-		return clip.getItemAt(0).getText().toString();
+		RunnableObject myRunnable = new RunnableObject();
+		synchronized( myRunnable ) {
+			EpNativeActivity.this.runOnUiThread(myRunnable);
+
+			try {
+				myRunnable.wait() ; // unlocks myRunable while waiting
+			} catch (InterruptedException e) {
+				return "";
+			}
+		}
+		return myRunnable.result;
 	}
 
 	@Override
