@@ -57,6 +57,7 @@ public class EpNativeActivity extends NativeActivity {
 		filter.addAction("INSTALL_UPDATE");
 		filter.addAction("OPEN_SCRIPT");
 		filter.addAction("SHOW_ERROR_WINDOW");
+		filter.addAction("SHARE_FILE");
 		registerReceiver(myReceiver, filter);
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 	}
@@ -144,6 +145,15 @@ public class EpNativeActivity extends NativeActivity {
 				builder.setCancelable(false);
 				AlertDialog dialog = builder.create();
 				dialog.show();
+			} else if("SHARE_FILE".equals(action)){
+				String path = intent.getStringExtra("args");
+				Log.i("EDOPro", "sharing file from: "+path);
+				Intent fileIntent = new Intent(Intent.ACTION_SEND);
+				Uri uri = FileProvider.getUriForFile(context, context.getApplicationContext().getPackageName() + ".provider", new File(path));
+				fileIntent.setType("text/plain");
+				fileIntent.putExtra(Intent.EXTRA_STREAM, uri);
+				fileIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+				startActivity(fileIntent);
 			}
 		}
 	};
@@ -220,6 +230,14 @@ public class EpNativeActivity extends NativeActivity {
 		intent.putExtra("context", context);
 		intent.putExtra("message", message);
 		intent.setAction("SHOW_ERROR_WINDOW");
+		getApplicationContext().sendBroadcast(intent);
+	}
+
+	@SuppressWarnings("unused")
+	public void shareFile(String path) {
+		Intent intent = new Intent();
+		intent.putExtra("args", path);
+		intent.setAction("SHARE_FILE");
 		getApplicationContext().sendBroadcast(intent);
 	}
 
