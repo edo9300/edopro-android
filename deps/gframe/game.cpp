@@ -184,13 +184,13 @@ bool Game::Initialize() {
 											L"https://github.com/ProjectIgnis/CardScripts\n"
 											L"https://github.com/ProjectIgnis/BabelCDB\n"
 											L"https://github.com/ProjectIgnis/windbot\n"
-                                            L"Software components licensed under the GNU AGPLv3 or later. See LICENSE for more details.\n"
+											L"Software components licensed under the GNU AGPLv3 or later. See LICENSE for more details.\n"
 											L"Supporting resources and app icon are distributed under separate licenses in their subfolders.\n"
 											L"\n"
 											L"Project Ignis:\n"
-											L"ahtelel, AlphaKretin, AndreOliveiraMendes, Cybercatman, Dragon3989, DyXel, edo9300, "
-											L"EerieCode, Gideon, Hatter, Hel, Icematoro, kevinlul, Larry126, LogicalNonsense, "
-											L"NaimSantos, pyrQ, Sanct, senpaizuri, Steeldarkeagel, Tungnon, WolfOfWolves, Yamato\n"
+											L"ahtelel, Cybercatman, Dragon3989, DyXel, edo9300, EerieCode, "
+											L"Gideon, Hatter, Hel, Icematoro, Larry126, LogicalNonsense, pyrQ, "
+											L"Sanct, senpaizuri, Steeldarkeagel, TheRazgriz, WolfOfWolves, Yamato\n"
 											L"Default background and icon: LogicalNonsense\n"
 											L"Default fields: Icematoro\n"
 											L"\n"
@@ -594,8 +594,15 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(tabSettings.chkAutoChainOrder, 1276);
 	tabSettings.chkDottedLines = env->addCheckBox(gGameConfig->dotted_lines, Scale(20, 200, 280, 225), tabPanel, CHECKBOX_DOTTED_LINES, gDataManager->GetSysString(1376).data());
 	defaultStrings.emplace_back(tabSettings.chkDottedLines, 1376);
-#ifdef __ANDROID__
-	tabSettings.chkDottedLines->setEnabled(false);
+#if (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
+	{
+		const auto type = driver->getDriverType();
+		if(type == irr::video::EDT_OGLES1 || type == irr::video::EDT_OGLES2) {
+			tabSettings.chkDottedLines->setEnabled(false);
+			tabSettings.chkDottedLines->setChecked(false);
+			gGameConfig->dotted_lines = false;
+		}
+	}
 #endif
 	// audio
 	tabSettings.chkEnableSound = env->addCheckBox(gGameConfig->enablesound, Scale(20, 230, 280, 255), tabPanel, CHECKBOX_ENABLE_SOUND, gDataManager->GetSysString(2047).data());
@@ -1046,6 +1053,29 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(tmpptr, 1210);
 	tmpptr = env->addButton(nextHandTestRow(mainMenuWidth / 2 + 5, mainMenuWidth - 10, false), wHandTest, BUTTON_HAND_TEST_START, gDataManager->GetSysString(1215).data()); // start
 	defaultStrings.emplace_back(tmpptr, 1215);
+	//
+
+	btnYdkeManage = env->addButton(Scale(205, 190, 295, 230), 0, BUTTON_DECK_YDKE_MANAGE, gDataManager->GetSysString(2083).data());
+	btnYdkeManage->setVisible(false);
+	btnYdkeManage->setEnabled(true);
+
+	wYdkeManage = env->addWindow(Scale(mainMenuLeftX, 200, mainMenuRightX, 450), false, gDataManager->GetSysString(2084).data());
+	defaultStrings.emplace_back(wYdkeManage, 2084);
+	wYdkeManage->getCloseButton()->setVisible(false);
+	wYdkeManage->setVisible(false);
+	offset = 30;
+	auto nextYdkeManageRow = [&offset, &mainMenuWidth, this](bool increment = true) {
+		if(increment) offset += 55;
+		return Scale(10, offset, mainMenuWidth - 10, offset + 40);
+	};
+	tmpptr = env->addButton(nextYdkeManageRow(false), wYdkeManage, BUTTON_IMPORT_YDKE, gDataManager->GetSysString(2085).data());
+	defaultStrings.emplace_back(tmpptr, 2085);
+	tmpptr = env->addButton(nextYdkeManageRow(), wYdkeManage, BUTTON_EXPORT_YDKE, gDataManager->GetSysString(2086).data());
+	defaultStrings.emplace_back(tmpptr, 2086);
+	tmpptr = env->addButton(nextYdkeManageRow(), wYdkeManage, BUTTON_EXPORT_DECK_PLAINTEXT, gDataManager->GetSysString(2087).data());
+	defaultStrings.emplace_back(tmpptr, 2087);
+	tmpptr = env->addButton(nextYdkeManageRow(), wYdkeManage, BUTTON_CLOSE_YDKE_WINDOW, gDataManager->GetSysString(1210).data());
+	defaultStrings.emplace_back(tmpptr, 1210);
 	//
 	scrFilter = env->addScrollBar(false, Scale(999, 161, 1019, 629), 0, SCROLL_FILTER);
 	scrFilter->setLargeStep(DECK_SEARCH_SCROLL_STEP);
@@ -3017,8 +3047,10 @@ void Game::OnResize() {
 	btnDeleteDeck->setRelativePosition(Resize(225, 95, 290, 120));
 	btnHandTest->setRelativePosition(Resize(205, 90, 295, 130));
 	btnHandTestSettings->setRelativePosition(Resize(205, 140, 295, 180));
+	btnYdkeManage->setRelativePosition(Resize(205, 190, 295, 230));
+	SetCentered(wYdkeManage, false);
 	stHandTestSettings->setRelativePosition(Resize(0, 0, 90, 40));
-	SetCentered(wHandTest);
+	SetCentered(wHandTest, false);
 
 	wSort->setRelativePosition(Resize(930, 132, 1020, 156));
 	cbSortType->setRelativePosition(Resize(10, 2, 85, 22));
@@ -3206,8 +3238,8 @@ irr::core::recti Game::ResizeWin(irr::s32 x, irr::s32 y, irr::s32 x2, irr::s32 y
 	y2 = sy + y;
 	return Scale(x, y, x2, y2);
 }
-void Game::SetCentered(irr::gui::IGUIElement* elem) {
-	if(is_building || dInfo.isInDuel)
+void Game::SetCentered(irr::gui::IGUIElement* elem, bool use_offset) {
+	if(use_offset && (is_building || dInfo.isInDuel))
 		elem->setRelativePosition(ResizeWinFromCenter(0, 0, elem->getRelativePosition().getWidth(), elem->getRelativePosition().getHeight(), Scale(155)));
 	else
 		elem->setRelativePosition(ResizeWinFromCenter(0, 0, elem->getRelativePosition().getWidth(), elem->getRelativePosition().getHeight()));
