@@ -18,8 +18,8 @@ jobs:
       LATEST_REF: 20210613
       DEPLOY_DIR: release
       DEPLOY_BRANCH: android
-      LIBWINDBOT_URL: https://github.com/ProjectIgnis/windbot/releases/download/20210610/libWindbot.aar
-      LIBWINDBOT_RESOURCES: https://github.com/ProjectIgnis/windbot/releases/download/20210610/WindBotIgnite-Resources.7z
+      LIBWINDBOT_URL: https://github.com/ProjectIgnis/windbot/releases/download/20210919/libWindbot.aar
+      LIBWINDBOT_RESOURCES: https://github.com/ProjectIgnis/windbot/releases/download/20210919/WindBotIgnite-Resources.7z
       DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
       COVERS_URL: ${{ secrets.COVERS_URL }}
       FIELDS_URL: ${{ secrets.FIELDS_URL }}
