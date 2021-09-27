@@ -14,8 +14,8 @@ jobs:
         contains(github.event.head_commit.message, '[skip actions]')
       )
     env:
-      BASE_REF: 20210524
-      LATEST_REF: 20210613
+      BASE_REF: 20210613
+      LATEST_REF: 20210927
       DEPLOY_DIR: release
       DEPLOY_BRANCH: android
       LIBWINDBOT_URL: https://github.com/ProjectIgnis/windbot/releases/download/20210919/libWindbot.aar
