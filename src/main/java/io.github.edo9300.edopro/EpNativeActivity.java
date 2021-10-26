@@ -14,6 +14,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.content.FileProvider;
 import android.util.Log;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -84,8 +85,12 @@ public class EpNativeActivity extends NativeActivity {
 	}
 
 	@Override
-	public boolean onKeyDown(int keyCode, KeyEvent event){
-		return (keyCode == KeyEvent.KEYCODE_BACK || super.onKeyDown(keyCode, event));
+	public boolean onKeyDown(int keyCode, KeyEvent event) {
+		if(keyCode == KeyEvent.KEYCODE_BACK){
+			if((event.getSource() & InputDevice.SOURCE_MOUSE) != InputDevice.SOURCE_MOUSE)
+				return true;
+		}
+		return super.onKeyDown(keyCode, event);
 	}
 
 	private final BroadcastReceiver myReceiver = new BroadcastReceiver() {
