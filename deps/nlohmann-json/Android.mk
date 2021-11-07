@@ -7,3 +7,4 @@ LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
 
 include $(BUILD_STATIC_LIBRARY)
 
+# version 3.10.4
