@@ -18,3 +18,6 @@ You can also directly install to a plugged Android device
 ```
 
 You can also open the project in Android Studio and build the app from there.
+
+## Note
+All the prebuilt libraries have been built with android NDK r21d, so they might not work properly if the main project is built using a different NDK version
