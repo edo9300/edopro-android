@@ -42,30 +42,10 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := sfAudio
 LOCAL_STATIC_LIBRARIES := openal-soft ogg FLAC vorbisfile
 LOCAL_MODULE_FILENAME := libsfaudio
-
-LOCAL_SRC_FILES := src/ALCheck.cpp \
-				   src/AlResource.cpp \
-				   src/AudioDevice.cpp \
-				   src/InputSoundFile.cpp \
-				   src/Music.cpp \
-				   src/Sound.cpp \
-				   src/SoundBuffer.cpp \
-				   src/SoundFileFactory.cpp \
-				   src/SoundFileReaderFlac.cpp \
-				   src/SoundFileReaderMp3_minimp3.cpp \
-				   src/SoundFileReaderOgg.cpp \
-				   src/SoundFileReaderWav.cpp \
-				   src/SoundSource.cpp \
-				   src/SoundStream.cpp \
-				   src/System/FileInputStream.cpp \
-				   src/System/MemoryInputStream.cpp \
-				   src/System/Time.cpp
-
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/include \
-					$(LOCAL_PATH)/external/headers
+LOCAL_SRC_FILES := ./lib/$(TARGET_ARCH_ABI)/libsfaudio.a
 
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
 
 LOCAL_EXPORT_LDLIBS := -lOpenSLES
 
-include $(BUILD_STATIC_LIBRARY)
+include $(PREBUILT_STATIC_LIBRARY)
