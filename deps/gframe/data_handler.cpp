@@ -82,7 +82,7 @@ void DataHandler::LoadPicUrls() {
 					}
 				}
 				catch(const std::exception& e) {
-					ErrorLog(fmt::format("Exception occurred: {}", e.what()));
+					ErrorLog("Exception occurred: {}", e.what());
 				}
 			}
 		}
@@ -105,9 +105,14 @@ DataHandler::DataHandler(epro::path_stringview working_dir) {
 	tmp_device = GUIUtils::CreateDevice(configs.get());
 	Utils::OSOperator = tmp_device->getGUIEnvironment()->getOSOperator();
 	Utils::OSOperator->grab();
+	if(configs->override_ssl_certificate_path.size()) {
+		if(configs->override_ssl_certificate_path != "none" && Utils::FileExists(Utils::ToPathString(configs->override_ssl_certificate_path)))
+			configs->ssl_certificate_path = configs->override_ssl_certificate_path;
+	} else
+		configs->ssl_certificate_path = fmt::format("{}/cacert.pem", Utils::ToUTF8IfNeeded(working_dir));
 #else
 	Utils::OSOperator = new irr::COSAndroidOperator();
-	configs->ssl_certificate_path = fmt::format("{}/cacert.cer", porting::internal_storage);
+	configs->ssl_certificate_path = fmt::format("{}/cacert.pem", porting::internal_storage);
 #endif
 	filesystem = new irr::io::CFileSystem();
 	dataManager = std::unique_ptr<DataManager>(new DataManager());
@@ -127,6 +132,7 @@ DataHandler::DataHandler(epro::path_stringview working_dir) {
 	LoadDatabases();
 	LoadPicUrls();
 	deckManager->LoadLFList();
+	dataManager->LoadIdsMapping(EPRO_TEXT("./config/mappings.json"));
 	WindBotPanel::absolute_deck_path = Utils::ToUnicodeIfNeeded(Utils::GetAbsolutePath(EPRO_TEXT("./deck")));
 }
 DataHandler::~DataHandler() {

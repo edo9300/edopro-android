@@ -54,6 +54,12 @@ namespace porting {
 #define EnableMaterial2D(enable) ((void)0)
 #endif
 
+#if IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
+#define ClearZBuffer(driver) do {driver->clearBuffers(irr::video::ECBF_DEPTH);} while(0)
+#else
+#define ClearZBuffer(driver) do {driver->clearZBuffer();} while(0)
+#endif
+
 uint16_t PRO_VERSION = 0x1352;
 
 namespace ygo {
@@ -825,7 +831,7 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(wQuery, 560);
 	wQuery->getCloseButton()->setVisible(false);
 	wQuery->setVisible(false);
-	stQMessage = irr::gui::CGUICustomText::addCustomText(L"", false, env, wQuery, -1, Scale(20, 20, 350, 100));
+	stQMessage = irr::gui::CGUICustomText::addCustomText(L"", false, env, wQuery, -1, Scale(10, 20, 350, 100));
 	stQMessage->setWordWrap(true);
 	stQMessage->setTextAlignment(irr::gui::EGUIA_UPPERLEFT, irr::gui::EGUIA_CENTER);
 	btnYes = env->addButton(Scale(100, 105, 150, 130), wQuery, BUTTON_YES, gDataManager->GetSysString(1213).data());
@@ -1598,6 +1604,7 @@ bool Game::MainLoop() {
 						}
 					}
 					gDataManager->LoadStrings(data_path + EPRO_TEXT("strings.conf"));
+					gDataManager->LoadIdsMapping(data_path + EPRO_TEXT("mappings.json"));
 				} else {
 					if(Utils::ToUTF8IfNeeded(gGameConfig->locale) == repo->language) {
 						for(auto& file : files)
@@ -1707,10 +1714,6 @@ bool Game::MainLoop() {
 		atkdy = (float)sin(atkframe);
 		driver->beginScene(true, true, irr::video::SColor(0, 0, 0, 0));
 		gMutex.lock();
-		if(should_refresh_hands && dInfo.isInDuel) {
-			should_refresh_hands = false;
-			dField.RefreshHandHitboxes();
-		}
 		if(dInfo.isInDuel) {
 			if(dInfo.isReplay)
 				discord.UpdatePresence(DiscordWrapper::REPLAY);
@@ -1741,7 +1744,7 @@ bool Game::MainLoop() {
 			DrawMisc();
 			smgr->drawAll();
 			driver->setMaterial(irr::video::IdentityMaterial);
-			driver->clearZBuffer();//Without this, "animations" are drawn behind everything
+			ClearZBuffer(driver);//Without this, "animations" are drawn behind everything
 			EnableMaterial2D(false);
 		} else if(is_building) {
 			if(is_siding)
@@ -1760,6 +1763,10 @@ bool Game::MainLoop() {
 				discord.UpdatePresence(DiscordWrapper::MENU);
 			gSoundManager->PlayBGM(SoundManager::BGM::MENU, gGameConfig->loopMusic);
 			DrawBackImage(imageManager.tBackGround_menu, resized);
+		}
+		if(should_refresh_hands && dInfo.isInDuel) {
+			should_refresh_hands = false;
+			dField.RefreshHandHitboxes();
 		}
 #ifndef __ANDROID__
 		// text width is actual size, other pixels are relative to the assumed 1024x640
@@ -2066,7 +2073,7 @@ void Game::RefreshAiDecks() {
 			windbots >> j;
 		}
 		catch(const std::exception& e) {
-			ErrorLog(fmt::format("Failed to load WindBot Ignite config json: {}", e.what()));
+			ErrorLog("Failed to load WindBot Ignite config json: {}", e.what());
 		}
 		if(j.is_array()) {
 #if !defined(__ANDROID__) && !defined(_WIN32)
@@ -2100,7 +2107,7 @@ void Game::RefreshAiDecks() {
 						gBot.bots.push_back(std::move(bot));
 				}
 				catch(const std::exception& e) {
-					ErrorLog(fmt::format("Failed to parse WindBot Ignite config json entry: {}", e.what()));
+					ErrorLog("Failed to parse WindBot Ignite config json entry: {}", e.what());
 				}
 			}
 			if(generic_engine_bot.deck.size()) {
@@ -2221,8 +2228,8 @@ void Game::LoadGithubRepositories() {
 }
 void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 	if(repo->history.error.size()) {
-		ErrorLog(fmt::format("The repo {} couldn't be cloned", repo->url));
-		ErrorLog(fmt::format("Error: {}", repo->history.error));
+		ErrorLog("The repo {} couldn't be cloned", repo->url);
+		ErrorLog("Error: {}", repo->history.error);
 		grepo->history_button1->setText(gDataManager->GetSysString(1434).data());
 		defaultStrings.emplace_back(grepo->history_button1, 1434);
 		grepo->history_button1->setEnabled(true);
@@ -2291,15 +2298,21 @@ void Game::LoadServers() {
 					tmp_server.name = BufferIO::DecodeUTF8(obj.at("name").get_ref<std::string&>());
 					tmp_server.address = obj.at("address").get<std::string>();
 					tmp_server.roomaddress = obj.at("roomaddress").get<std::string>();
-					tmp_server.roomlistport = obj.at("roomlistport").get<int>();
-					tmp_server.duelport = obj.at("duelport").get<int>();
+					tmp_server.roomlistport = obj.at("roomlistport").get<uint16_t>();
+					tmp_server.duelport = obj.at("duelport").get<uint16_t>();
+					{
+						auto it = obj.find("roomlistprotocol");
+						if(it != obj.end() && it->is_string()) {
+							tmp_server.protocol = ServerInfo::GetProtocol(it->get_ref<std::string&>());
+						}
+					}
 					int i = serverChoice->addItem(tmp_server.name.data());
 					if(gGameConfig->lastServer == tmp_server.name)
 						serverChoice->setSelected(i);
 					ServerLobby::serversVector.push_back(std::move(tmp_server));
 				}
 				catch(const std::exception& e) {
-					ErrorLog(fmt::format("Exception occurred while parsing server entry: {}", e.what()));
+					ErrorLog("Exception occurred while parsing server entry: {}", e.what());
 				}
 			}
 		}
@@ -2490,7 +2503,7 @@ void Game::AddDebugMsg(epro::stringview msg) {
 	if (gGameConfig->coreLogOutput & CORE_LOG_TO_CHAT)
 		AddChatMsg(BufferIO::DecodeUTF8(msg), 9, 2);
 	if (gGameConfig->coreLogOutput & CORE_LOG_TO_FILE)
-		ErrorLog(fmt::format("{}: {}", BufferIO::EncodeUTF8(gDataManager->GetSysString(1440)), msg));
+		ErrorLog("{}: {}", BufferIO::EncodeUTF8(gDataManager->GetSysString(1440)), msg);
 }
 void Game::ClearTextures() {
 	matManager.mCard.setTexture(0, 0);

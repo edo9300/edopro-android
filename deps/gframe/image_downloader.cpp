@@ -144,15 +144,15 @@ void ImageDownloader::DownloadPic() {
 				break;
 			}
 		}
-		auto dest_folder = fmt::format(dest, code);
+		auto dest_folder = fmt::format(to_string_view(dest), code);
 		CURLcode res{ static_cast<CURLcode>(1) };
 		for(auto& src : pic_urls) {
 			if(src.type != type)
 				continue;
 			auto fp = fileopen(name.data(), "wb");
 			if(fp == nullptr && gGameConfig->logDownloadErrors) {
-				ygo::ErrorLog(fmt::format("Failed opening {} for write.", Utils::ToUTF8IfNeeded(name)));
-				ygo::ErrorLog(fmt::format("Error: {}.", strerror(errno)));
+				ygo::ErrorLog("Failed opening {} for write.", Utils::ToUTF8IfNeeded(name));
+				ygo::ErrorLog("Error: {}.", strerror(errno));
 				continue;
 			}
 			SetPayloadAndUrl(fmt::format(src.url, code), fp);
@@ -166,8 +166,8 @@ void ImageDownloader::DownloadPic() {
 				break;
 			}
 			if(gGameConfig->logDownloadErrors) {
-				ygo::ErrorLog(fmt::format("Failed downloading pic for {}", code));
-				ygo::ErrorLog(fmt::format("Curl error: ({}) {} ({})", res, curl_easy_strerror(res), curl_error_buffer));
+				ygo::ErrorLog("Failed downloading pic for {}", code);
+				ygo::ErrorLog("Curl error: ({}) {} ({})", res, curl_easy_strerror(res), curl_error_buffer);
 			}
 			Utils::FileDelete(name);
 		}

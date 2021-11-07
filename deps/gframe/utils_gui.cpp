@@ -3,6 +3,7 @@
 #include <ICursorControl.h>
 #include <fmt/chrono.h>
 #include <fmt/format.h>
+#include "config.h"
 #include "utils.h"
 #include "game_config.h"
 #include "text_types.h"
@@ -55,6 +56,11 @@ struct X11Helper {
 }
 
 static std::unique_ptr<X11Helper> X11{ nullptr };
+
+static inline bool try_guess_wayland() {
+	const char* env = getenv("XDG_SESSION_TYPE");
+	return env == nullptr || env != "x11"_sv;
+}
 #endif
 
 namespace ygo {
@@ -83,17 +89,15 @@ static HWND GetWindowHandle(irr::video::IVideoDriver* driver) {
 
 static inline irr::video::E_DRIVER_TYPE getDefaultDriver(irr::E_DEVICE_TYPE device_type) {
 	(void)device_type;
-#ifdef _WIN32
-	return irr::video::EDT_DIRECT3D9;
-#elif defined(__ANDROID__)
+#if defined(__ANDROID__)
 	return irr::video::EDT_OGLES2;
-#elif defined(__linux__)
-#if (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
+#elif defined(__linux__) && (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
 	if(device_type == irr::E_DEVICE_TYPE::EIDT_WAYLAND)
 		return irr::video::EDT_OGLES2;
-#endif
 	return irr::video::EDT_OPENGL;
-#elif defined(EDOPRO_MACOS)
+#elif defined(_WIN32) && defined(IRR_COMPILE_WITH_DX9_DEV_PACK)
+	return irr::video::EDT_DIRECT3D9;
+#else
 	return irr::video::EDT_OPENGL;
 #endif
 }
@@ -102,8 +106,17 @@ irr::IrrlichtDevice* GUIUtils::CreateDevice(GameConfig* configs) {
 	irr::SIrrlichtCreationParameters params{};
 	params.AntiAlias = configs->antialias;
 #if defined(__linux__) && !defined(__ANDROID__) && (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
-	if(configs->useWayland == 1)
+	if(configs->useWayland == 2) {
+		if(!try_guess_wayland())
+			configs->useWayland = 0;
+	} else if(configs->useWayland == 1) {
 		params.DeviceType = irr::E_DEVICE_TYPE::EIDT_WAYLAND;
+		fmt::print("You're using the wayland device backend.\n"
+				   "Keep in mind that it's still experimental and might be unstable.\n"
+				   "If you are getting any major issues, or the game doesn't start,\n"
+				   "you can manually disable this option from the system.conf file by toggling the useWayland option.\n"
+				   "Feel free to report any issues you encounter.\n");
+	}
 #endif
 	params.Vsync = configs->vsync;
 	if(configs->driver_type == irr::video::EDT_COUNT)
@@ -169,7 +182,10 @@ irr::IrrlichtDevice* GUIUtils::CreateDevice(GameConfig* configs) {
 #endif
 	device->getLogger()->setLogLevel(irr::ELL_ERROR);
 #if defined(__linux__) && !defined(__ANDROID__)
-	X11 = std::make_unique<X11Helper>();
+#if (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
+	if(params.DeviceType != irr::E_DEVICE_TYPE::EIDT_WAYLAND)
+#endif
+		X11 = std::make_unique<X11Helper>();
 #endif
 	return device;
 }
@@ -247,7 +263,7 @@ void GUIUtils::ToggleFullscreen(irr::IrrlichtDevice* device, bool& fullscreen) {
 	}
 	static_cast<CCursorControl*>(device->getCursorControl())->updateBorderSize(fullscreen, true);
 #elif defined(__linux__) && !defined(__ANDROID__)
-	if(!X11->LibX11)
+	if(!X11 || !X11->LibX11)
 		return;
 	struct {
 		unsigned long   flags;
