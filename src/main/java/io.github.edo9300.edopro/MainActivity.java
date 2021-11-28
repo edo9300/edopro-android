@@ -221,7 +221,7 @@ public class MainActivity extends Activity {
 			the app read the working_dir file
 		*/
 		if(changelog)
-			parameter.add(0,  "show_changelog");
+			parameter.add(0,  "-l");
 		parameter.add(0, working_directory + "/");
 		parameter.add(0, "-C");
 		Object[] array = parameter.toArray();
