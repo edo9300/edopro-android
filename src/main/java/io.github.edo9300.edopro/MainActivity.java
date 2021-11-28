@@ -367,11 +367,11 @@ public class MainActivity extends Activity {
 
 	public void copyCertificate(){
 		try {
-			File certout = new File(getFilesDir(),"cacert.cer");
+			File certout = new File(getFilesDir(),"cacert.pem");
 			if(certout.exists()){
 				Log.i("EDOPro", "Certificate file already copied");
 			} else {
-				InputStream certin = getAssets().open("cacert.cer");
+				InputStream certin = getAssets().open("cacert.pem");
 				try {
 					FileOutputStream fOut = new FileOutputStream(certout);
 					byte[] buffer = new byte[1024];
