@@ -61,7 +61,10 @@ namespace irr
 		/** Best used with embedded devices and mobile systems.
 		Does not need X11 or other graphical subsystems.
 		May support hw-acceleration via OpenGL-ES */
-		EIDT_ANDROID,		
+		EIDT_ANDROID,
+
+		//! A device native to Linux
+		EIDT_WAYLAND,
 	};
 
 } // end namespace irr

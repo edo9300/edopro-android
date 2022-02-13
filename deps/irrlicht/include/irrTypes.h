@@ -77,7 +77,7 @@ typedef signed int		s32;
 #if defined(_MSC_VER) || ((__BORLANDC__ >= 0x530) && !defined(__STRICT_ANSI__))
 typedef unsigned __int64			u64;
 #elif defined(__GNUC__)
-#if defined(__WORDSIZE) && __WORDSIZE == 64
+#if (defined(__LP64__) && __LP64__ == 1) || (defined(_LP64) && _LP64 == 1) || (defined(__WORDSIZE) && __WORDSIZE == 64)
 typedef unsigned long int			u64;
 #else
 __extension__ typedef unsigned long long	u64;
@@ -91,7 +91,7 @@ typedef unsigned long long			u64;
 #if defined(_MSC_VER) || ((__BORLANDC__ >= 0x530) && !defined(__STRICT_ANSI__))
 typedef __int64					s64;
 #elif defined(__GNUC__)
-#if defined(__WORDSIZE) && __WORDSIZE == 64
+#if (defined(__LP64__) && __LP64__ == 1) || (defined(_LP64) && _LP64 == 1) || (defined(__WORDSIZE) && __WORDSIZE == 64)
 typedef long int				s64;
 #else
 __extension__ typedef long long			s64;

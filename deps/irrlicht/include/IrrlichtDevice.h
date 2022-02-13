@@ -304,8 +304,9 @@ namespace irr
 		virtual bool getGammaRamp(f32 &red, f32 &green, f32 &blue,
 					f32 &brightness, f32 &contrast) =0;
 
+		typedef bool(*drop_callback_function_t)(irr::core::vector2di pos, bool isFile);
 		//! enable text and files drag and drop
-		virtual void enableDragDrop(bool enable, bool(*dragCheck)(irr::core::vector2di pos, bool isFile) = nullptr) = 0;
+		virtual void enableDragDrop(bool enable, drop_callback_function_t dragCheck = nullptr) = 0;
 
 		//! Set the maximal elapsed time between 2 clicks to generate doubleclicks for the mouse. It also affects tripleclick behavior.
 		/** When set to 0 no double- and tripleclicks will be generated.

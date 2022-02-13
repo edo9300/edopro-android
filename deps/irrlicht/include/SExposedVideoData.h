@@ -63,6 +63,15 @@ struct SExposedVideoData
 		unsigned long X11Window;
 	};
 
+	struct SOpenGLWayland
+	{
+		// The wl_egl_window object.
+		void* EGLWindow;
+
+		// The wl_display object.
+		void* EGLDisplay;
+	};
+
     struct SOpenGLOSX
     {
         //! The NSOpenGLContext object.
@@ -104,6 +113,7 @@ struct SExposedVideoData
 		SD3D9 D3D9;
 		SOpenGLWin32 OpenGLWin32;
 		SOpenGLLinux OpenGLLinux;
+		SOpenGLWayland OpenGLWayland;
 		SOpenGLOSX OpenGLOSX;
 		SOpenGLFB OpenGLFB;
 		SOpenGLiOS OpenGLiOS;

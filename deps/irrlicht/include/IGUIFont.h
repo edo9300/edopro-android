@@ -57,6 +57,11 @@ public:
 	it would be drawn. */
 	virtual core::dimension2d<u32> getDimension(const wchar_t* text) const = 0;
 
+	//! Calculates the width and height of a given string of text.
+	/** \return Returns width and height of the area covered by the text if
+	it would be drawn. */
+	virtual core::dimension2d<u32> getDimension(const core::stringw& text) const = 0;
+
 	//! Calculates the index of the character in the text which is on a specific position.
 	/** \param text: Text string.
 	\param pixel_x: X pixel position of which the index of the character will be returned.
