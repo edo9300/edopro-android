@@ -8,7 +8,8 @@ LOCAL_CFLAGS := -DYGOPRO_USE_SFML -D_ANDROID -DYGOPRO_BUILD_DLL -Wno-deprecated-
 ifeq ($(APP_OPTIM),debug)
 LOCAL_CFLAGS += -g -D_DEBUG
 else
-LOCAL_CFLAGS += -O3 
+LOCAL_CFLAGS += -O3 -flto
+LOCAL_LDFLAGS := -flto
 endif
 
 ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
