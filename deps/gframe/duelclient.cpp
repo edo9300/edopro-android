@@ -137,7 +137,7 @@ bool DuelClient::StartClient(uint32_t ip, uint16_t port, uint32_t gameid, bool c
 void DuelClient::ConnectTimeout(evutil_socket_t fd, short events, void* arg) {
 	if(connect_state & 0x7)
 		return;
-	if(!is_closing && !exit_on_return) {
+	if(!is_closing) {
 		temp_ver = 0;
 		std::lock_guard<std::mutex> lock(mainGame->gMutex);
 		mainGame->btnCreateHost->setEnabled(mainGame->coreloaded);
@@ -157,7 +157,7 @@ void DuelClient::ConnectTimeout(evutil_socket_t fd, short events, void* arg) {
 void DuelClient::StopClient(bool is_exiting) {
 	mainGame->frameSignal.SetNoWait(true);
 	if((connect_state & 0x7) != 0) {
-		is_closing = is_exiting || exit_on_return;
+		is_closing = is_exiting;
 		to_analyze_mutex.lock();
 		to_analyze.clear();
 		event_base_loopbreak(client_base);
@@ -260,7 +260,7 @@ catch(...) { what = def; }
 			to_analyze_mutex.lock();
 			to_analyze.push_back(std::move(tmp));
 			to_analyze_mutex.unlock();
-			cv.notify_all();
+			cv.notify_one();
 		}
 		event_base_loopexit(client_base, 0);
 	}
@@ -271,7 +271,7 @@ int DuelClient::ClientThread() {
 	event_base_dispatch(client_base);
 	to_analyze_mutex.lock();
 	stop_threads = true;
-	cv.notify_all();
+	cv.notify_one();
 	to_analyze_mutex.unlock();
 	parsing_thread.join();
 	bufferevent_free(client_bev);
@@ -392,8 +392,6 @@ void DuelClient::HandleSTOCPacketLan2(char* data, uint32_t len) {
 					mainGame->ShowElement(mainGame->wLanWindow);
 			}
 			mainGame->PopupMessage(gDataManager->GetSysString(1400));
-			if(exit_on_return)
-				mainGame->device->closeDevice();
 		} else if(connect_state == 0x7) {
 			if(!mainGame->dInfo.isInDuel && !mainGame->is_building) {
 				std::lock_guard<std::mutex> lock(mainGame->gMutex);
@@ -782,14 +780,14 @@ void DuelClient::HandleSTOCPacketLan2(char* data, uint32_t len) {
 		if(pkt.info.no_shuffle_deck) {
 			str.append(fmt::format(L"*{}\n", gDataManager->GetSysString(1230)));
 		}
-		static const std::map<uint32_t, uint32_t> MONSTER_TYPES = {
+		static constexpr std::pair<uint32_t, uint32_t> MONSTER_TYPES[]{
 			{ TYPE_FUSION, 1056 },
 			{ TYPE_SYNCHRO, 1063 },
 			{ TYPE_XYZ, 1073 },
 			{ TYPE_PENDULUM, 1074 },
 			{ TYPE_LINK, 1076 }
 		};
-		for (const auto pair : MONSTER_TYPES) {
+		for (const auto& pair : MONSTER_TYPES) {
 			if (pkt.info.forbiddentypes & pair.first) {
 				strL += fmt::sprintf(gDataManager->GetSysString(1627), gDataManager->GetSysString(pair.second));
 				strL += L"\n";
@@ -1030,8 +1028,6 @@ void DuelClient::HandleSTOCPacketLan2(char* data, uint32_t len) {
 		}
 		connect_state |= 0x100;
 		event_base_loopbreak(client_base);
-		if(exit_on_return)
-			mainGame->device->closeDevice();
 		break;
 	}
 	case STOC_REPLAY: {
@@ -1190,6 +1186,12 @@ inline T2 CompatRead(char*& buf) {
 		return static_cast<T2>(BufferIO::Read<T1>(buf));
 	return BufferIO::Read<T2>(buf);
 }
+template<typename T1, typename T2>
+inline T2 CompatRead(const char*& buf) {
+	if(mainGame->dInfo.compat_mode)
+		return static_cast<T2>(BufferIO::Read<T1>(buf));
+	return BufferIO::Read<T2>(buf);
+}
 inline void Play(SoundManager::SFX sound) {
 	if(!mainGame->dInfo.isCatchingUp)
 		gSoundManager->PlaySoundEffect(sound);
@@ -1204,12 +1206,12 @@ inline std::unique_lock<std::mutex> LockIf() {
 		return std::unique_lock<std::mutex>(mainGame->gMutex);
 	return std::unique_lock<std::mutex>();
 }
-int DuelClient::ClientAnalyze(char* msg, uint32_t len) {
-	char* pbuf = msg;
-	if(!mainGame->dInfo.isReplay) {
+int DuelClient::ClientAnalyze(const char* msg, uint32_t len) {
+	const char* pbuf = msg;
+	if(!mainGame->dInfo.isReplay && !mainGame->dInfo.isSingleMode) {
 		mainGame->dInfo.curMsg = BufferIO::Read<uint8_t>(pbuf);
 		len--;
-		if(mainGame->dInfo.curMsg != MSG_WAITING && !mainGame->dInfo.isSingleMode) {
+		if(mainGame->dInfo.curMsg != MSG_WAITING) {
 			replay_stream.emplace_back(mainGame->dInfo.curMsg, pbuf, len);
 		}
 	}
@@ -1278,8 +1280,6 @@ int DuelClient::ClientAnalyze(char* msg, uint32_t len) {
 			}
 			connect_state |= 0x100;
 			event_base_loopbreak(client_base);
-			if(exit_on_return)
-				mainGame->device->closeDevice();
 			return false;
 		}
 	}
@@ -4431,6 +4431,5 @@ void DuelClient::ReplayPrompt(bool local_stream) {
 			last_replay.SaveReplay(Utils::ToPathString(mainGame->ebFileSaveName->getText()));
 		else last_replay.SaveReplay(EPRO_TEXT("_LastReplay"));
 	}
-
 }
 }

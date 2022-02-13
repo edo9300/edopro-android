@@ -316,7 +316,7 @@ ClientCard* ClientField::RemoveCard(uint8_t controler, uint8_t location, uint32_
 	pcard->location = 0;
 	return pcard;
 }
-void ClientField::UpdateCard(uint8_t controler, uint8_t location, uint32_t sequence, char* data, uint32_t len) {
+void ClientField::UpdateCard(uint8_t controler, uint8_t location, uint32_t sequence, const char* data, uint32_t len) {
 	ClientCard* pcard = GetCard(controler, location, sequence);
 	if(pcard) {
 		if(mainGame->dInfo.compat_mode)
@@ -324,13 +324,13 @@ void ClientField::UpdateCard(uint8_t controler, uint8_t location, uint32_t seque
 		pcard->UpdateInfo(CoreUtils::Query{ data, mainGame->dInfo.compat_mode, len });
 	}
 }
-void ClientField::UpdateFieldCard(uint8_t controler, uint8_t location, char* data, uint32_t len) {
+void ClientField::UpdateFieldCard(uint8_t controler, uint8_t location, const char* data, uint32_t len) {
 	auto lst = GetList(location, controler);
 	if(!lst)
 		return;
 	CoreUtils::QueryStream stream{ data, mainGame->dInfo.compat_mode, len };
 	auto cit = lst->begin();
-	for(auto& query : stream.GetQueries()) {
+	for(const auto& query : stream.GetQueries()) {
 		auto pcard = *cit++;
 		if(pcard)
 			pcard->UpdateInfo(query);
@@ -403,7 +403,7 @@ void ClientField::ShowSelectCard(bool buttonok, bool chain) {
 			// text
 			std::wstring text = L"";
 			if(conti_selecting)
-				text = DataManager::unknown_string;
+				text = std::wstring{ DataManager::unknown_string };
 			else if(curcard->location == LOCATION_OVERLAY) {
 				text = fmt::format(L"{}[{}]({})", gDataManager->FormatLocation(curcard->overlayTarget->location, curcard->overlayTarget->sequence),
 					curcard->overlayTarget->sequence + 1, curcard->sequence + 1);
@@ -688,6 +688,7 @@ void ClientField::RefreshAllCards() {
 		if(pcard) {
 			pcard->UpdateDrawCoordinates(true);
 			pcard->is_moving = false;
+			pcard->aniFrame = 0;
 		}
 	};
 	auto refreshloc = [&refresh](const auto& zone) {

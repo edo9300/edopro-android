@@ -183,7 +183,7 @@ bool Game::Initialize() {
 	stAbout = irr::gui::CGUICustomText::addCustomText(L"Project Ignis: EDOPro\n"
 											L"The bleeding-edge automatic duel simulator\n"
 											L"\n"
-											L"Copyright (C) 2020-2021  Edoardo Lolletti (edo9300) and others\n"
+											L"Copyright (C) 2020-2022  Edoardo Lolletti (edo9300) and others\n"
 											L"Card scripts and supporting resources by Project Ignis.\n"
 											L"https://github.com/edo9300/edopro\n"
 											L"https://github.com/edo9300/ygopro-core\n"
@@ -381,7 +381,7 @@ bool Game::Initialize() {
 	}
 	tmpptr = env->addStaticText(gDataManager->GetSysString(1628).data(), rectsize(), false, false, crPanel);
 	defaultStrings.emplace_back(tmpptr, 1628);
-	constexpr uint32_t limits[] = { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
+	static constexpr uint32_t limits[] { TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
 #define TYPECHK(id,stringid)\
 	chkTypeLimit[id] = env->addCheckBox(forbiddentypes & limits[id], rectsize(), crPanel, -1, fmt::sprintf(gDataManager->GetSysString(1627), gDataManager->GetSysString(stringid)).data());
 	TYPECHK(0, 1056);
@@ -1604,7 +1604,7 @@ bool Game::MainLoop() {
 						}
 					}
 					gDataManager->LoadStrings(data_path + EPRO_TEXT("strings.conf"));
-					gDataManager->LoadIdsMapping(data_path + EPRO_TEXT("mappings.json"));
+					refresh_db = gDataManager->LoadIdsMapping(data_path + EPRO_TEXT("mappings.json")) || refresh_db;
 				} else {
 					if(Utils::ToUTF8IfNeeded(gGameConfig->locale) == repo->language) {
 						for(auto& file : files)
@@ -1626,10 +1626,12 @@ bool Game::MainLoop() {
 					}
 				}
 			}
-			if(refresh_db && is_building && !is_siding)
-				gdeckManager->RefreshDeck(gdeckManager->current_deck);
-			if(refresh_db && is_building && deckBuilder.results.size())
-				deckBuilder.StartFilter(true);
+			if(refresh_db && is_building) {
+				if(!is_siding)
+					gdeckManager->RefreshDeck(gdeckManager->current_deck);
+				if(deckBuilder.results.size())
+					deckBuilder.StartFilter(true);
+			}
 			if(gRepoManager->GetUpdatingReposNumber() == 0) {
 				gdeckManager->StopDummyLoading();
 				ReloadElementsStrings();
@@ -2029,6 +2031,15 @@ bool Game::ApplySkin(const epro::path_string& skinname, bool reload, bool firstr
 		reapply_colors();
 	if(wAbout)
 		wAbout->setRelativePosition(irr::core::recti(0, 0, std::min(Scale(450), stAbout->getTextWidth() + Scale(20)), std::min(stAbout->getTextHeight() + Scale(40), Scale(700))));
+	if(dpi_scale > 1.5f) {
+		auto* sprite_texture = imageManager.GetCheckboxScaledTexture(dpi_scale);
+		if(sprite_texture) {
+			auto* sprites = skin->getSpriteBank();
+			auto sprite_id = sprites->addTextureAsSprite(sprite_texture);
+			if(sprite_id != -1)
+				skin->setIcon(irr::gui::EGDI_CHECK_BOX_CHECKED, sprite_id);
+		}
+	}
 	return applied;
 }
 void Game::RefreshDeck(irr::gui::IGUIComboBox* cbDeck) {
@@ -2206,20 +2217,18 @@ Game::RepoGui* Game::AddGithubRepositoryStatusWindow(const GitRepo* repo) {
 }
 void Game::LoadGithubRepositories() {
 	bool update_ready = true;
-	for(auto& repo : gRepoManager->GetAllRepos()) {
+	for(const auto& repo : gRepoManager->GetAllRepos()) {
 		auto grepo = AddGithubRepositoryStatusWindow(repo);
 		if(repo->ready && update_ready) {
 			UpdateRepoInfo(repo, grepo);
 			if(repo->is_language) {
 				auto lang = Utils::ToPathString(repo->language);
-				auto it = std::find_if(locales.begin(), locales.end(),
-									   [&lang]
-				(const std::pair<epro::path_string, std::vector<epro::path_string>>& locale)->bool {
+				const auto find_pred = [&lang](const locale_entry_t& locale) {
 					return locale.first == lang;
-				});
-				if(it != locales.end()) {
+				};
+				const auto it = std::find_if(locales.begin(), locales.end(), find_pred);
+				if(it != locales.end())
 					it->second.push_back(Utils::ToPathString(repo->data_path));
-				}
 			}
 		} else {
 			update_ready = false;
@@ -2243,31 +2252,32 @@ void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 		grepo->commit_history_partial = grepo->commit_history_full;
 		return;
 	}
-	std::string text;
-	std::for_each(repo->history.full_history.begin(), repo->history.full_history.end(), [&text](const std::string& n) { if(n.size()) { text += n + "\n\n"; }});
-	if(text.size())
-		text.erase(text.size() - 2, 2);
-	grepo->commit_history_full = BufferIO::DecodeUTF8(text);
-	grepo->commit_history_partial.clear();
+	auto get_text = [](const std::vector<std::string>& history) {
+		std::string text;
+		std::for_each(history.begin(), history.end(), [&text](const std::string& n) { if(n.size()) { text.append(n).append(2, '\n'); }});
+		if(text.size())
+			text.erase(text.size() - 2, 2);
+		return BufferIO::DecodeUTF8(text);
+	};
+	grepo->commit_history_full = get_text(repo->history.full_history);
 	if(repo->history.partial_history.size()) {
 		if(repo->history.partial_history.front() == repo->history.full_history.front() && repo->history.partial_history.back() == repo->history.full_history.back()) {
 			grepo->commit_history_partial = grepo->commit_history_full;
 		} else {
-			text.clear();
-			std::for_each(repo->history.partial_history.begin(), repo->history.partial_history.end(), [&text](const std::string& n) { if(n.size()) { text += n + "\n\n"; }});
-			if(text.size())
-				text.erase(text.size() - 2, 2);
-			grepo->commit_history_partial = BufferIO::DecodeUTF8(text);
+			grepo->commit_history_partial = get_text(repo->history.partial_history);
 		}
 	} else {
 		if(repo->history.warning.size()) {
 			grepo->history_button1->setText(gDataManager->GetSysString(1448).data());
+			defaultStrings.emplace_back(grepo->history_button1, 1448);
+			grepo->history_button2->setText(gDataManager->GetSysString(1448).data());
+			defaultStrings.emplace_back(grepo->history_button2, 1448);
 			grepo->commit_history_partial = fmt::format(L"{}\n{}\n\n{}",
 				gDataManager->GetSysString(1449),
 				gDataManager->GetSysString(1450),
 				BufferIO::DecodeUTF8(repo->history.warning));
 		} else {
-			grepo->commit_history_partial = gDataManager->GetSysString(1446).data();
+			grepo->commit_history_partial.assign(gDataManager->GetSysString(1446).data(), gDataManager->GetSysString(1446).size());
 		}
 	}
 	grepo->history_button1->setEnabled(true);
@@ -3292,10 +3302,11 @@ irr::core::recti Game::ResizeWinFromCenter(irr::s32 x, irr::s32 y, irr::s32 x2, 
 }
 void Game::ValidateName(irr::gui::IGUIElement* obj) {
 	std::wstring text = obj->getText();
-	const wchar_t chars[] = L"<>:\"/\\|?*";
+	const auto oldsize = text.size();
+	static constexpr wchar_t chars[] = LR"(<>:"/\|?*)";
 	for(auto& forbid : chars)
 		text.erase(std::remove(text.begin(), text.end(), forbid), text.end());
-	if(text.size() != wcslen(obj->getText()))
+	if(text.size() != oldsize)
 		obj->setText(text.data());
 }
 std::wstring Game::ReadPuzzleMessage(epro::wstringview script_name) {

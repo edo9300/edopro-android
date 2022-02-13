@@ -48,13 +48,13 @@ void DataHandler::LoadArchivesDB() {
 
 void DataHandler::LoadPicUrls() {
 	for(auto& _config : { &configs->user_configs, &configs->configs }) {
-		auto& config = *_config;
+		const auto& config = *_config;
 		auto it = config.find("urls");
 		if(it != config.end() && it->is_array()) {
-			for(auto& obj : *it) {
+			for(const auto& obj : *it) {
 				try {
-					const auto& type = obj.at("type").get_ref<std::string&>();
-					const auto& url = obj.at("url").get_ref<std::string&>();
+					const auto& type = obj.at("type").get_ref<const std::string&>();
+					const auto& url = obj.at("url").get_ref<const std::string&>();
 					if(url == "default") {
 						if(type == "pic") {
 #ifdef DEFAULT_PIC_URL
@@ -98,7 +98,7 @@ void DataHandler::LoadZipArchives() {
 	}
 }
 DataHandler::DataHandler(epro::path_stringview working_dir) {
-	configs = std::unique_ptr<GameConfig>(new GameConfig);
+	configs = std::unique_ptr<GameConfig>(new GameConfig());
 	gGameConfig = configs.get();
 	tmp_device = nullptr;
 #ifndef __ANDROID__
@@ -128,6 +128,8 @@ DataHandler::DataHandler(epro::path_stringview working_dir) {
 	sounds = std::unique_ptr<SoundManager>(new SoundManager(configs->soundVolume / 100.0, configs->musicVolume / 100.0, configs->enablesound, configs->enablemusic, Utils::working_dir));
 	gitManager->LoadRepositoriesFromJson(configs->user_configs);
 	gitManager->LoadRepositoriesFromJson(configs->configs);
+	if(gitManager->TerminateIfNothingLoaded())
+		deckManager->StopDummyLoading();
 	imageDownloader = std::unique_ptr<ImageDownloader>(new ImageDownloader());
 	LoadDatabases();
 	LoadPicUrls();

@@ -140,7 +140,7 @@ public:
 	void HideElement(irr::gui::IGUIElement* element, bool set_action = false);
 	void PopupElement(irr::gui::IGUIElement* element, int hideframe = 0);
 	void WaitFrameSignal(int frame, std::unique_lock<std::mutex>& _lck);
-	void DrawThumb(CardDataC* cp, irr::core::position2di pos, LFList* lflist, bool drag = false, const irr::core::recti* cliprect = nullptr, bool loadimage = true);
+	void DrawThumb(const CardDataC* cp, irr::core::position2di pos, LFList* lflist, bool drag = false, const irr::core::recti* cliprect = nullptr, bool loadimage = true);
 	void DrawDeckBd();
 	void SaveConfig();
 	struct RepoGui {
@@ -310,7 +310,8 @@ public:
 	std::vector<epro::path_string> cores_to_load;
 	void PopulateLocales();
 	void ApplyLocale(size_t index, bool forced = false);
-	std::vector<std::pair<epro::path_string, std::vector<epro::path_string>>> locales;
+	using locale_entry_t = std::pair<epro::path_string, std::vector<epro::path_string>>;
+	std::vector<locale_entry_t> locales;
 	std::mutex popupCheck;
 	std::wstring queued_msg;
 	std::wstring queued_caption;

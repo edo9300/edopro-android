@@ -27,7 +27,6 @@
 #include "osx_menu.h"
 #endif
 
-bool exit_on_return = false;
 bool is_from_discord = false;
 bool open_file = false;
 epro::path_string open_file_name = EPRO_TEXT("");
@@ -244,14 +243,11 @@ int _tmain(int argc, epro::path_char* argv[]) {
 			data->tmp_device->setEventReceiver(nullptr);
 			/*the gles drivers have an additional cache, that isn't cleared when the textures are removed,
 			since it's not a big deal clearing them, as they'll be reused, they aren't cleared*/
+			/*data->tmp_device->getVideoDriver()->removeAllTextures();*/
+			data->tmp_device->getVideoDriver()->removeAllHardwareBuffers();
+			data->tmp_device->getVideoDriver()->removeAllOcclusionQueries();
 			data->tmp_device->getSceneManager()->clear();
 			data->tmp_device->getGUIEnvironment()->clear();
-#if (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
-			data->tmp_device->getVideoDriver()->removeAllRenderTargets();
-#endif
-			data->tmp_device->getVideoDriver()->removeAllTextures();
-			data->tmp_device->getVideoDriver()->removeAllOcclusionQueries();
-			data->tmp_device->getVideoDriver()->removeAllHardwareBuffers();
 		}
 	} while(reset);
 	data->tmp_device->drop();

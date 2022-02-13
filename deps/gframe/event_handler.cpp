@@ -175,8 +175,6 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 						mainGame->ShowElement(mainGame->wLanWindow);
 					}
 					mainGame->SetMessageWindow();
-					if(exit_on_return)
-						mainGame->device->closeDevice();
 				} else {
 					DuelClient::SendPacketToServer(CTOS_SURRENDER);
 				}
@@ -907,7 +905,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 							text = fmt::to_wstring(sort_list[pos + i]);
 					} else {
 						if(conti_selecting)
-							text = DataManager::unknown_string;
+							text = std::wstring{ DataManager::unknown_string };
 						else if(curcard->location == LOCATION_OVERLAY) {
 							text = fmt::format(L"{}[{}]({})", gDataManager->FormatLocation(curcard->overlayTarget->location, curcard->overlayTarget->sequence),
 								curcard->overlayTarget->sequence + 1, curcard->sequence + 1);
@@ -1590,7 +1588,7 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 								if(mcard->alias && (mcard->alias < mcard->code - 10 || mcard->alias > mcard->code + 10)) {
 									str.append(fmt::format(L"\n({})", gDataManager->GetName(mcard->alias)));
 								}
-								if(mcard->location == LOCATION_SZONE && mcard->lscale) {
+								if(mcard->location == LOCATION_SZONE && (mcard->type & TYPE_PENDULUM)) {
 									str.append(fmt::format(L"\n{}/{}", mcard->lscale, mcard->rscale));
 								}
 							}
