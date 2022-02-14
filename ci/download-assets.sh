@@ -48,7 +48,6 @@ curl --retry 5 --connect-timeout 30 --location --remote-header-name -o WindBotIg
 find $ASSETS \( -name '*.md' -o -name 'COPYING*' -o -name 'LICENSE*' \) -exec mv {} {}.txt \;
 # Purge extra decks
 mkdir -p $ASSETS/deck
-find $ASSETS/deck ! \( -name 'Starter*' -o -name 'Structure*' \) -type f -exec rm {} \;
 # Unsupported for release
 rm -rf $ASSETS/config/*.json $ASSETS/config/languages/Thai
 cp Distribution/config/configs.prod.json $ASSETS/config/configs.json
