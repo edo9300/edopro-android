@@ -328,6 +328,7 @@ public class MainActivity extends Activity {
 				int prevversion = Integer.parseInt(line);
 				if (prevversion < BuildConfig.VERSION_CODE) {
 					try {
+						copyCertificate();
 						PrintWriter pw = new PrintWriter(file);
 						pw.close();
 						Toast.makeText(this, getResources().getString(R.string.copying_update), Toast.LENGTH_LONG).show();
