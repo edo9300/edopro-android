@@ -15,7 +15,7 @@ jobs:
       )
     env:
       BASE_REF: 20210927
-      LATEST_REF: 20220213
+      LATEST_REF: 20220215
       DEPLOY_DIR: release
       DEPLOY_BRANCH: android
       LIBWINDBOT_URL: https://github.com/ProjectIgnis/windbot/releases/download/20220213/libWindbot.aar
