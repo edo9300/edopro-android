@@ -316,7 +316,7 @@ ClientCard* ClientField::RemoveCard(uint8_t controler, uint8_t location, uint32_
 	pcard->location = 0;
 	return pcard;
 }
-void ClientField::UpdateCard(uint8_t controler, uint8_t location, uint32_t sequence, const char* data, uint32_t len) {
+void ClientField::UpdateCard(uint8_t controler, uint8_t location, uint32_t sequence, const uint8_t* data, uint32_t len) {
 	ClientCard* pcard = GetCard(controler, location, sequence);
 	if(pcard) {
 		if(mainGame->dInfo.compat_mode)
@@ -324,7 +324,7 @@ void ClientField::UpdateCard(uint8_t controler, uint8_t location, uint32_t seque
 		pcard->UpdateInfo(CoreUtils::Query{ data, mainGame->dInfo.compat_mode, len });
 	}
 }
-void ClientField::UpdateFieldCard(uint8_t controler, uint8_t location, const char* data, uint32_t len) {
+void ClientField::UpdateFieldCard(uint8_t controler, uint8_t location, const uint8_t* data, uint32_t len) {
 	auto lst = GetList(location, controler);
 	if(!lst)
 		return;
@@ -1267,43 +1267,42 @@ void ClientField::UpdateDeclarableList(bool refresh) {
 		return cd;
 	};
 	auto ptext = mainGame->ebANCard->getText();
-	if(check_code(BufferIO::GetVal(ptext))) {
-		mainGame->lstANCard->clear();
-		mainGame->lstANCard->addItem(cd->GetStrings()->name.data());
-		ancard = { cd->_data.code };
-		return;
-	}
 	if(ptext[0] == 0 && !refresh) {
 		std::vector<uint32_t> cache;
 		cache.swap(ancard);
 		int sel = mainGame->lstANCard->getSelected();
-		int selcode = (sel == -1) ? 0 : cache[sel];
+		uint32_t selcode = (sel == -1) ? 0 : cache[sel];
 		mainGame->lstANCard->clear();
 		for(const auto& trycode : cache) {
 			if(check_code(trycode)) {
 				ancard.push_back(trycode);
-				const auto& name = cd->GetStrings()->name;
-				mainGame->lstANCard->addItem(name.data());
+				auto idx = mainGame->lstANCard->addItem(cd->GetStrings().name.data());
 				if(trycode == selcode)
-					mainGame->lstANCard->setSelected(name.data());
+					mainGame->lstANCard->setSelected(idx);
 			}
 		}
 		if(ancard.size() > 0)
 			return;
 	}
+	if(check_code(BufferIO::GetVal(ptext))) {
+		mainGame->lstANCard->clear();
+		mainGame->lstANCard->addItem(cd->GetStrings().name.data());
+		ancard = { cd->_data.code };
+		return;
+	}
 	const auto pname = Utils::ToUpperNoAccents<std::wstring>(ptext);
 	mainGame->lstANCard->clear();
 	ancard.clear();
 	for(const auto& card : gDataManager->cards) {
-		const auto strings = card.second.GetStrings();
-		const auto& name = strings->uppercase_name;
+		const auto& strings = card.second.GetStrings();
+		const auto& name = strings.uppercase_name;
 		if(name.find(pname) != std::wstring::npos) {
 			if(is_declarable(&card.second._data, declare_opcodes)) {
 				if(pname == name) { //exact match
-					mainGame->lstANCard->insertItem(0, strings->name.data(), -1);
+					mainGame->lstANCard->insertItem(0, strings.name.data(), -1);
 					ancard.insert(ancard.begin(), card.first);
 				} else {
-					mainGame->lstANCard->addItem(strings->name.data());
+					mainGame->lstANCard->addItem(strings.name.data());
 					ancard.push_back(card.first);
 				}
 			}

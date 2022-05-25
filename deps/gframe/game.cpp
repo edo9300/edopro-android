@@ -128,10 +128,10 @@ bool Game::Initialize() {
 	filesystem->grab();
 	coreloaded = true;
 #ifdef YGOPRO_BUILD_DLL
-	if(!(ocgcore = LoadOCGcore(Utils::working_dir)) && !(ocgcore = LoadOCGcore(fmt::format(EPRO_TEXT("{}/expansions/"), Utils::working_dir))))
+	if(!(ocgcore = LoadOCGcore(Utils::GetWorkingDirectory())) && !(ocgcore = LoadOCGcore(fmt::format(EPRO_TEXT("{}/expansions/"), Utils::GetWorkingDirectory()))))
 		coreloaded = false;
 #endif
-	skinSystem = new CGUISkinSystem(fmt::format(EPRO_TEXT("{}/skin"), Utils::working_dir).data(), device);
+	skinSystem = new CGUISkinSystem(fmt::format(EPRO_TEXT("{}/skin"), Utils::GetWorkingDirectory()).data(), device);
 	if(!skinSystem)
 		throw std::runtime_error("Couldn't create skin system");
 	linePatternGL = 0x0f0f;
@@ -808,7 +808,7 @@ bool Game::Initialize() {
 	defaultStrings.emplace_back(wMessage, 1216);
 	wMessage->getCloseButton()->setVisible(false);
 	wMessage->setVisible(false);
-	stMessage = irr::gui::CGUICustomText::addCustomText(L"", false, env, wMessage, -1, Scale(20, 20, 350, 100));
+	stMessage = irr::gui::CGUICustomText::addCustomText(L"", false, env, wMessage, -1, Scale(10, 20, 350, 100));
 	stMessage->setWordWrap(true);
 	stMessage->setTextAlignment(irr::gui::EGUIA_UPPERLEFT, irr::gui::EGUIA_CENTER);
 	btnMsgOK = env->addButton(Scale(130, 105, 220, 130), wMessage, BUTTON_MSG_OK, gDataManager->GetSysString(1211).data());
@@ -1628,7 +1628,7 @@ bool Game::MainLoop() {
 			}
 			if(refresh_db && is_building) {
 				if(!is_siding)
-					gdeckManager->RefreshDeck(gdeckManager->current_deck);
+					deckBuilder.RefreshCurrentDeck();
 				if(deckBuilder.results.size())
 					deckBuilder.StartFilter(true);
 			}
@@ -1644,7 +1644,7 @@ bool Game::MainLoop() {
 		if(!dInfo.isStarted && cores_to_load.size() && gRepoManager->GetUpdatingReposNumber() == 0) {
 			for(auto& path : cores_to_load) {
 				void* ncore = nullptr;
-				if((ncore = ChangeOCGcore(Utils::working_dir + path, ocgcore))) {
+				if((ncore = ChangeOCGcore(Utils::GetWorkingDirectory() + path, ocgcore))) {
 					corename = Utils::ToUnicodeIfNeeded(path);
 					coreJustLoaded = true;
 					ocgcore = ncore;
@@ -1836,9 +1836,9 @@ bool Game::MainLoop() {
 			PopupElement(wACMessage, 30);
 		}
 		if(!wQuery->isVisible()) {
-			if(!update_prompted && !(dInfo.isInDuel || dInfo.isInLobby || is_siding
+			if(!update_prompted && gClientUpdater->HasUpdate() && !(dInfo.isInDuel || dInfo.isInLobby || is_siding
 				|| wRoomListPlaceholder->isVisible() || wLanWindow->isVisible()
-				|| wCreateHost->isVisible() || wHostPrepare->isVisible()) && gClientUpdater->HasUpdate()) {
+				|| wCreateHost->isVisible() || wHostPrepare->isVisible())) {
 				std::lock_guard<std::mutex> lock(gMutex);
 				menuHandler.prev_operation = ACTION_UPDATE_PROMPT;
 				stQMessage->setText(fmt::format(L"{}\n{}", gDataManager->GetSysString(1460), gDataManager->GetSysString(1461)).data());
@@ -1864,6 +1864,16 @@ bool Game::MainLoop() {
 			}
 #endif
 		}
+#if defined(EROPRO_MACOS) && (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
+		if(!wMessage->isVisible() && gGameConfig->useIntegratedGpu == 2) {
+			std::lock_guard<epro::mutex> lock(gMutex);
+			gGameConfig->useIntegratedGpu = 1;
+			SaveConfig();
+			stMessage->setText(L"The game is using the integrated gpu, if you want it to use the dedicated one change it from the settings.");
+			PopupElement(wMessage);
+			show_changelog = false;
+		}
+#endif
 		if(!update_checked && gClientUpdater->UpdateDownloaded()) {
 			if(gClientUpdater->UpdateFailed()) {
 				update_checked = true;
@@ -1905,16 +1915,19 @@ bool Game::MainLoop() {
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 	discord.UpdatePresence(DiscordWrapper::TERMINATE);
-	replaySignal.SetNoWait(true);
-	actionSignal.SetNoWait(true);
-	closeDoneSignal.SetNoWait(true);
+	{
+		std::lock_guard<std::mutex> lk(gMutex);
+		replaySignal.SetNoWait(true);
+		actionSignal.SetNoWait(true);
+		closeDoneSignal.SetNoWait(true);
+		frameSignal.SetNoWait(true);
+	}
 	DuelClient::StopClient(true);
+	//This is set again as waitable in the above call
+	frameSignal.SetNoWait(true);
+	SingleMode::StopPlay(true);
+	ReplayMode::StopReplay(true);
 	ClearTextures();
-	if(dInfo.isSingleMode)
-		SingleMode::StopPlay(true);
-	if(dInfo.isReplay)
-		ReplayMode::StopReplay(true);
-	std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	SaveConfig();
 #ifdef YGOPRO_BUILD_DLL
 	if(ocgcore)

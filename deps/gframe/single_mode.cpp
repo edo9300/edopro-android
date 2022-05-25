@@ -24,11 +24,14 @@ Replay SingleMode::last_replay;
 Replay SingleMode::new_replay;
 ReplayStream SingleMode::replay_stream;
 Signal SingleMode::singleSignal;
+std::thread SingleMode::single_mode_thread;
 
 bool SingleMode::StartPlay(DuelOptions&& duelOptions) {
 	if(mainGame->dInfo.isSingleMode)
 		return false;
-	std::thread(SinglePlayThread, std::move(duelOptions)).detach();
+	if(single_mode_thread.joinable())
+		single_mode_thread.join();
+	single_mode_thread = std::thread(SinglePlayThread, std::move(duelOptions));
 	return true;
 }
 void SingleMode::StopPlay(bool is_exiting) {
@@ -36,9 +39,11 @@ void SingleMode::StopPlay(bool is_exiting) {
 	is_continuing = false;
 	is_restarting = false;
 	mainGame->actionSignal.Set();
-	if(is_closing)
+	if(is_closing) {
 		singleSignal.SetNoWait(true);
-	else
+		if(single_mode_thread.joinable())
+			single_mode_thread.join();
+	} else
 		singleSignal.Set();
 }
 void SingleMode::Restart() {
@@ -113,7 +118,7 @@ restart:
 	if(hand_test) {
 		script_name = "hand-test-mode";
 		InitReplay();
-		Deck playerdeck(gdeckManager->current_deck);
+		Deck playerdeck(mainGame->deckBuilder.GetCurrentDeck());
 		if ((duelOptions.duelFlags & DUEL_PSEUDO_SHUFFLE) == 0)
 			std::shuffle(playerdeck.main.begin(), playerdeck.main.end(), rnd);
 		auto LoadDeck = [&](uint8_t team) {
@@ -223,15 +228,13 @@ restart:
 	is_closing = false;
 	is_continuing = true;
 	int engFlag = 0;
-	auto msg = CoreUtils::ParseMessages(pduel);
-	for(auto& message : msg.packets)
+	for(auto& message : CoreUtils::ParseMessages(pduel))
 		is_continuing = SinglePlayAnalyze(message) && is_continuing;
 	if(is_continuing) {
 		OCG_StartDuel(pduel);
 		do {
 			engFlag = OCG_DuelProcess(pduel);
-			msg = CoreUtils::ParseMessages(pduel);
-			for(auto& message : msg.packets) {
+			for(auto& message : CoreUtils::ParseMessages(pduel)) {
 				if(message.message == MSG_WIN && hand_test)
 					continue;
 				is_continuing = SinglePlayAnalyze(message) && is_continuing;
@@ -348,7 +351,7 @@ bool SingleMode::SinglePlayAnalyze(CoreUtils::Packet& packet) {
 			return false;
 		}
 		case MSG_HINT: {
-			const char* pbuf = packet.data();
+			const auto* pbuf = packet.data();
 			int type = BufferIO::Read<uint8_t>(pbuf);
 			int player = BufferIO::Read<uint8_t>(pbuf);
 			/*uint64_t data = BufferIO::Read<uint64_t>(pbuf);*/
@@ -360,16 +363,16 @@ bool SingleMode::SinglePlayAnalyze(CoreUtils::Packet& packet) {
 		}
 		case MSG_AI_NAME:
 		case MSG_SHOW_HINT: {
-			char* pbuf = packet.data();
-			int len = BufferIO::Read<uint16_t>(pbuf);
+			auto* pbuf = packet.data();
+			auto len = BufferIO::Read<uint16_t>(pbuf);
 			if((len + 1) != packet.buff_size() - (sizeof(uint16_t)))
 				break;
 			pbuf[len] = 0;
 			if(packet.message == MSG_AI_NAME) {
-				mainGame->dInfo.opponames[0] = BufferIO::DecodeUTF8(pbuf);
+				mainGame->dInfo.opponames[0] = BufferIO::DecodeUTF8({ reinterpret_cast<char*>(pbuf), len });
 			} else {
 				std::unique_lock<std::mutex> lock(mainGame->gMutex);
-				mainGame->stMessage->setText(BufferIO::DecodeUTF8(pbuf).data());
+				mainGame->stMessage->setText(BufferIO::DecodeUTF8({ reinterpret_cast<char*>(pbuf), len }).data());
 				mainGame->PopupElement(mainGame->wMessage);
 				mainGame->actionSignal.Wait(lock);
 			}
@@ -419,7 +422,7 @@ bool SingleMode::SinglePlayAnalyze(CoreUtils::Packet& packet) {
 			break;
 		}
 	}
-	char* pbuf = packet.data();
+	auto* pbuf = packet.data();
 	switch(mainGame->dInfo.curMsg) {
 		case MSG_SHUFFLE_DECK: {
 			player = BufferIO::Read<uint8_t>(pbuf);
@@ -489,11 +492,11 @@ void SingleMode::SinglePlayRefresh(uint8_t player, uint8_t location, uint32_t fl
 	buffer.resize(buffer.size() + len);
 	memcpy(buffer.data(), buff, len);
 	mainGame->gMutex.lock();
-	mainGame->dField.UpdateFieldCard(mainGame->LocalPlayer(player), location, (char*)buffer.data());
+	mainGame->dField.UpdateFieldCard(mainGame->LocalPlayer(player), location, buffer.data());
 	mainGame->gMutex.unlock();
 	buffer.insert(buffer.begin(), location);
 	buffer.insert(buffer.begin(), player);
-	replay_stream.emplace_back(MSG_UPDATE_DATA, (char*)buffer.data(), buffer.size());
+	replay_stream.emplace_back(MSG_UPDATE_DATA, buffer.data(), buffer.size());
 }
 void SingleMode::SinglePlayRefreshSingle(uint8_t player, uint8_t location, uint8_t sequence, uint32_t flag) {
 	std::vector<uint8_t> buffer;
@@ -504,12 +507,12 @@ void SingleMode::SinglePlayRefreshSingle(uint8_t player, uint8_t location, uint8
 	buffer.resize(buffer.size() + len);
 	memcpy(buffer.data(), buff, len);
 	mainGame->gMutex.lock();
-	mainGame->dField.UpdateCard(mainGame->LocalPlayer(player), location, sequence, (char*)buffer.data());
+	mainGame->dField.UpdateCard(mainGame->LocalPlayer(player), location, sequence, buffer.data());
 	mainGame->gMutex.unlock();
 	buffer.insert(buffer.begin(), sequence);
 	buffer.insert(buffer.begin(), location);
 	buffer.insert(buffer.begin(), player);
-	replay_stream.emplace_back(MSG_UPDATE_CARD, (char*)buffer.data(), buffer.size());
+	replay_stream.emplace_back(MSG_UPDATE_CARD, buffer.data(), buffer.size());
 }
 void SingleMode::SinglePlayRefresh(uint32_t flag) {
 	for(int p = 0; p < 2; p++)

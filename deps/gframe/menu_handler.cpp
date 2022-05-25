@@ -30,9 +30,9 @@ namespace ygo {
 
 static void UpdateDeck() {
 	gGameConfig->lastdeck = mainGame->cbDeckSelect->getItem(mainGame->cbDeckSelect->getSelected());
-	const auto& deck = gdeckManager->current_deck;
-	char deckbuf[0xf000];
-	char* pdeck = deckbuf;
+	const auto& deck = mainGame->deckBuilder.GetCurrentDeck();
+	uint8_t deckbuf[0xf000];
+	auto* pdeck = deckbuf;
 	static constexpr auto max_deck_size = sizeof(deckbuf) / sizeof(uint32_t) - 2;
 	const auto totsize = deck.main.size() + deck.extra.size() + deck.side.size();
 	if(totsize > max_deck_size)
@@ -46,7 +46,7 @@ static void UpdateDeck() {
 	for(const auto& pcard : deck.side)
 		BufferIO::Write<uint32_t>(pdeck, pcard->code);
 	DuelClient::SendBufferToServer(CTOS_UPDATE_DECK, deckbuf, pdeck - deckbuf);
-	gdeckManager->sent_deck = gdeckManager->current_deck;
+	gdeckManager->sent_deck = mainGame->deckBuilder.GetCurrentDeck();
 }
 static void LoadReplay() {
 	auto& replay = ReplayMode::cur_replay;
@@ -643,7 +643,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				case ACTION_TRY_WAYLAND:
 					gGameConfig->useWayland = 0;
 					mainGame->SaveConfig();
-					Utils::Reboot();
+					break;
 #endif
 				case ACTION_UPDATE_PROMPT:
 				case ACTION_SHOW_CHANGELOG:
