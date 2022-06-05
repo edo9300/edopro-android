@@ -14,8 +14,6 @@ jobs:
         contains(github.event.head_commit.message, '[skip actions]')
       )
     env:
-      BASE_REF: 20210927
-      LATEST_REF: 20220215
       DEPLOY_BRANCH: android
       LIBWINDBOT_URL: https://github.com/ProjectIgnis/windbot/releases/download/20220213/libWindbot.aar
       LIBWINDBOT_RESOURCES: https://github.com/ProjectIgnis/windbot/releases/download/20220213/WindBotIgnite-Resources.7z
@@ -25,19 +23,10 @@ jobs:
       COVERS_URL: ${{ secrets.COVERS_URL }}
       FIELDS_URL: ${{ secrets.FIELDS_URL }}
       JKS_PASS: ${{ secrets.JKS_PASS }}
-      MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
-      MINIO_BUCKET: android
-      MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
-      MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
       PICS_URL: ${{ secrets.PICS_URL }}
       UPDATE_URL: ${{ secrets.UPDATE_URL }}
     steps:
     - uses: actions/checkout@v1
-      with:
-        submodules: true
-    - name: Set MINIO_UPLOAD var
-      run: |
-        echo "MINIO_UPLOAD=$(date +%Y-%m-%d_%H-%M)-${{ github.sha }}" >> $GITHUB_ENV
     - name: Download libwindbot
       run: |
         mkdir -p libs
@@ -48,9 +37,6 @@ jobs:
     - name: Build client
       run: |
        $ANDROID_HOME/ndk-bundle/ndk-build -j2
-    - name: Build core
-      run: |
-       $ANDROID_HOME/ndk-bundle/ndk-build -C deps/ocgcore -j2
     - name: Build base apk
       run: |
        ./ci/touch-assets.sh
@@ -60,17 +46,3 @@ jobs:
       if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
       shell: bash
       run: ./ci/deploy.sh
-    # - name: Build patch apk
-      # run: |
-       # ./ci/prepare-update.sh
-       # ./gradlew assemble
-       # ./ci/sign-apk.sh EDOPro-release-patch.apk
-    # - name: Copy upload objects
-      # run: |
-       # mkdir -p "$MINIO_UPLOAD"
-       # cp release/*.apk "$MINIO_UPLOAD"
-       # 7z a obj obj
-       # mv obj.7z "$MINIO_UPLOAD"
-    # - name: Upload
-      # run: |
-       # bash ./ci/travis-minio.sh
