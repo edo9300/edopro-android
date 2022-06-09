@@ -166,9 +166,9 @@ public class AssetCopy extends Activity {
 							src = getAssets().open("defaults/" + filename);
 					} catch (IOException e) {
 						if(isUpdate)
-							Log.e("AssetCopy", "Copying file: update/" +  filename + " FAILED (not in assets)");
+							Log.e("AssetCopy", "Copying file: update/" +  filename + " FAILED (not in assets) " + e.getMessage());
 						else
-							Log.e("AssetCopy", "Copying file: defaults/" +  filename + " FAILED (not in assets)");
+							Log.e("AssetCopy", "Copying file: defaults/" +  filename + " FAILED (not in assets) " + e.getMessage());
 						e.printStackTrace();
 						continue;
 					}
@@ -213,7 +213,7 @@ public class AssetCopy extends Activity {
 							dst = new FileOutputStream(workingDir + "/" + filename);
 						} catch (IOException e) {
 							Log.e("AssetCopy", "Copying file: " + workingDir +
-									"/" + filename + " FAILED (couldn't open output file)");
+									"/" + filename + " FAILED (couldn't open output file) " + e.getMessage());
 							e.printStackTrace();
 							src.close();
 							continue;
@@ -237,7 +237,7 @@ public class AssetCopy extends Activity {
 					src.close();
 				} catch (IOException e) {
 					Log.e("AssetCopy", "Copying file: " +
-							m_tocopy.get(i) + " failed");
+							m_tocopy.get(i) + " failed " + e.getMessage());
 					e.printStackTrace();
 				}
 			}
@@ -313,7 +313,7 @@ public class AssetCopy extends Activity {
 						} catch (IOException e) {
 							m_asset_size_unknown.add(current_path);
 							Log.e("AssetCopy", "Failed to open asset file \"" +
-									FlashPath + "\" for size check; ");
+									FlashPath + "\" for size check; " + e.getMessage());
 						}
 
 						stored_filesize = testme.length();
@@ -342,9 +342,9 @@ public class AssetCopy extends Activity {
 					line = reader.readLine();
 				}
 				is.close();
-			} catch (IOException e1) {
-				Log.e("AssetCopy", "Error on processing index.txt");
-				e1.printStackTrace();
+			} catch (IOException e) {
+				Log.e("AssetCopy", "Error on processing index.txt " + e.getMessage());
+				e.printStackTrace();
 			}
 		}
 
@@ -365,9 +365,9 @@ public class AssetCopy extends Activity {
 					entrycount++;
 				}
 				is.close();
-			} catch (IOException e1) {
-				Log.e("AssetCopy", "Error on processing filelist.txt");
-				e1.printStackTrace();
+			} catch (IOException e) {
+				Log.e("AssetCopy", "Error on processing filelist.txt " + e.getMessage());
+				e.printStackTrace();
 			}
 		}
 
