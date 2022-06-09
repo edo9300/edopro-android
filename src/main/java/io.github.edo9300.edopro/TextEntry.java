@@ -14,9 +14,6 @@ public class TextEntry {
 	private AlertDialog mTextInputDialog;
 	private EditText mTextInputWidget;
 
-	public TextEntry() {
-	}
-
 	public void Show(android.content.Context context, String current) {
 		mTextInputWidget = new EditText(context);
 		mTextInputWidget.setMinWidth(300);
