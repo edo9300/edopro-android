@@ -53,10 +53,11 @@ namespace irr
 			SDK_version_do_not_use(IRRLICHT_SDK_VERSION),
 			PrivateData(0),
 #if defined(_IRR_COMPILE_WITH_IOS_DEVICE_) || defined(_IRR_ANDROID_PLATFORM_) || defined(_IRR_EMSCRIPTEN_PLATFORM_)
-			OGLES2ShaderPath("media/Shaders/")
+			OGLES2ShaderPath("media/Shaders/"),
 #else
-			OGLES2ShaderPath("../../media/Shaders/")
+			OGLES2ShaderPath("../../media/Shaders/"),
 #endif
+			UseIntegratedGPU(false)
 		{
 		}
 
@@ -91,6 +92,7 @@ namespace irr
 			UsePerformanceTimer = other.UsePerformanceTimer;
 			PrivateData = other.PrivateData;
 			OGLES2ShaderPath = other.OGLES2ShaderPath;
+			UseIntegratedGPU = other.UseIntegratedGPU;
 			return *this;
 		}
 
@@ -321,6 +323,11 @@ namespace irr
 		/** This is about the shaders which can be found in media/Shaders by default. It's only necessary
 		to set when using OGL-ES 2.0 */
 		irr::io::path OGLES2ShaderPath;
+
+
+		//! Created the OpenGL context on the integrated GPU.
+		/** This is only used on OpenGL contexts created on MacOS. */
+		bool UseIntegratedGPU;
 	};
 
 
