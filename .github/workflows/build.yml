@@ -15,6 +15,7 @@ jobs:
       )
     env:
       DEPLOY_BRANCH: android
+      OS_NAME: linux
       LIBWINDBOT_URL: https://github.com/ProjectIgnis/windbot/releases/download/20220213/libWindbot.aar
       LIBWINDBOT_RESOURCES: https://github.com/ProjectIgnis/windbot/releases/download/20220213/WindBotIgnite-Resources.7z
       DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
@@ -35,12 +36,7 @@ jobs:
       run: |
        echo "sdk.dir=$ANDROID_HOME" > local.properties
     - name: Build client
-      run: |
-       ANDROID_ROOT=/usr/local/lib/android
-       ANDROID_SDK_ROOT=${ANDROID_ROOT}/sdk
-       ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk-bundle
-       ln -sfn $ANDROID_SDK_ROOT/ndk/21.4.7075529 $ANDROID_NDK_ROOT
-       $ANDROID_HOME/ndk-bundle/ndk-build -j2
+      run: ./ci/build-android.sh
     - name: Build base apk
       run: |
        ./ci/touch-assets.sh
