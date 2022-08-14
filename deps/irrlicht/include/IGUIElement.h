@@ -901,7 +901,7 @@ protected:
 				DesiredRect.UpperLeftCorner.X += diffx/2;
 				break;
 			case EGUIA_SCALE:
-				DesiredRect.UpperLeftCorner.X = core::round32(ScaleRect.UpperLeftCorner.X * fw);
+				DesiredRect.UpperLeftCorner.X = static_cast<s32>(ScaleRect.UpperLeftCorner.X * fw);
 				break;
 		}
 
@@ -916,7 +916,7 @@ protected:
 				DesiredRect.LowerRightCorner.X += diffx/2;
 				break;
 			case EGUIA_SCALE:
-				DesiredRect.LowerRightCorner.X = core::round32(ScaleRect.LowerRightCorner.X * fw);
+				DesiredRect.LowerRightCorner.X = static_cast<s32>(ScaleRect.LowerRightCorner.X * fw);
 				break;
 		}
 
@@ -931,7 +931,7 @@ protected:
 				DesiredRect.UpperLeftCorner.Y += diffy/2;
 				break;
 			case EGUIA_SCALE:
-				DesiredRect.UpperLeftCorner.Y = core::round32(ScaleRect.UpperLeftCorner.Y * fh);
+				DesiredRect.UpperLeftCorner.Y = static_cast<s32>(ScaleRect.UpperLeftCorner.Y * fh);
 				break;
 		}
 
@@ -946,7 +946,7 @@ protected:
 				DesiredRect.LowerRightCorner.Y += diffy/2;
 				break;
 			case EGUIA_SCALE:
-				DesiredRect.LowerRightCorner.Y = core::round32(ScaleRect.LowerRightCorner.Y * fh);
+				DesiredRect.LowerRightCorner.Y = static_cast<s32>(ScaleRect.LowerRightCorner.Y * fh);
 				break;
 		}
 
