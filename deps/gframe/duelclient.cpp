@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <ifaddrs.h>
 #include <net/if.h>
+#include <sys/wait.h>
 #endif
 #endif
 #include "game_config.h"
@@ -163,6 +164,7 @@ void DuelClient::StopClient(bool is_exiting) {
 #if !defined(_WIN32) && !defined(__ANDROID__)
 		for(auto& pid : mainGame->gBot.windbotsPids) {
 			kill(pid, SIGKILL);
+			(void)waitpid(pid, nullptr, 0);
 		}
 		mainGame->gBot.windbotsPids.clear();
 #endif
@@ -2144,9 +2146,9 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 		mainGame->stHintMsg->setText(text.data());
 		mainGame->stHintMsg->setVisible(true);
 		if (mainGame->dInfo.curMsg == MSG_SELECT_PLACE && (
-			(mainGame->tabSettings.chkMAutoPos->isChecked() && mainGame->dField.selectable_field & 0x7f007f) ||
-			(mainGame->tabSettings.chkSTAutoPos->isChecked() && !(mainGame->dField.selectable_field & 0x7f007f)))) {
-			if(mainGame->tabSettings.chkRandomPos->isChecked()) {
+			(mainGame->gSettings.chkMAutoPos->isChecked() && mainGame->dField.selectable_field & 0x7f007f) ||
+			(mainGame->gSettings.chkSTAutoPos->isChecked() && !(mainGame->dField.selectable_field & 0x7f007f)))) {
+			if(mainGame->gSettings.chkRandomPos->isChecked()) {
 				std::vector<char> positions;
 				for(char i = 0; i < 32; i++) {
 					if(mainGame->dField.selectable_field & (1 << i))

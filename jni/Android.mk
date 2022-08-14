@@ -40,6 +40,7 @@ LOCAL_C_INCLUDES := $(GFRAME_PATH)/CGUICustomContextMenu \
 					$(GFRAME_PATH)/CGUIFileSelectListBox \
 					$(GFRAME_PATH)/CGUIImageButton \
 					$(GFRAME_PATH)/CGUITTFont \
+					$(GFRAME_PATH)/CGUIWindowedTabControl \
 					$(GFRAME_PATH)/CProgressBar \
 					$(GFRAME_PATH)/ResizeablePanel
 
@@ -59,6 +60,7 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/Android/COSAndroidOperator.cpp \
 				   $(GFRAME_PATH)/CGUISkinSystem/CGUISkinSystem.cpp \
 				   $(GFRAME_PATH)/CGUISkinSystem/CImageGUISkin.cpp \
 				   $(GFRAME_PATH)/CGUITTFont/CGUITTFont.cpp \
+				   $(GFRAME_PATH)/CGUIWindowedTabControl/CGUIWindowedTabControl.cpp \
 				   $(GFRAME_PATH)/CProgressBar/CProgressBar.cpp \
 				   $(GFRAME_PATH)/CXMLRegistry/CXMLNode.cpp \
 				   $(GFRAME_PATH)/CXMLRegistry/CXMLRegistry.cpp \
