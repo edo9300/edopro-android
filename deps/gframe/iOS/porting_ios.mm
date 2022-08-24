@@ -5,6 +5,8 @@
 #include <irrlicht.h>
 #include <SExposedVideoData.h>
 #include <mutex>
+#include <array>
+#include <string>
 #include "../bufferio.h"
 #include "../game.h"
 #include "porting_ios.h"
@@ -147,7 +149,7 @@ void showComboBox(const std::vector<std::string>& parameters, int selected) {
 	[controller presentViewController:alert animated:YES completion:nil];
 }
 
-static void EPRO_IOS_ShowTextInputWindow(epro::stringview curtext) {
+void showTextInputWindow(epro::stringview curtext) {
 	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Text input" message:@"" preferredStyle:UIAlertControllerStyleAlert];
 	[alert addAction:[UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleDefault handler:nil]];
 	[alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
@@ -188,47 +190,7 @@ int changeWorkDir(const char* newdir) {
 	return [[NSFileManager defaultManager] changeCurrentDirectoryPath:[NSString stringWithUTF8String:newdir]] == true;
 }
 
-
-namespace {
-
-struct SMouseMultiClicks {
-	int DoubleClickTime{ 500 };
-	int CountSuccessiveClicks{ 0 };
-	int LastClickTime{ 0 };
-	irr::core::position2di LastClick{};
-	irr::EMOUSE_INPUT_EVENT LastMouseInputEvent{ irr::EMIE_COUNT };
-};
-SMouseMultiClicks MouseMultiClicks;
-
-//! Compares to the last call of this function to return double and triple clicks.
-int checkSuccessiveClicks(int mouseX, int mouseY, irr::EMOUSE_INPUT_EVENT inputEvent) {
-	constexpr auto MAX_MOUSEMOVE = 3;
-	
-	auto device = ygo::mainGame->device;
-	irr::u32 clickTime = device->getTimer()->getRealTime();
-
-	if((clickTime - MouseMultiClicks.LastClickTime) < MouseMultiClicks.DoubleClickTime
-	   && irr::core::abs_(MouseMultiClicks.LastClick.X - mouseX) <= MAX_MOUSEMOVE
-	   && irr::core::abs_(MouseMultiClicks.LastClick.Y - mouseY) <= MAX_MOUSEMOVE
-	   && MouseMultiClicks.CountSuccessiveClicks < 3
-	   && MouseMultiClicks.LastMouseInputEvent == inputEvent
-	   ) {
-		++MouseMultiClicks.CountSuccessiveClicks;
-	} else {
-		MouseMultiClicks.CountSuccessiveClicks = 1;
-	}
-
-	MouseMultiClicks.LastMouseInputEvent = inputEvent;
-	MouseMultiClicks.LastClickTime = clickTime;
-	MouseMultiClicks.LastClick.X = mouseX;
-	MouseMultiClicks.LastClick.Y = mouseY;
-
-	return MouseMultiClicks.CountSuccessiveClicks;
-}
-}
-
 int transformEvent(const irr::SEvent& event, bool& stopPropagation) {
-	static irr::core::position2di m_pointer = irr::core::position2di(0, 0);
 	auto device = ygo::mainGame->device;
 	switch(event.EventType) {
 		case irr::EET_MOUSE_INPUT_EVENT: {
@@ -239,7 +201,7 @@ int transformEvent(const irr::SEvent& event, bool& stopPropagation) {
 						bool retval = hovered->OnEvent(event);
 						if(retval)
 							ygo::mainGame->env->setFocus(hovered);
-						EPRO_IOS_ShowTextInputWindow(BufferIO::EncodeUTF8(((irr::gui::IGUIEditBox *)hovered)->getText()));
+						showTextInputWindow(BufferIO::EncodeUTF8(((irr::gui::IGUIEditBox *)hovered)->getText()));
 						stopPropagation = retval;
 						return retval;
 					}
@@ -258,98 +220,6 @@ int transformEvent(const irr::SEvent& event, bool& stopPropagation) {
 			}
 			return true;
 		}
-		case irr::EET_TOUCH_INPUT_EVENT: {
-			//printf("Got touch input\n");
-			irr::SEvent translated;
-			memset(&translated, 0, sizeof(irr::SEvent));
-			translated.EventType = irr::EET_MOUSE_INPUT_EVENT;
-			
-			translated.MouseInput.X = event.TouchInput.X;
-			translated.MouseInput.Y = event.TouchInput.Y;
-			translated.MouseInput.Control = false;
-			
-			switch(event.TouchInput.touchedCount) {
-				case 1: {
-					/*printf("event type is: %d\n", event.TouchInput.Event);
-					printf("event.TouchInput.X is: %d\n", event.TouchInput.X);
-					printf("event.TouchInput.Y is: %d\n", event.TouchInput.Y);*/
-					switch(event.TouchInput.Event) {
-						case irr::ETIE_PRESSED_DOWN:
-							m_pointer = irr::core::position2di(event.TouchInput.X, event.TouchInput.Y);
-							translated.MouseInput.Event = irr::EMIE_LMOUSE_PRESSED_DOWN;
-							translated.MouseInput.ButtonStates = irr::EMBSM_LEFT;
-							irr::SEvent hoverEvent;
-							hoverEvent.EventType = irr::EET_MOUSE_INPUT_EVENT;
-							hoverEvent.MouseInput.Event = irr::EMIE_MOUSE_MOVED;
-							hoverEvent.MouseInput.X = event.TouchInput.X;
-							hoverEvent.MouseInput.Y = event.TouchInput.Y;
-							device->postEventFromUser(hoverEvent);
-							break;
-						case irr::ETIE_MOVED:
-							m_pointer = irr::core::position2di(event.TouchInput.X, event.TouchInput.Y);
-							translated.MouseInput.Event = irr::EMIE_MOUSE_MOVED;
-							translated.MouseInput.ButtonStates = irr::EMBSM_LEFT;
-							break;
-						case irr::ETIE_LEFT_UP:
-							translated.MouseInput.Event = irr::EMIE_LMOUSE_LEFT_UP;
-							translated.MouseInput.ButtonStates = 0;
-							// we don't have a valid pointer element use last
-							// known pointer pos
-							translated.MouseInput.X = m_pointer.X;
-							translated.MouseInput.Y = m_pointer.Y;
-							break;
-						default:
-							stopPropagation = true;
-							return true;
-					}
-					break;
-				}
-				case 2: {
-					if(event.TouchInput.Event == irr::ETIE_PRESSED_DOWN) {
-						translated.MouseInput.Event = irr::EMIE_RMOUSE_PRESSED_DOWN;
-						translated.MouseInput.ButtonStates = irr::EMBSM_LEFT | irr::EMBSM_RIGHT;
-						translated.MouseInput.X = m_pointer.X;
-						translated.MouseInput.Y = m_pointer.Y;
-						device->postEventFromUser(translated);
-						
-						translated.MouseInput.Event = irr::EMIE_RMOUSE_LEFT_UP;
-						translated.MouseInput.ButtonStates = irr::EMBSM_LEFT;
-						
-						device->postEventFromUser(translated);
-					}
-					return true;
-				}
-				case 3: {
-					if(event.TouchInput.Event == irr::ETIE_PRESSED_DOWN) {
-						translated.EventType = irr::EET_KEY_INPUT_EVENT;
-						translated.KeyInput.Control = true;
-						translated.KeyInput.PressedDown = false;
-						translated.KeyInput.Key = irr::KEY_KEY_O;
-						device->postEventFromUser(translated);
-					}
-					return true;
-				}
-				default:
-					return true;
-			}
-			
-			bool retval = device->postEventFromUser(translated);
-			if(event.TouchInput.touchedCount == 1 && translated.MouseInput.Event >= irr::EMIE_LMOUSE_PRESSED_DOWN && translated.MouseInput.Event <= irr::EMIE_MMOUSE_PRESSED_DOWN) {
-				irr::u32 clicks = checkSuccessiveClicks(translated.MouseInput.X, translated.MouseInput.Y, translated.MouseInput.Event);
-				if(clicks == 2) {
-					translated.MouseInput.Event = (irr::EMOUSE_INPUT_EVENT)(irr::EMIE_LMOUSE_DOUBLE_CLICK + translated.MouseInput.Event - irr::EMIE_LMOUSE_PRESSED_DOWN);
-					device->postEventFromUser(translated);
-				} else if(clicks == 3) {
-					translated.MouseInput.Event = (irr::EMOUSE_INPUT_EVENT)(irr::EMIE_LMOUSE_TRIPLE_CLICK + translated.MouseInput.Event - irr::EMIE_LMOUSE_PRESSED_DOWN);
-					device->postEventFromUser(translated);
-				}
-			}
-			
-			if(event.TouchInput.Event == irr::ETIE_LEFT_UP) {
-				m_pointer = irr::core::position2di(0, 0);
-			}
-			stopPropagation = retval;
-			return true;
 		}
 		default: break;
 	}
@@ -370,14 +240,18 @@ void dispatchQueuedMessages() {
 
 }
 
-extern int epro_ios_main(int argc, char *argv[]);
+extern int epro_ios_main(int argc, char* argv[]);
 
 void irrlicht_main(){
 	std::mutex _queued_messages_mutex;
 	queued_messages_mutex = &_queued_messages_mutex;
 	std::deque<std::function<void()>> _events;
-	events=&_events;
-	char* a[]={};
-	if(epro_ios_main(0,a) == EXIT_SUCCESS)
+	events = &_events;
+
+	const auto workdir = getWorkDir() + "/";
+
+	std::array<const char*, 3> params{ {"", "-C", workdir.data()} };
+
+	if(epro_ios_main(args.size(), args.data()) == EXIT_SUCCESS)
 		exit(0);
 }
