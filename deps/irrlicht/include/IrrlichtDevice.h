@@ -340,6 +340,9 @@ namespace irr
 		used. */
 		virtual E_DEVICE_TYPE getType() const = 0;
 
+
+		virtual void toggleTouchEventMouseTranslation(bool enable, int doubleClickMaxOffset = 0) = 0;
+
 		//! Check if a driver type is supported by the engine.
 		/** Even if true is returned the driver may not be available
 		for a configuration requested when creating the device. */
