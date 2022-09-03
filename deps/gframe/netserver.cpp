@@ -14,6 +14,16 @@ bool operator!=(const ClientVersion& ver1, const ClientVersion& ver2) {
 	return !(ver1 == ver2);
 }
 
+bool operator==(const DeckSizes::Sizes& limits, const size_t count) {
+	if(count < limits.min)
+		return false;
+	return count <= limits.max;
+}
+
+bool operator!=(const DeckSizes::Sizes& limits, const size_t count) {
+	return !(limits == count);
+}
+
 
 std::unordered_map<bufferevent*, DuelPlayer> NetServer::users;
 uint16_t NetServer::server_port = 0;
@@ -54,6 +64,7 @@ bool NetServer::StartBroadcast() {
 	evutil_socket_t udp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	ev_socklen_t opt = true;
 	setsockopt(udp, SOL_SOCKET, SO_BROADCAST, (const char*)&opt, sizeof(ev_socklen_t));
+	setsockopt(udp, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(ev_socklen_t));
 	sockaddr_in addr;
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;

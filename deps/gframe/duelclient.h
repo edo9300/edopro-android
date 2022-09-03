@@ -80,8 +80,17 @@ public:
 	static bool IsConnected() {
 		return !!connect_state;
 	};
-	static void SetResponseI(int respI);
-	static void SetResponseB(void* respB, uint32_t len);
+	static void SetResponseB(const void* respB, uint32_t len) {
+		response_buf.resize(len);
+		memcpy(response_buf.data(), respB, len);
+	}
+	template<typename T>
+	static inline void SetResponse(const T& resp) {
+		return SetResponseB(&resp, sizeof(T));
+	}
+	static inline void SetResponseI(int respI) {
+		return SetResponse<int32_t>(respI);
+	}
 	static void SendResponse();
 	static void SendPacketToServer(uint8_t proto) {
 		if(!client_bev)
@@ -114,7 +123,7 @@ protected:
 	static bool is_refreshing;
 	static int match_kill;
 	static event* resp_event;
-	static std::set<uint32_t> remotes;
+	static std::set<std::pair<uint32_t, uint16_t>> remotes;
 public:
 	static std::vector<HostPacket> hosts;
 	static void BeginRefreshHost();

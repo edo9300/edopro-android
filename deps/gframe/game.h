@@ -78,6 +78,7 @@ struct DuelInfo {
 	bool isSingleMode;
 	bool isHandTest;
 	bool compat_mode;
+	bool legacy_race_size;
 	bool is_shuffling;
 	int current_player[2];
 	int lp[2];
@@ -435,12 +436,12 @@ public:
 	irr::gui::IGUIEditBox* ebServerPass;
 	irr::gui::IGUIButton* btnRuleCards;
 	irr::gui::IGUIWindow* wRules;
-	irr::gui::IGUICheckBox* chkRules[14];
+	irr::gui::IGUICheckBox* chkRules[12];
 	irr::gui::IGUIButton* btnRulesOK;
 	irr::gui::IGUIComboBox* cbDuelRule;
 	irr::gui::IGUICheckBox* chkCustomRules[7+12+8+2];
 	irr::gui::IGUICheckBox* chkTypeLimit[5];
-	irr::gui::IGUICheckBox* chkNoCheckDeck;
+	irr::gui::IGUICheckBox* chkNoCheckDeckContent;
 	irr::gui::IGUICheckBox* chkNoShuffleDeck;
 	irr::gui::IGUICheckBox* chkTcgRulings;
 	irr::gui::IGUIButton* btnHostConfirm;
@@ -451,6 +452,17 @@ public:
 	irr::gui::IGUIEditBox* ebHostNotes;
 	irr::gui::IGUIStaticText* stVersus;
 	irr::gui::IGUIStaticText* stBestof;
+
+	//deck options
+	irr::gui::IGUICheckBox* chkNoCheckDeckContentSecondary;
+	irr::gui::IGUICheckBox* chkNoShuffleDeckSecondary;
+	irr::gui::IGUIEditBox* ebMainMin;
+	irr::gui::IGUIEditBox* ebMainMax;
+	irr::gui::IGUIEditBox* ebExtraMin;
+	irr::gui::IGUIEditBox* ebExtraMax;
+	irr::gui::IGUIEditBox* ebSideMin;
+	irr::gui::IGUIEditBox* ebSideMax;
+
 #define sizeofarr(arr) (sizeof(arr)/sizeof(decltype(*arr)))
 	//host panel
 	irr::gui::IGUIWindow* wHostPrepare;
@@ -465,7 +477,6 @@ public:
 	irr::gui::IGUICheckBox* chkHostPrepReady[6];
 	irr::gui::IGUIButton* btnHostPrepKick[6];
 	irr::gui::IGUIComboBox* cbDeckSelect;
-	irr::gui::IGUIComboBox* cbDeckSelect2;
 	irr::gui::IGUIStaticText* stHostPrepRule;
 	irr::gui::IGUIStaticText* stHostPrepRuleR;
 	irr::gui::IGUIStaticText* stHostPrepRuleL;
