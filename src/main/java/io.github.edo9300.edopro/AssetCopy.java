@@ -122,6 +122,20 @@ public class AssetCopy extends Activity {
 			return size;
 		}
 
+		private FileOutputStream openFile(String filename) {
+			FileOutputStream dst = null;
+			try {
+				File file = new File(workingDir,  filename);
+				boolean ignored = file.createNewFile();
+				dst = new FileOutputStream(file);
+			} catch (IOException e) {
+				Log.e("AssetCopy", "Copying file: " + workingDir +
+						"/" + filename + " FAILED (couldn't open output file) " + e.getMessage());
+				e.printStackTrace();
+			}
+			return dst;
+		}
+
 		@Override
 		protected String doInBackground(String... files) {
 			Log.e("AssetCopy", "doInBackground");
@@ -150,7 +164,7 @@ public class AssetCopy extends Activity {
 					long filesize = -1;
 
 					if (m_asset_size_unknown.contains(filename)) {
-						File testme = new File(workingDir + "/" + filename);
+						File testme = new File(workingDir, filename);
 
 						if (testme.exists())
 							filesize = testme.length();
@@ -173,11 +187,10 @@ public class AssetCopy extends Activity {
 						continue;
 					}
 
-					if(".nomedia".equals(filename)){
-						File file = new File(workingDir + "/" + filename);
+					if(".nomedia".equals(filename)) {
 						try {
-							file.createNewFile();
-						} catch (IOException e) {
+							boolean ignored = new File(workingDir, filename).createNewFile();
+						} catch (IOException ignored) {
 						}
 						continue;
 					}
@@ -208,13 +221,8 @@ public class AssetCopy extends Activity {
 					}
 					if (len > 0) {
 						int total_filesize = 0;
-						OutputStream dst;
-						try {
-							dst = new FileOutputStream(workingDir + "/" + filename);
-						} catch (IOException e) {
-							Log.e("AssetCopy", "Copying file: " + workingDir +
-									"/" + filename + " FAILED (couldn't open output file) " + e.getMessage());
-							e.printStackTrace();
+						OutputStream dst = openFile(filename);
+						if (dst == null) {
 							src.close();
 							continue;
 						}
