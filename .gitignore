@@ -3,12 +3,11 @@ libs/
 obj/
 release/
 bugreports/
-src/main/assets/defaults/
-src/main/assets/update/
+src/main/assets/**
+|src/main/assets/cacert.pem
 .gradle/
 .id*/
 *vs/
-src/main/assets/*.txt
 local.properties
 *.iml
 *.directory
