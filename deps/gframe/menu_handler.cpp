@@ -322,7 +322,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				const auto selected = mainGame->cbDeckSelect->getSelected();
 				if(selected == -1)
 					break;
-				if(!gdeckManager->LoadDeck(Utils::ToPathString(mainGame->cbDeckSelect->getItem(selected))))
+				if(!mainGame->deckBuilder.SetCurrentDeckFromFile(Utils::ToPathString(mainGame->cbDeckSelect->getItem(selected))))
 					break;
 				UpdateDeck();
 				DuelClient::SendPacketToServer(CTOS_HS_READY);
@@ -466,7 +466,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					break;
 				const auto replay_name = Utils::GetFileName(ReplayMode::cur_replay.GetReplayName());
 				for(size_t i = 0; i < decks.size(); i++) {
-					gdeckManager->SaveDeck(fmt::format(EPRO_TEXT("{} player{:02} {}"), replay_name, i, sanitize(Utils::ToPathString(players[i]))), decks[i].main_deck, decks[i].extra_deck, cardlist_type());
+					DeckManager::SaveDeck(fmt::format(EPRO_TEXT("{} player{:02} {}"), replay_name, i, sanitize(Utils::ToPathString(players[i]))), decks[i].main_deck, decks[i].extra_deck, cardlist_type());
 				}
 				mainGame->stACMessage->setText(gDataManager->GetSysString(1367).data());
 				mainGame->PopupElement(mainGame->wACMessage, 20);
@@ -532,13 +532,13 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			}
 			case BUTTON_DECK_EDIT: {
 				mainGame->RefreshDeck(mainGame->cbDBDecks);
-				if(open_file && gdeckManager->LoadDeck(open_file_name, nullptr, true)) {
+				if(open_file && mainGame->deckBuilder.SetCurrentDeckFromFile(open_file_name, true)) {
 					auto name = Utils::GetFileName(open_file_name);
 					mainGame->ebDeckname->setText(Utils::ToUnicodeIfNeeded(name).data());
 					mainGame->cbDBDecks->setSelected(-1);
 					open_file = false;
 				} else if(mainGame->cbDBDecks->getSelected() != -1) {
-					gdeckManager->LoadDeck(Utils::ToPathString(mainGame->cbDBDecks->getItem(mainGame->cbDBDecks->getSelected())), nullptr, true);
+					mainGame->deckBuilder.SetCurrentDeckFromFile(Utils::ToPathString(mainGame->cbDBDecks->getItem(mainGame->cbDBDecks->getSelected())), true);
 					mainGame->ebDeckname->setText(L"");
 				}
 				mainGame->HideElement(mainGame->wMainMenu);
@@ -570,6 +570,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					}
 				} else if(prev_operation == ACTION_UPDATE_PROMPT) {
 					gClientUpdater->StartUpdate(Game::UpdateDownloadBar, mainGame);
+					mainGame->HideElement(mainGame->wMainMenu);
 					mainGame->PopupElement(mainGame->updateWindow);
 				} else if (prev_operation == ACTION_SHOW_CHANGELOG) {
 					Utils::SystemOpen(EPRO_TEXT("https://github.com/edo9300/edopro/releases"));
@@ -786,7 +787,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->env->setFocus(mainGame->wHostPrepare);
 				if(static_cast<irr::gui::IGUICheckBox*>(caller)->isChecked()) {
 					const auto selected = mainGame->cbDeckSelect->getSelected();
-					if(selected == -1 || !gdeckManager->LoadDeck(Utils::ToPathString(mainGame->cbDeckSelect->getItem(selected)))) {
+					if(selected == -1 || !mainGame->deckBuilder.SetCurrentDeckFromFile(Utils::ToPathString(mainGame->cbDeckSelect->getItem(selected)))) {
 						static_cast<irr::gui::IGUICheckBox*>(caller)->setChecked(false);
 						break;
 					}
@@ -1087,7 +1088,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				if(to_open_file.size()) {
 					auto extension = Utils::GetFileExtension(to_open_file);
 					bool isMenu = !mainGame->wSinglePlay->isVisible() && !mainGame->wReplay->isVisible();
-					if(extension == L"ydk" && isMenu && gdeckManager->LoadDeck(Utils::ToPathString(to_open_file))) {
+					if(extension == L"ydk" && isMenu && mainGame->deckBuilder.SetCurrentDeckFromFile(Utils::ToPathString(to_open_file))) {
 						mainGame->RefreshDeck(mainGame->cbDBDecks);
 						auto name = Utils::GetFileName(to_open_file);
 						mainGame->ebDeckname->setText(name.data());

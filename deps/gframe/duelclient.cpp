@@ -226,13 +226,18 @@ catch(...) { what = def; }
 			TOI(cscg.info.team1, mainGame->ebTeam1->getText(), 1);
 			TOI(cscg.info.team2, mainGame->ebTeam2->getText(), 1);
 			TOI(cscg.info.best_of, mainGame->ebBestOf->getText(), 1);
+			static constexpr DeckSizes nolimit_deck_sizes{ {0,999},{0,999},{0,999} };
 			auto& sizes = cscg.info.sizes;
-			TOI(sizes.main.min, mainGame->ebMainMin->getText(), 40);
-			TOI(sizes.main.max, mainGame->ebMainMax->getText(), 60);
-			TOI(sizes.extra.min, mainGame->ebExtraMin->getText(), 0);
-			TOI(sizes.extra.max, mainGame->ebExtraMax->getText(), 15);
-			TOI(sizes.side.min, mainGame->ebSideMin->getText(), 0);
-			TOI(sizes.side.max, mainGame->ebSideMax->getText(), 15);
+			if(mainGame->chkNoCheckDeckSize->isChecked()) {
+				sizes = nolimit_deck_sizes;
+			} else {
+				TOI(sizes.main.min, mainGame->ebMainMin->getText(), 40);
+				TOI(sizes.main.max, mainGame->ebMainMax->getText(), 60);
+				TOI(sizes.extra.min, mainGame->ebExtraMin->getText(), 0);
+				TOI(sizes.extra.max, mainGame->ebExtraMax->getText(), 15);
+				TOI(sizes.side.min, mainGame->ebSideMin->getText(), 0);
+				TOI(sizes.side.max, mainGame->ebSideMax->getText(), 15);
+			}
 #undef TOI
 			if(mainGame->btnRelayMode->isPressed())
 				cscg.info.duel_flag_low |= DUEL_RELAY;
@@ -4400,22 +4405,21 @@ void DuelClient::BroadcastReply(evutil_socket_t fd, short events, void* arg) {
 			packet.ipaddr = ipaddr;
 			hosts.push_back(packet);
 			const auto is_compact_mode = packet.host.handshake != SERVER_HANDSHAKE;
-			int rule;
+			int rule = packet.host.duel_rule;
 			auto GetRuleString = [&]()-> std::wstring {
-				auto duel_flag = (((uint64_t)packet.host.duel_flag_low) | ((uint64_t)packet.host.duel_flag_high) << 32);
 				if(!is_compact_mode) {
+					auto duel_flag = (((uint64_t)packet.host.duel_flag_low) | ((uint64_t)packet.host.duel_flag_high) << 32);
 					mainGame->GetMasterRule(duel_flag & ~(DUEL_RELAY | DUEL_TCG_SEGOC_NONPUBLIC | DUEL_PSEUDO_SHUFFLE), packet.host.forbiddentypes, &rule);
-				} else
-					rule = packet.host.duel_rule;
-				if(rule == 6)
-					if(duel_flag == DUEL_MODE_GOAT) {
-						return L"GOAT";
-					} else if(duel_flag == DUEL_MODE_RUSH) {
-						return L"Rush";
-					} else if(duel_flag == DUEL_MODE_SPEED) {
-						return L"Speed";
-					} else
+					if(rule == 6) {
+						if(duel_flag == DUEL_MODE_GOAT)
+							return L"GOAT";
+						if(duel_flag == DUEL_MODE_RUSH)
+							return L"Rush";
+						if(duel_flag == DUEL_MODE_SPEED)
+							return L"Speed";
 						return L"Custom MR";
+					}
+				}
 				return fmt::format(L"MR {}", (rule == 0) ? 3 : rule);
 			};
 			auto GetIsCustom = [&packet,&rule, is_compact_mode] {

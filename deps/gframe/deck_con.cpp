@@ -142,6 +142,13 @@ void DeckBuilder::Terminate(bool showmenu) {
 		gGameConfig->lastdeck = mainGame->cbDBDecks->getItem(sel);
 	gGameConfig->lastlflist = gdeckManager->_lfList[mainGame->cbDBLFList->getSelected()].hash;
 }
+bool DeckBuilder::SetCurrentDeckFromFile(epro::path_stringview file, bool separated) {
+	Deck tmp;
+	if(!DeckManager::LoadDeckFromFile(file, tmp, separated))
+		return false;
+	SetCurrentDeck(std::move(tmp));
+	return true;
+}
 void DeckBuilder::ImportDeck() {
 	const wchar_t* deck_string = Utils::OSOperator->getTextFromClipboard();
 	if(deck_string) {
@@ -271,7 +278,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			}
 			case BUTTON_SAVE_DECK: {
 				int sel = mainGame->cbDBDecks->getSelected();
-				if(sel >= 0 && gdeckManager->SaveDeck(current_deck, Utils::ToPathString(mainGame->cbDBDecks->getItem(sel)))) {
+				if(sel >= 0 && DeckManager::SaveDeck(Utils::ToPathString(mainGame->cbDBDecks->getItem(sel)), current_deck)) {
 					mainGame->stACMessage->setText(gDataManager->GetSysString(1335).data());
 					mainGame->PopupElement(mainGame->wACMessage, 20);
 				}
@@ -299,7 +306,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 					mainGame->cbDBDecks->addItem(dname.data());
 					mainGame->cbDBDecks->setSelected(mainGame->cbDBDecks->getItemCount() - 1);
 				}
-				if(gdeckManager->SaveDeck(current_deck, Utils::ToPathString(dname))) {
+				if(DeckManager::SaveDeck(Utils::ToPathString(dname), current_deck)) {
 					mainGame->stACMessage->setText(gDataManager->GetSysString(1335).data());
 					mainGame->PopupElement(mainGame->wACMessage, 20);
 				}
@@ -416,7 +423,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 							sel = count - 1;
 						mainGame->cbDBDecks->setSelected(sel);
 						if(sel != -1)
-							gdeckManager->LoadDeck(Utils::ToPathString(mainGame->cbDBDecks->getItem(sel)), nullptr, true);
+							mainGame->deckBuilder.SetCurrentDeckFromFile(Utils::ToPathString(mainGame->cbDBDecks->getItem(sel)), true);
 						mainGame->stACMessage->setText(gDataManager->GetSysString(1338).data());
 						mainGame->PopupElement(mainGame->wACMessage, 20);
 						prev_deck = sel;
@@ -429,7 +436,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 				}
 				case COMBOBOX_DBDECKS: {
 					int sel = mainGame->cbDBDecks->getSelected();
-					gdeckManager->LoadDeck(Utils::ToPathString(mainGame->cbDBDecks->getItem(sel)), nullptr, true);
+					mainGame->deckBuilder.SetCurrentDeckFromFile(Utils::ToPathString(mainGame->cbDBDecks->getItem(sel)), true);
 					prev_deck = sel;
 				}
 				case BUTTON_CLEAR_DECK: {
@@ -528,7 +535,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			case COMBOBOX_DBDECKS: {
 				int sel = mainGame->cbDBDecks->getSelected();
 				if(sel >= 0)
-					gdeckManager->LoadDeck(Utils::ToPathString(mainGame->cbDBDecks->getItem(sel)), nullptr, true);
+					mainGame->deckBuilder.SetCurrentDeckFromFile(Utils::ToPathString(mainGame->cbDBDecks->getItem(sel)), true);
 				prev_deck = sel;
 				break;
 			}
@@ -893,7 +900,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			case irr::DROP_END:	{
 				if(to_open_file.size()) {
 					auto extension = Utils::GetFileExtension(to_open_file);
-					if(!mainGame->is_siding && extension == L"ydk" && gdeckManager->LoadDeck(Utils::ToPathString(to_open_file), nullptr, true)) {
+					if(!mainGame->is_siding && extension == L"ydk" && mainGame->deckBuilder.SetCurrentDeckFromFile(Utils::ToPathString(to_open_file), true)) {
 						auto name = Utils::GetFileName(to_open_file);
 						mainGame->ebDeckname->setText(name.data());
 						mainGame->cbDBDecks->setSelected(-1);
@@ -1520,7 +1527,7 @@ bool DeckBuilder::check_limit(const CardDataC* pointer) {
 	return true;
 }
 void DeckBuilder::RefreshCurrentDeck() {
-	gdeckManager->RefreshDeck(current_deck);
+	DeckManager::RefreshDeck(current_deck);
 	RefreshLimitationStatus();
 }
 }

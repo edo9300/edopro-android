@@ -378,13 +378,13 @@ void GenericDuel::PlayerReady(DuelPlayer* dp, bool is_ready) {
 	if(dueler.ready == is_ready)
 		return;
 	if(is_ready) {
-		DeckError deck_error = gdeckManager->CheckDeckSize(dueler.pdeck, host_info.sizes);
+		DeckError deck_error = DeckManager::CheckDeckSize(dueler.pdeck, host_info.sizes);
 		if(deck_error.type == DeckError::NONE && !host_info.no_check_deck_content) {
 			if(dueler.deck_error) {
 				deck_error.type = DeckError::UNKNOWNCARD;
 				deck_error.code = dueler.deck_error;
 			} else
-				deck_error = gdeckManager->CheckDeckContent(dueler.pdeck, host_info.lflist, static_cast<DuelAllowedCards>(host_info.rule), host_info.forbiddentypes);
+				deck_error = DeckManager::CheckDeckContent(dueler.pdeck, gdeckManager->GetLFList(host_info.lflist), static_cast<DuelAllowedCards>(host_info.rule), host_info.forbiddentypes);
 		}
 		if(deck_error.type) {
 			STOC_HS_PlayerChange scpc;
@@ -424,10 +424,10 @@ void GenericDuel::UpdateDeck(DuelPlayer* dp, void* pdata, uint32_t len) {
 		return;
 	}
 	if(match_result.empty()) {
-		dueler.deck_error = gdeckManager->LoadDeck(dueler.pdeck, (uint32_t*)deckbuf, mainc, sidec);
+		dueler.deck_error = DeckManager::LoadDeckFromBuffer(dueler.pdeck, (uint32_t*)deckbuf, mainc, sidec);
 		dueler.odeck = dueler.pdeck;
 	} else {
-		if(gdeckManager->LoadSide(dueler.pdeck, (uint32_t*)deckbuf, mainc, sidec)) {
+		if(DeckManager::LoadSide(dueler.pdeck, (uint32_t*)deckbuf, mainc, sidec)) {
 			dueler.ready = true;
 			NetServer::SendPacketToPlayer(dp, STOC_DUEL_START);
 			if(CheckReady()) {

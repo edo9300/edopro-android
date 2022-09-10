@@ -377,6 +377,16 @@ public:
 	IProgressBar* updateProgressTop;
 	irr::gui::IGUIStaticText* updateSubprogressText;
 	IProgressBar* updateProgressBottom;
+	struct ProgressBarStatus {
+		bool newFile;
+		std::wstring progressText;
+		std::wstring subProgressText;
+		irr::s32 progressTop;
+		irr::s32 progressBottom;
+	};
+
+	std::mutex progressStatusLock;
+	ProgressBarStatus progressStatus;
 
 	//main menu
 	int mainMenuLeftX;
@@ -436,12 +446,13 @@ public:
 	irr::gui::IGUIEditBox* ebServerPass;
 	irr::gui::IGUIButton* btnRuleCards;
 	irr::gui::IGUIWindow* wRules;
-	irr::gui::IGUICheckBox* chkRules[12];
+	irr::gui::IGUICheckBox* chkRules[13];
 	irr::gui::IGUIButton* btnRulesOK;
 	irr::gui::IGUIComboBox* cbDuelRule;
 	irr::gui::IGUICheckBox* chkCustomRules[7+12+8+2];
 	irr::gui::IGUICheckBox* chkTypeLimit[5];
 	irr::gui::IGUICheckBox* chkNoCheckDeckContent;
+	irr::gui::IGUICheckBox* chkNoCheckDeckSize;
 	irr::gui::IGUICheckBox* chkNoShuffleDeck;
 	irr::gui::IGUICheckBox* chkTcgRulings;
 	irr::gui::IGUIButton* btnHostConfirm;
@@ -455,6 +466,7 @@ public:
 
 	//deck options
 	irr::gui::IGUICheckBox* chkNoCheckDeckContentSecondary;
+	irr::gui::IGUICheckBox* chkNoCheckDeckSizeSecondary;
 	irr::gui::IGUICheckBox* chkNoShuffleDeckSecondary;
 	irr::gui::IGUIEditBox* ebMainMin;
 	irr::gui::IGUIEditBox* ebMainMax;
