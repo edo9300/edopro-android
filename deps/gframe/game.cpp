@@ -1581,9 +1581,8 @@ void Game::PopulateSettingsWindow() {
 			defaultStrings.emplace_back(gSettings.stCurrentSkin, 2064);
 			gSettings.cbCurrentSkin = AddComboBox(env, GetCurrentRectWithXOffset(95, 320), sPanel, COMBOBOX_CURRENT_SKIN);
 			ReloadCBCurrentSkin();
+			IncrementXorY();
 		}
-		gSettings.btnReloadSkin = env->addButton(GetNextRect(), sPanel, BUTTON_RELOAD_SKIN, gDataManager->GetSysString(2066).data());
-		defaultStrings.emplace_back(gSettings.btnReloadSkin, 2066);
 		{
 			gSettings.stCurrentLocale = env->addStaticText(gDataManager->GetSysString(2067).data(), GetCurrentRectWithXOffset(15, 90), false, true, sPanel);
 			defaultStrings.emplace_back(gSettings.stCurrentLocale, 2067);
@@ -1600,6 +1599,8 @@ void Game::PopulateSettingsWindow() {
 			gSettings.cbCurrentLocale->setSelected(selectedLocale);
 			IncrementXorY();
 		}
+		gSettings.btnReloadSkin = env->addButton(GetNextRect(), sPanel, BUTTON_RELOAD_SKIN, gDataManager->GetSysString(2066).data());
+		defaultStrings.emplace_back(gSettings.btnReloadSkin, 2066);
 		{
 			gSettings.stDpiScale = env->addStaticText(gDataManager->GetSysString(2070).data(), GetCurrentRectWithXOffset(15, 90), false, false, sPanel);
 			defaultStrings.emplace_back(gSettings.stDpiScale, 2070);
@@ -1811,7 +1812,6 @@ void Game::PopulateSettingsWindow() {
 			gSettings.ebImageDownloadThreads = env->addEditBox(WStr(gGameConfig->imageDownloadThreads), GetCurrentRectWithXOffset(275, 320), true, sPanel, EDITBOX_NUMERIC);
 			IncrementXorY();
 		}
-		gSettings.chkShowConsole = env->addCheckBox(gGameConfig->showConsole, GetNextRect(), sPanel, -1, gDataManager->GetSysString(2072).data());
 #ifdef DISCORD_APP_ID
 		gSettings.chkDiscordIntegration = env->addCheckBox(gGameConfig->discordIntegration, GetNextRect(), sPanel, CHECKBOX_DISCORD_INTEGRATION, gDataManager->GetSysString(2078).data());
 		defaultStrings.emplace_back(gSettings.chkDiscordIntegration, 2078);
@@ -3348,6 +3348,7 @@ void Game::ReloadCBLimit() {
 		cbLimit->addItem(gDataManager->GetSysString(1903).data(), DeckBuilder::LIMITATION_FILTER_PRERELEASE);
 		cbLimit->addItem(gDataManager->GetSysString(1910).data(), DeckBuilder::LIMITATION_FILTER_SPEED);
 		cbLimit->addItem(gDataManager->GetSysString(1911).data(), DeckBuilder::LIMITATION_FILTER_RUSH);
+		cbLimit->addItem(gDataManager->GetSysString(1912).data(), DeckBuilder::LIMITATION_FILTER_LEGEND);
 		if(chkAnime->isChecked()) {
 			cbLimit->addItem(gDataManager->GetSysString(1265).data(), DeckBuilder::LIMITATION_FILTER_ANIME);
 			cbLimit->addItem(gDataManager->GetSysString(1266).data(), DeckBuilder::LIMITATION_FILTER_ILLEGAL);
@@ -3535,7 +3536,7 @@ void Game::OnResize() {
 	wMainMenu->setRelativePosition(ResizeWin(mainMenuLeftX, 200, mainMenuRightX, 450));
 	wBtnSettings->setRelativePosition(ResizeWin(0, 610, 30, 640));
 	SetCentered(wCommitsLog);
-	SetCentered(updateWindow);
+	SetCentered(updateWindow, false);
 
 	SetCentered(wYdkeManage, false);
 	SetCentered(wHandTest, false);
@@ -3555,7 +3556,7 @@ void Game::OnResize() {
 	stScale->setRelativePosition(ResizeWin(110, 74, 150, 94));
 
 	wLanWindow->setRelativePosition(ResizeWin(220, 100, 800, 520));
-	SetCentered(wCreateHost);
+	SetCentered(wCreateHost, false);
 	if (dInfo.opponames.size() + dInfo.selfnames.size()>=5) {
 		wHostPrepare->setRelativePosition(ResizeWin(270, 120, 750, 500));
 		wHostPrepareR->setRelativePosition(ResizeWin(750, 120, 950, 500));
