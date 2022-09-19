@@ -132,3 +132,5 @@ $(call import-module,libgit2)
 $(call import-module,curl)
 $(call import-module,sfAudio)
 $(call import-module,nlohmann-json)
+
+include $(CLASSES_PATH)/copy-assets/Android.mk

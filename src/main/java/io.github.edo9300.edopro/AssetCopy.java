@@ -1,28 +1,31 @@
 package io.github.edo9300.edopro;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.content.Intent;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.util.Vector;
 
 public class AssetCopy extends Activity {
+	static {
+		System.loadLibrary("assetcopier");
+	}
+	public static native boolean makeDirectory(String path);
+	public static native boolean fileDelete(String path);
+	public static native boolean copyAssetToDestination(AssetManager assetManager, String source, String destination);
 	private ProgressBar m_ProgressBar;
 	private TextView m_Filename;
 	private copyAssetTask m_AssetCopy;
@@ -30,10 +33,15 @@ public class AssetCopy extends Activity {
 	private boolean isUpdate;
 	//private static native void assetsMutexUnlock();
 
+	public boolean copyAsset(String source, String destination) {
+		return copyAssetToDestination(getAssets(), source, destination);
+	}
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		Log.e("AssetCopy", "AssetCopy on create");
 		super.onCreate(savedInstanceState);
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		Bundle b = getIntent().getExtras();
 		String _workingDir = "_workingDir";
 		boolean _isUpdate = false;
@@ -97,44 +105,12 @@ public class AssetCopy extends Activity {
 		return this;
 	}
 
-	@SuppressLint("StaticFieldLeak")
 	private class copyAssetTask extends AsyncTask<String, Integer, String> {
 		boolean m_copy_started = false;
 		String m_Foldername = "media";
 		Vector<String> m_foldernames;
 		Vector<String> m_filenames;
 		Vector<String> m_tocopy;
-		Vector<String> m_asset_size_unknown;
-
-		private long getFullSize(String filename) {
-			long size = 0;
-			try {
-				InputStream src = getAssets().open(filename);
-				byte[] buf = new byte[4096];
-
-				int len;
-				while ((len = src.read(buf)) > 0) {
-					size += len;
-				}
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-			return size;
-		}
-
-		private FileOutputStream openFile(String filename) {
-			FileOutputStream dst = null;
-			try {
-				File file = new File(workingDir,  filename);
-				boolean ignored = file.createNewFile();
-				dst = new FileOutputStream(file);
-			} catch (IOException e) {
-				Log.e("AssetCopy", "Copying file: " + workingDir +
-						"/" + filename + " FAILED (couldn't open output file) " + e.getMessage());
-				e.printStackTrace();
-			}
-			return dst;
-		}
 
 		@Override
 		protected String doInBackground(String... files) {
@@ -142,7 +118,6 @@ public class AssetCopy extends Activity {
 			m_foldernames = new Vector<>();
 			m_filenames = new Vector<>();
 			m_tocopy = new Vector<>();
-			m_asset_size_unknown = new Vector<>();
 
 			// build lists from prepared data
 			BuildFolderList();
@@ -156,98 +131,13 @@ public class AssetCopy extends Activity {
 			m_ProgressBar.setMax(m_tocopy.size());
 
 			for (int i = 0; i < m_tocopy.size(); i++) {
-				try {
-					String filename = m_tocopy.get(i);
-					publishProgress(i);
-
-					boolean asset_size_unknown = false;
-					long filesize = -1;
-
-					if (m_asset_size_unknown.contains(filename)) {
-						File testme = new File(workingDir, filename);
-
-						if (testme.exists())
-							filesize = testme.length();
-
-						asset_size_unknown = true;
-					}
-
-					InputStream src;
-					try {
-						if(isUpdate)
-							src = getAssets().open("update/" + filename);
-						else
-							src = getAssets().open("defaults/" + filename);
-					} catch (IOException e) {
-						if(isUpdate)
-							Log.e("AssetCopy", "Copying file: update/" +  filename + " FAILED (not in assets) " + e.getMessage());
-						else
-							Log.e("AssetCopy", "Copying file: defaults/" +  filename + " FAILED (not in assets) " + e.getMessage());
-						e.printStackTrace();
-						continue;
-					}
-
-					if(".nomedia".equals(filename)) {
-						try {
-							boolean ignored = new File(workingDir, filename).createNewFile();
-						} catch (IOException ignored) {
-						}
-						continue;
-					}
-
-					// Transfer bytes from in to out
-					byte[] buf = new byte[1024];
-					int len = src.read(buf, 0, 1024);
-
-					/* following handling is crazy but we need to deal with	*/
-					/* compressed assets.Flash chips limited lifetime due to   */
-					/* write operations, we can't allow large files to destroy */
-					/* users flash.											*/
-					if (asset_size_unknown) {
-						if ((len > 0) && (len < buf.length) && (len == filesize)) {
-							src.close();
-							continue;
-						}
-
-						if (len == buf.length) {
-							src.close();
-							long size = getFullSize(filename);
-							if (size == filesize) {
-								continue;
-							}
-							src = getAssets().open(filename);
-							len = src.read(buf, 0, 1024);
-						}
-					}
-					if (len > 0) {
-						int total_filesize = 0;
-						OutputStream dst = openFile(filename);
-						if (dst == null) {
-							src.close();
-							continue;
-						}
-						dst.write(buf, 0, len);
-						total_filesize += len;
-
-						while ((len = src.read(buf)) > 0) {
-							dst.write(buf, 0, len);
-							total_filesize += len;
-						}
-
-						dst.close();
-						Log.v("AssetCopy", "Copied file: " +
-								m_tocopy.get(i) + " (" + total_filesize +
-								" bytes)");
-					} else if (len < 0) {
-						Log.e("AssetCopy", "Copying file: " +
-								m_tocopy.get(i) + " failed, size < 0");
-					}
-					src.close();
-				} catch (IOException e) {
-					Log.e("AssetCopy", "Copying file: " +
-							m_tocopy.get(i) + " failed " + e.getMessage());
-					e.printStackTrace();
-				}
+				String filename = m_tocopy.get(i);
+				String full_source_filename = isUpdate ? "update/" + filename : "defaults/" + filename;
+				publishProgress(i);
+				if(copyAsset(full_source_filename, workingDir + "/" + filename))
+					Log.v("AssetCopy", "Copied file: " +	m_tocopy.get(i));
+				else
+					Log.e("AssetCopy", "Copying file: " + m_tocopy.get(i));
 			}
 			return "";
 		}
@@ -285,54 +175,19 @@ public class AssetCopy extends Activity {
 						m_Foldername = "defaults/" + current_path;
 					publishProgress(0);
 					/* open file in order to check if it's a folder */
-					File current_folder = new File(FlashPath);
-					if (!current_folder.exists()) {
-						if (!current_folder.mkdirs()) {
-							Log.e("AssetCopy", "\t failed create folder: " +
-									FlashPath);
-						} else {
-							Log.v("AssetCopy", "\t created folder: " +
-									FlashPath);
-						}
+					makeDirectory(FlashPath);
+					if (!makeDirectory(FlashPath)) {
+						Log.e("AssetCopy", "\t failed create folder: " +
+								FlashPath);
+					} else {
+						Log.v("AssetCopy", "\t created folder: " +
+								FlashPath);
 					}
-
 					continue;
 				}
-
-				/* if it's not a folder it's most likely a file */
-				boolean refresh = true;
-
-				File testme = new File(FlashPath);
-
-				long asset_filesize = -1;
-				long stored_filesize;
-
-				if (testme.exists()) {
-					if(isUpdate) {
-						if (!testme.delete()) {
-							Log.e("AssetCopy", "Couldn't delete \"" +
-									FlashPath + "\"");
-						}
-					} else {
-						try {
-							AssetFileDescriptor fd = getAssets().openFd(current_path);
-							asset_filesize = fd.getLength();
-							fd.close();
-						} catch (IOException e) {
-							m_asset_size_unknown.add(current_path);
-							Log.e("AssetCopy", "Failed to open asset file \"" +
-									FlashPath + "\" for size check; " + e.getMessage());
-						}
-
-						stored_filesize = testme.length();
-
-						if (asset_filesize == stored_filesize)
-							refresh = false;
-					}
-				}
-
-				if (refresh)
-					m_tocopy.add(current_path);
+				if(isUpdate)
+					fileDelete(FlashPath);
+				m_tocopy.add(current_path);
 			}
 		}
 
