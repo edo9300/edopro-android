@@ -98,7 +98,7 @@ bool DuelClient::StartClient(uint32_t ip, uint16_t port, uint32_t gameid, bool c
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = ip;
 	sin.sin_port = htons(port);
-	client_bev = bufferevent_socket_new(client_base, -1, BEV_OPT_CLOSE_ON_FREE);
+	client_bev = bufferevent_socket_new(client_base, -1, BEV_OPT_CLOSE_ON_FREE | BEV_OPT_THREADSAFE);
 	bufferevent_setcb(client_bev, ClientRead, nullptr, ClientEvent, (void*)create_game);
 	bufferevent_enable(client_bev, EV_READ);
 	temp_ip = ip;
@@ -184,7 +184,7 @@ void DuelClient::ClientRead(bufferevent* bev, void* ctx) {
 		evbuffer_copyout(input, &packet_len, 2);
 		if(len < packet_len + 2u)
 			return;
-		evbuffer_remove(input, &packet_len, 2);
+		evbuffer_drain(input, 2);
 		std::vector<uint8_t> duel_client_read(packet_len);
 		evbuffer_remove(input, duel_client_read.data(), packet_len);
 		if(packet_len)
@@ -1436,7 +1436,7 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 						++seq;
 					}
 					const auto tmp_string = fmt::format(L"{}{}({})", gDataManager->GetSysString(player_string), gDataManager->GetSysString(zone_string), seq);
-					tmp.push_back(fmt::format(gDataManager->GetSysString(1510), tmp_string));
+					tmp.push_back(fmt::format(gDataManager->GetSysString(1512), tmp_string));
 				}
 			}
 			std::unique_lock<std::mutex> lock(mainGame->gMutex);
@@ -4165,12 +4165,12 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 				mainGame->dField.current_chain.UpdateDrawCoordinates();
 				mainGame->dField.current_chain.solved = false;
 				int chc = 0;
-				for(auto chit = mainGame->dField.chains.begin(); chit != mainGame->dField.chains.end(); ++chit) {
-					if (cl == LOCATION_GRAVE || cl == LOCATION_REMOVED) {
-						if (chit->controler == cc && chit->location == cl)
+				for(const auto& chain : mainGame->dField.chains) {
+					if(cl == LOCATION_GRAVE || cl == LOCATION_REMOVED) {
+						if(chain.controler == cc && chain.location == cl)
 							chc++;
 					} else {
-						if (chit->controler == cc && chit->location == cl && chit->sequence == cs)
+						if(chain.controler == cc && chain.location == cl && chain.sequence == cs)
 							chc++;
 					}
 				}
