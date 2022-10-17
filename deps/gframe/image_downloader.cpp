@@ -23,7 +23,7 @@ ImageDownloader::ImageDownloader() : stop_threads(false) {
 }
 ImageDownloader::~ImageDownloader() {
 	{
-		std::lock_guard<std::mutex> lck(pic_download);
+		std::lock_guard<epro::mutex> lck(pic_download);
 		stop_threads = true;
 		cv.notify_all();
 	}
@@ -102,7 +102,7 @@ void ImageDownloader::DownloadPic() {
 		curl_easy_setopt(curl, CURLOPT_URL, url.data());
 	};
 	while(true) {
-		std::unique_lock<std::mutex> lck(pic_download);
+		std::unique_lock<epro::mutex> lck(pic_download);
 		if(stop_threads) {
 			curl_easy_cleanup(curl);
 			return;
@@ -121,7 +121,7 @@ void ImageDownloader::DownloadPic() {
 		auto& map_elem = downloading_images[type][code];
 		map_elem.status = downloadStatus::DOWNLOADING;
 		lck.unlock();
-		auto name = fmt::format(EPRO_TEXT("./pics/temp/{}"), code);
+		auto name = epro::format(EPRO_TEXT("./pics/temp/{}"), code);
 		if(type == imgType::THUMB)
 			type = imgType::ART;
 		epro::path_stringview dest;
@@ -142,7 +142,7 @@ void ImageDownloader::DownloadPic() {
 				break;
 			}
 		}
-		auto dest_folder = fmt::format(epro::to_fmtstring_view(dest), code);
+		auto dest_folder = epro::format(dest, code);
 		CURLcode res{ static_cast<CURLcode>(1) };
 		for(auto& src : pic_urls) {
 			if(src.type != type)
@@ -155,7 +155,7 @@ void ImageDownloader::DownloadPic() {
 				}
 				continue;
 			}
-			SetPayloadAndUrl(fmt::format(src.url, code), fp);
+			SetPayloadAndUrl(epro::format(src.url, code), fp);
 			res = curl_easy_perform(curl);
 			fclose(fp);
 			if(res == CURLE_OK) {
@@ -167,7 +167,7 @@ void ImageDownloader::DownloadPic() {
 			}
 			if(gGameConfig->logDownloadErrors) {
 				ygo::ErrorLog("Failed downloading pic for {}", code);
-				ygo::ErrorLog("Curl error: ({}) {} ({})", res, curl_easy_strerror(res), curl_error_buffer);
+				ygo::ErrorLog("Curl error: ({}) {} ({})", static_cast<std::underlying_type_t<CURLcode>>(res), curl_easy_strerror(res), curl_error_buffer);
 			}
 			Utils::FileDelete(name);
 		}
@@ -182,7 +182,7 @@ void ImageDownloader::DownloadPic() {
 void ImageDownloader::AddToDownloadQueue(uint32_t code, imgType type) {
 	if(type == imgType::THUMB)
 		type = imgType::ART;
-	std::lock_guard<std::mutex> lck(pic_download);
+	std::lock_guard<epro::mutex> lck(pic_download);
 	if(stop_threads)
 		return;
 	auto& map = downloading_images[type];
@@ -195,7 +195,7 @@ void ImageDownloader::AddToDownloadQueue(uint32_t code, imgType type) {
 ImageDownloader::downloadStatus ImageDownloader::GetDownloadStatus(uint32_t code, imgType type) {
 	if(type == imgType::THUMB)
 		type = imgType::ART;
-	std::lock_guard<std::mutex> lk(pic_download);
+	std::lock_guard<epro::mutex> lk(pic_download);
 	auto it = downloading_images[type].find(code);
 	if(it == downloading_images[type].end())
 		return downloadStatus::NONE;
@@ -204,7 +204,7 @@ ImageDownloader::downloadStatus ImageDownloader::GetDownloadStatus(uint32_t code
 epro::path_stringview ImageDownloader::GetDownloadPath(uint32_t code, imgType type) {
 	if(type == imgType::THUMB)
 		type = imgType::ART;
-	std::lock_guard<std::mutex> lk(pic_download);
+	std::lock_guard<epro::mutex> lk(pic_download);
 	auto it = downloading_images[type].find(code);
 	if(it == downloading_images[type].end())
 		return EPRO_TEXT("");
