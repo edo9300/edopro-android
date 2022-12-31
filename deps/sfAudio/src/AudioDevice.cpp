@@ -29,6 +29,7 @@
 #include "sfAudio/ALCheck.hpp"
 #include "sfAudio/System/Vector3.h"
 #include <memory>
+#include <exception>
 #include <iostream>
 #include <vector>
 

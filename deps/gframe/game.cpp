@@ -65,7 +65,7 @@ constexpr int CARD_IMG_WRAPPER_WIDTH = CARD_IMG_WIDTH + CARD_IMG_WRAPPER_H_PADDI
 constexpr int CARD_IMG_WRAPPER_HEIGHT = CARD_IMG_HEIGHT + CARD_IMG_WRAPPER_V_PADDING * 2;
 constexpr float CARD_IMG_WRAPPER_ASPECT_RATIO = ((float)CARD_IMG_WRAPPER_WIDTH) / ((float)CARD_IMG_WRAPPER_HEIGHT);
 
-uint16_t PRO_VERSION = 0x1353;
+uint16_t PRO_VERSION = 0x1354;
 
 namespace {
 template<typename T>
@@ -164,14 +164,17 @@ void Game::Initialize() {
 	PopulateResourcesDirectories();
 	env = device->getGUIEnvironment();
 	env->getRootGUIElement()->setRelativePosition({ {}, {(irr::s32)(1024 * dpi_scale), (irr::s32)(640 * dpi_scale) } });
-	guiFont = irr::gui::CGUITTFont::createTTFont(env, gGameConfig->textfont.font.data(), Scale(gGameConfig->textfont.size), {});
+	guiFont = irr::gui::CGUITTFont::createTTFont(env, gGameConfig->textfont, gGameConfig->fallbackFonts);
 	if(!guiFont)
 		throw std::runtime_error("Failed to load text font");
 	textFont = guiFont;
 	textFont->grab();
-	numFont = irr::gui::CGUITTFont::createTTFont(env, gGameConfig->numfont.data(), Scale(16), {});
-	adFont = irr::gui::CGUITTFont::createTTFont(env, gGameConfig->numfont.data(), Scale(12), {});
-	lpcFont = irr::gui::CGUITTFont::createTTFont(env, gGameConfig->numfont.data(), Scale(48), {});
+	GameConfig::TextFont numfont{ gGameConfig->numfont, (uint8_t)Scale(16) };
+	numFont = irr::gui::CGUITTFont::createTTFont(env, numfont, gGameConfig->fallbackFonts);
+	numfont.size = Scale(12);
+	adFont = irr::gui::CGUITTFont::createTTFont(env, numfont, gGameConfig->fallbackFonts);
+	numfont.size = Scale(48);
+	lpcFont = irr::gui::CGUITTFont::createTTFont(env, numfont, gGameConfig->fallbackFonts);
 	if(!numFont || !adFont || !lpcFont)
 		throw std::runtime_error("Failed to load numbers font");
 	if(!ApplySkin(gGameConfig->skin, false, true)) {
@@ -570,19 +573,19 @@ void Game::Initialize() {
 	defaultStrings.emplace_back(btnClearDeck, 1304);
 	btnDeleteDeck = AlignElementWithParent(env->addButton(Scale(225, 95, 290, 120), wDeckEdit, BUTTON_DELETE_DECK, gDataManager->GetSysString(1308).data()));
 	defaultStrings.emplace_back(btnDeleteDeck, 1308);
-	btnSideOK = AlignElementWithParent(env->addButton(Scale(510, 40, 820, 80), 0, BUTTON_SIDE_OK, gDataManager->GetSysString(1334).data()));
+	btnSideOK = AlignElementWithParent(env->addButton(Scale(510, 40, 820, 80), nullptr, BUTTON_SIDE_OK, gDataManager->GetSysString(1334).data()));
 	defaultStrings.emplace_back(btnSideOK, 1334);
 	btnSideOK->setVisible(false);
-	btnSideShuffle = AlignElementWithParent(env->addButton(Scale(310, 100, 370, 130), 0, BUTTON_SHUFFLE_DECK, gDataManager->GetSysString(1307).data()));
+	btnSideShuffle = AlignElementWithParent(env->addButton(Scale(310, 100, 370, 130), nullptr, BUTTON_SHUFFLE_DECK, gDataManager->GetSysString(1307).data()));
 	defaultStrings.emplace_back(btnSideShuffle, 1307);
 	btnSideShuffle->setVisible(false);
-	btnSideSort = AlignElementWithParent(env->addButton(Scale(375, 100, 435, 130), 0, BUTTON_SORT_DECK, gDataManager->GetSysString(1305).data()));
+	btnSideSort = AlignElementWithParent(env->addButton(Scale(375, 100, 435, 130), nullptr, BUTTON_SORT_DECK, gDataManager->GetSysString(1305).data()));
 	defaultStrings.emplace_back(btnSideSort, 1305);
 	btnSideSort->setVisible(false);
-	btnSideReload = AlignElementWithParent(env->addButton(Scale(440, 100, 500, 130), 0, BUTTON_SIDE_RELOAD, gDataManager->GetSysString(1309).data()));
+	btnSideReload = AlignElementWithParent(env->addButton(Scale(440, 100, 500, 130), nullptr, BUTTON_SIDE_RELOAD, gDataManager->GetSysString(1309).data()));
 	defaultStrings.emplace_back(btnSideReload, 1309);
 	btnSideReload->setVisible(false);
-	btnHandTest = AlignElementWithParent(env->addButton(Scale(205, 90, 295, 130), 0, BUTTON_HAND_TEST, gDataManager->GetSysString(1297).data()));
+	btnHandTest = AlignElementWithParent(env->addButton(Scale(205, 90, 295, 130), nullptr, BUTTON_HAND_TEST, gDataManager->GetSysString(1297).data()));
 	defaultStrings.emplace_back(btnHandTest, 1297);
 	btnHandTest->setVisible(false);
 	btnHandTest->setEnabled(coreloaded);
@@ -1509,10 +1512,12 @@ void Game::PopulateTabSettingsWindow() {
 			tabSettings.scrMusicVolume->setSmallStep(1);
 			cur_y += y_incr;
 		}
-		// end audio
 		tabSettings.chkNoChainDelay = env->addCheckBox(gGameConfig->chkWaitChain, GetNextRect(), tabPanel, CHECKBOX_NO_CHAIN_DELAY, gDataManager->GetSysString(1277).data());
 		menuHandler.MakeElementSynchronized(tabSettings.chkNoChainDelay);
 		defaultStrings.emplace_back(tabSettings.chkNoChainDelay, 1277);
+		tabSettings.chkIgnoreDeckContents = env->addCheckBox(gGameConfig->ignoreDeckContents, GetNextRect(), tabPanel, CHECKBOX_IGNORE_DECK_CONTENTS, gDataManager->GetSysString(1277).data());
+		menuHandler.MakeElementSynchronized(tabSettings.chkIgnoreDeckContents);
+		defaultStrings.emplace_back(tabSettings.chkIgnoreDeckContents, 12119);
 		// Check OnResize for button placement information
 		cur_y += 5;
 		btnTabShowSettings = env->addButton(GetNextRect(), tabPanel, BUTTON_SHOW_SETTINGS, gDataManager->GetSysString(2059).data());
@@ -1618,6 +1623,9 @@ void Game::PopulateSettingsWindow() {
 		defaultStrings.emplace_back(gSettings.chkHideHandsInReplays, 2080);
 		gSettings.chkConfirmDeckClear = env->addCheckBox(gGameConfig->confirm_clear_deck, GetNextRect(), sPanel, CHECKBOX_CONFIRM_DECK_CLEAR, gDataManager->GetSysString(12104).data());
 		defaultStrings.emplace_back(gSettings.chkConfirmDeckClear, 12104);
+		gSettings.chkIgnoreDeckContents = env->addCheckBox(gGameConfig->ignoreDeckContents, GetNextRect(), sPanel, CHECKBOX_IGNORE_DECK_CONTENTS, gDataManager->GetSysString(1277).data());
+		menuHandler.MakeElementSynchronized(gSettings.chkIgnoreDeckContents);
+		defaultStrings.emplace_back(gSettings.chkIgnoreDeckContents, 12119);
 	}
 
 	{
@@ -1741,8 +1749,14 @@ void Game::PopulateSettingsWindow() {
 			gSettings.ebAntiAlias = env->addEditBox(WStr(gGameConfig->antialias), GetCurrentRectWithXOffset(225, 320), true, sPanel, EDITBOX_NUMERIC);
 			IncrementXorY();
 		}
-		gSettings.chkVSync = env->addCheckBox(gGameConfig->vsync, GetNextRect(), sPanel, CHECKBOX_VSYNC, gDataManager->GetSysString(2073).data());
-		defaultStrings.emplace_back(gSettings.chkVSync, 2073);
+		{
+			gSettings.stVSync = env->addStaticText(gDataManager->GetSysString(2073).data(), GetCurrentRectWithXOffset(15, 105), false, true, sPanel);
+			defaultStrings.emplace_back(gSettings.stVSync, 2073);
+			gSettings.cbVSync = AddComboBox(env, GetCurrentRectWithXOffset(110, 320), sPanel, COMBOBOX_VSYNC);
+			ReloadCBVsync();
+			gSettings.cbVSync->setSelected(gGameConfig->vsync);
+			IncrementXorY();
+		}
 		{
 			gSettings.stFPSCap = env->addStaticText(gDataManager->GetSysString(2074).data(), GetCurrentRectWithXOffset(15, 220), false, true, sPanel);
 			defaultStrings.emplace_back(gSettings.stFPSCap, 2074);
@@ -2025,8 +2039,7 @@ bool Game::MainLoop() {
 		bool resized = false;
 		auto size = driver->getScreenSize();
 #if defined (__linux__) && !defined(__ANDROID__)
-		prev_window_size = window_size;
-		window_size = size;
+		prev_window_size = std::exchange(window_size, size);
 		if(prev_window_size != window_size && !last_resize && prev_window_size.Width != 0 && prev_window_size.Height != 0) {
 			last_resize = true;
 		} else if((prev_window_size == window_size && last_resize) || (prev_window_size.Width == 0 && prev_window_size.Height == 0)) {
@@ -2090,7 +2103,10 @@ bool Game::MainLoop() {
 			else
 				gSoundManager->PlayBGM(SoundManager::BGM::DUEL, gGameConfig->loopMusic);
 			EnableMaterial2D(true);
-			DrawBackImage(imageManager.tBackGround, resized);
+			if(current_topdown)
+				DrawBackImage(imageManager.tBackGround_duel_topdown, resized);
+			else
+				DrawBackImage(imageManager.tBackGround, resized);
 			DrawBackGround();
 			DrawCards();
 			DrawMisc();
@@ -2279,8 +2295,8 @@ bool Game::MainLoop() {
 				if(dInfo.time_left[dInfo.time_player])
 					dInfo.time_left[dInfo.time_player]--;
 		}
-		if(gGameConfig->maxFPS != -1 || gGameConfig->vsync)
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		if(gGameConfig->maxFPS != -1)
+			epro::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 	discord.UpdatePresence(DiscordWrapper::TERMINATE);
 	{
@@ -3131,7 +3147,7 @@ void Game::ResizePhaseButtons() {
 		wPhase->setRelativePosition(Resize(940, 80, 990, 340));
 		return;
 	} else if(!gGameConfig->keep_aspect_ratio) {
-		if((dInfo.duel_params & DUEL_3_COLUMNS_FIELD) && dInfo.duel_field >= 4)
+		if(dInfo.HasFieldFlag(DUEL_3_COLUMNS_FIELD | DUEL_EMZONE))
 			wPhase->setRelativePosition(Resize(480, 290, 855, 350));
 		else
 			wPhase->setRelativePosition(Resize(480, 310, 855, 330));
@@ -3151,7 +3167,7 @@ void Game::ResizePhaseButtons() {
 	irr::s32 x1 = static_cast<irr::s32>(std::round(DEFAULT_X1 * window_scale.X - offx1));
 	irr::s32 x2 = static_cast<irr::s32>(std::round(DEFAULT_X2 * window_scale.X + offx2));
 	irr::s32 y1, y2;
-	if((dInfo.duel_params & DUEL_3_COLUMNS_FIELD) && dInfo.duel_field >= 4) {
+	if(dInfo.HasFieldFlag(DUEL_3_COLUMNS_FIELD | DUEL_EMZONE)) {
 		y1 = static_cast<irr::s32>(std::round(290 * window_scale.Y));
 		y2 = static_cast<irr::s32>(std::round(350 * window_scale.Y));
 	} else {
@@ -3174,7 +3190,7 @@ void Game::SetPhaseButtons(bool visibility) {
 	// work with the relative button positions by using non scaled values
 	if(gGameConfig->alternative_phase_layout)
 		wPhase->setRelativePosition({ 940, 80, 990, 340 });
-	else if((dInfo.duel_params & DUEL_3_COLUMNS_FIELD) && dInfo.duel_field >= 4)
+	else if(dInfo.HasFieldFlag(DUEL_3_COLUMNS_FIELD | DUEL_EMZONE))
 		wPhase->setRelativePosition({ 480, 290, 855, 350 });
 	else
 		wPhase->setRelativePosition({ 480, 310, 855, 330 });
@@ -3191,8 +3207,8 @@ void Game::SetPhaseButtons(bool visibility) {
 			return;
 		}
 		// reset master rule 4 phase button position
-		if(dInfo.duel_params & DUEL_3_COLUMNS_FIELD) {
-			if(dInfo.duel_field >= 4) {
+		if(dInfo.HasFieldFlag(DUEL_3_COLUMNS_FIELD)) {
+			if(dInfo.HasFieldFlag(DUEL_EMZONE)) {
 				btnShuffle->setRelativePosition({ 0, 40, 50, 60 });
 				btnDP->setRelativePosition({ 0, 40, 50, 60 });
 				btnSP->setRelativePosition({ 0, 40, 50, 60 });
@@ -3207,14 +3223,14 @@ void Game::SetPhaseButtons(bool visibility) {
 			btnSP->setRelativePosition({ 65, 0, 115, 20 });
 			btnM1->setRelativePosition({ 130, 0, 180, 20 });
 			btnBP->setRelativePosition({ 195, 0, 245, 20 });
-			btnM2->setRelativePosition({ 260, 0, 310, 20 });
+			btnM2->setRelativePosition({ 195, 0, 245, 20 });
 			btnEP->setRelativePosition({ 260, 0, 310, 20 });
 			return;
 		}
 		btnDP->setRelativePosition({ 0, 0, 50, 20 });
 		btnEP->setRelativePosition({ 320, 0, 370, 20 });
 		btnShuffle->setRelativePosition({ 0, 0, 50, 20 });
-		if(dInfo.duel_field >= 4) {
+		if(dInfo.HasFieldFlag(DUEL_EMZONE)) {
 			btnSP->setRelativePosition({ 0, 0, 50, 20 });
 			btnM1->setRelativePosition({ 160, 0, 210, 20 });
 			btnBP->setRelativePosition({ 160, 0, 210, 20 });
@@ -3418,6 +3434,17 @@ void Game::ReloadCBCoreLogOutput() {
 		}
 	}
 }
+void Game::ReloadCBVsync() {
+	gSettings.cbVSync->clear();
+	auto max = 12118;
+#if (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
+	const auto type = driver->getDriverType();
+	if(type == irr::video::EDT_DIRECT3D9)
+#endif
+		max = 12115;
+	for(int i = 12114; i <= max; ++i)
+		gSettings.cbVSync->addItem(gDataManager->GetSysString(i).data());
+}
 void Game::ReloadElementsStrings() {
 	ShowCardInfo(showingcard, true);
 
@@ -3556,7 +3583,7 @@ void Game::OnResize() {
 
 	wLanWindow->setRelativePosition(ResizeWin(220, 100, 800, 520));
 	SetCentered(wCreateHost, false);
-	if (dInfo.opponames.size() + dInfo.selfnames.size()>=5) {
+	if(dInfo.opponames.size() + dInfo.selfnames.size() >= 5) {
 		wHostPrepare->setRelativePosition(ResizeWin(270, 120, 750, 500));
 		wHostPrepareR->setRelativePosition(ResizeWin(750, 120, 950, 500));
 		wHostPrepareL->setRelativePosition(ResizeWin(70, 120, 270, 500));

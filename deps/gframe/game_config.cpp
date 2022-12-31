@@ -1,4 +1,5 @@
 #include <IrrCompileConfig.h>
+#include <path.h>
 #include "game_config.h"
 #include <fmt/format.h>
 #include "bufferio.h"
@@ -45,11 +46,10 @@ T parseOption(std::string& value) {
 		if(std::is_same<T, uint64_t>::value)
 			return static_cast<T>(std::stoull(value));
 		return static_cast<T>(std::stoul(value));
-	} else {
-		if(std::is_same<T, int64_t>::value)
-			return static_cast<T>(std::stoll(value));
-		return static_cast<T>(std::stoi(value));
 	}
+	if(std::is_same<T, int64_t>::value)
+		return static_cast<T>(std::stoll(value));
+	return static_cast<T>(std::stoi(value));
 }
 
 template<>
@@ -96,12 +96,38 @@ template<>
 ygo::GameConfig::TextFont parseOption<ygo::GameConfig::TextFont>(std::string& value) {
 	ygo::GameConfig::TextFont ret;
 	auto pos = value.find(' ');
-	if(pos == std::wstring::npos) {
+	if(pos == std::string::npos) {
 		ret.font = Utils::ToPathString(value);
 		return ret;
 	}
 	ret.font = Utils::ToPathString(value.substr(0, pos));
 	ret.size = std::stoi(value.substr(pos));
+	return ret;
+}
+
+template<>
+ygo::GameConfig::FallbackFonts parseOption<ygo::GameConfig::FallbackFonts>(std::string& value) {
+	ygo::GameConfig::FallbackFonts ret;
+#ifdef YGOPRO_USE_BUNDLED_FONT
+	bool listed_bundled = false;
+#endif
+	for(auto& font : Utils::TokenizeString(value, '"')) {
+		if(font.find_first_not_of(' ') == std::string::npos)
+			continue;
+		const auto parsed_font = parseOption<GameConfig::TextFont>(font);
+		if(parsed_font.font == EPRO_TEXT("bundled"))
+#ifdef YGOPRO_USE_BUNDLED_FONT
+			listed_bundled = true;
+#else
+			continue;
+#endif
+		ret.push_back(std::move(parsed_font));
+	}
+
+#ifdef YGOPRO_USE_BUNDLED_FONT
+	if(!listed_bundled)
+		ret.emplace_back(ygo::GameConfig::TextFont{ { EPRO_TEXT("bundled") }, 12 });
+#endif
 	return ret;
 }
 
@@ -154,6 +180,17 @@ std::string serializeOption(const ygo::GameConfig::TextFont& value) {
 }
 
 template<>
+std::string serializeOption(const ygo::GameConfig::FallbackFonts& value) {
+	std::string res;
+	for(const auto& font : value) {
+		res.append(1, '"').append(serializeOption(font)).append("\" ");
+	}
+	if(!res.empty())
+		res.pop_back();
+	return res;
+}
+
+template<>
 std::string serializeOption(const irr::video::E_DRIVER_TYPE& driver) {
 	switch(driver) {
 	case irr::video::EDT_OPENGL:
@@ -186,7 +223,7 @@ bool GameConfig::Load(const epro::path_stringview filename) {
 			continue;
 		}
 		pos = str.find('=');
-		if (pos == std::wstring::npos)
+		if (pos == std::string::npos)
 			continue;
 		auto type = str.substr(0, pos - 1);
 		str.erase(0, pos + 2);

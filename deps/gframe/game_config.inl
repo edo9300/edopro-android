@@ -7,7 +7,7 @@ OPTION_TAGGED(uint8_t, ygo::GameConfig::BoolAsInt, useWayland, 2)
 OPTION_TAGGED(uint8_t, ygo::GameConfig::BoolAsInt, useIntegratedGpu, 2)
 #endif
 #endif
-OPTION(bool, vsync, true)
+OPTION(uint8_t, vsync, 1)
 OPTION_TAGGED(int, ygo::GameConfig::MaxFPSConfig, maxFPS, 60)
 OPTION(bool, fullscreen, false)
 OPTION(bool, showConsole, false)
@@ -34,8 +34,13 @@ OPTION(bool, noShuffleDeck, false)
 OPTION(bool, noCheckDeckContent, false)
 OPTION(bool, noCheckDeckSize, false)
 OPTION(bool, hideHandsInReplays, false)
-OPTION(ygo::GameConfig::TextFont, textfont, { EPRO_TEXT("fonts/NotoSansJP-Regular.otf"), 12 })
+OPTION(ygo::GameConfig::TextFont, textfont, EPRO_TEXT("fonts/NotoSansJP-Regular.otf"), 12)
 OPTION(epro::path_string, numfont, EPRO_TEXT("fonts/NotoSansJP-Regular.otf"))
+#ifdef YGOPRO_USE_BUNDLED_FONT
+OPTION(ygo::GameConfig::FallbackFonts, fallbackFonts, ygo::GameConfig::TextFont{ epro::path_string{EPRO_TEXT("bundled")}, 12 })
+#else
+OPTION(ygo::GameConfig::FallbackFonts, fallbackFonts)
+#endif //YGOPRO_USE_BUNDLED_FONT
 OPTION(std::wstring, serverport, L"7911")
 OPTION(std::wstring, lasthost, L"127.0.0.1")
 OPTION(std::wstring, lastport, L"7911")
@@ -61,6 +66,7 @@ OPTION(bool, keep_cardinfo_aspect_ratio, false)
 OPTION(bool, showFPS, true)
 OPTION(bool, hidePasscodeScope, false)
 OPTION(bool, showScopeLabel, true)
+OPTION(bool, ignoreDeckContents, false)
 OPTION(bool, filterBot, true)
 OPTION_ALIASED(bool, chkAnime, show_unofficial, false)
 #ifdef EDOPRO_MACOS

@@ -32,11 +32,20 @@
 #include <cctype>
 #include <cassert>
 #include <cstring>
+#include <limits>
 #include <climits>
 
 
 namespace
 {
+	template <typename T, size_t N>
+	T swap(unsigned char(&buffer)[N]) {
+		T val = 0;
+		for(int i = 0; i < N; i++)
+			val |= buffer[i] << (8 * i);
+		return val;
+	}
+
     // The following functions read integers as little endian and
     // return them in the host byte order
 
@@ -51,7 +60,7 @@ namespace
         if (stream.read(bytes, sizeof(bytes)) != sizeof(bytes))
             return false;
 
-        value = bytes[0] | (bytes[1] << 8);
+        value = swap<uint16_t>(bytes);
 
         return true;
     }
@@ -62,7 +71,7 @@ namespace
         if (stream.read(bytes, sizeof(bytes)) != sizeof(bytes))
             return false;
 
-        value = bytes[0] | (bytes[1] << 8);
+        value = swap<int16_t>(bytes);
 
         return true;
     }
@@ -73,7 +82,7 @@ namespace
         if (stream.read(bytes, sizeof(bytes)) != sizeof(bytes))
             return false;
 
-        value = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16);
+        value = swap<uint32_t>(bytes);
 
         return true;
     }
@@ -84,7 +93,7 @@ namespace
         if (stream.read(bytes, sizeof(bytes)) != sizeof(bytes))
             return false;
 
-        value = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
+        value = swap<uint32_t>(bytes);
 
         return true;
     }
@@ -95,7 +104,7 @@ namespace
         if (stream.read(bytes, sizeof(bytes)) != sizeof(bytes))
             return false;
 
-		int32_t tmpval = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
+		uint32_t tmpval = swap<uint32_t>(bytes);
 		memcpy(&value, &tmpval, sizeof(value));
 
         return true;
@@ -211,16 +220,19 @@ uint64_t SoundFileReaderWav::read(int16_t* samples, uint64_t maxCount)
 
             case 4:
             {
-				uint32_t sample = 0;
 				if(m_isFloat) {
 					float fsample = 0.0f;
 					if(decode(*m_stream, fsample))
-						sample = static_cast<uint32_t>(fsample * INT_MAX + 0.5);
+						*samples++ = static_cast<uint16_t>(fsample * SHRT_MAX + 0.5f);
 					else
 						return count;
-				} else if(!decode(*m_stream, sample))
-					return count;
-				*samples++ = sample >> 16;
+				} else {
+					uint32_t sample = 0;
+					if(decode(*m_stream, sample))
+						*samples++ = sample >> 16;
+					else
+						return count;
+				}
                 break;
             }
 
@@ -260,6 +272,10 @@ bool SoundFileReaderWav::parseHeader(Info& info)
         uint32_t subChunkSize = 0;
         if (!decode(*m_stream, subChunkSize))
             return false;
+        if(subChunkSize == std::numeric_limits<uint32_t>::max()) {
+            std::cerr << "Invalid data chunk size" << std::endl;
+            return false;
+        }
         int64_t subChunkStart = m_stream->tell();
         if (subChunkStart == -1)
             return false;

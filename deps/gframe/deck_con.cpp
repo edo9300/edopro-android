@@ -636,6 +636,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 	}
 	case irr::EET_MOUSE_INPUT_EVENT: {
 		bool isroot = mainGame->env->getRootGUIElement()->getElementFromPoint(mouse_pos) == mainGame->env->getRootGUIElement();
+		const bool forceInput = gGameConfig->ignoreDeckContents || event.MouseInput.Shift;
 		switch(event.MouseInput.Event) {
 		case irr::EMIE_LMOUSE_PRESSED_DOWN: {
 			if(is_draging)
@@ -652,7 +653,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			if(!hovered_code || !(dragging_pointer = gDataManager->GetCardData(hovered_code)))
 				break;
 			if(hovered_pos == 4) {
-				if(!event.MouseInput.Shift && !check_limit(dragging_pointer))
+				if(!forceInput && !check_limit(dragging_pointer))
 					break;
 			}
 			is_draging = true;
@@ -676,11 +677,11 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			}
 			bool pushed = false;
 			if(hovered_pos == 1)
-				pushed = push_main(dragging_pointer, hovered_seq, event.MouseInput.Shift);
+				pushed = push_main(dragging_pointer, hovered_seq, forceInput);
 			else if(hovered_pos == 2)
-				pushed = push_extra(dragging_pointer, hovered_seq + is_lastcard, event.MouseInput.Shift);
+				pushed = push_extra(dragging_pointer, hovered_seq + is_lastcard, forceInput);
 			else if(hovered_pos == 3)
-				pushed = push_side(dragging_pointer, hovered_seq + is_lastcard, event.MouseInput.Shift);
+				pushed = push_side(dragging_pointer, hovered_seq + is_lastcard, forceInput);
 			else if(hovered_pos == 4 && !mainGame->is_siding)
 				pushed = true;
 			if(!pushed) {
@@ -730,13 +731,13 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 					pop_side(hovered_seq);
 				} else {
 					auto pointer = gDataManager->GetCardData(hovered_code);
-					if(!pointer || !check_limit(pointer))
+					if(!pointer || (!gGameConfig->ignoreDeckContents && !check_limit(pointer)))
 						break;
 					if (event.MouseInput.Shift) {
-						push_side(pointer);
+						push_side(pointer, -1, gGameConfig->ignoreDeckContents);
 					}
 					else {
-						if (!push_extra(pointer) && !push_main(pointer))
+						if (!push_extra(pointer, -1, gGameConfig->ignoreDeckContents) && !push_main(pointer, -1, gGameConfig->ignoreDeckContents))
 							push_side(pointer);
 					}
 				}
@@ -767,7 +768,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 			if (is_draging)
 				break;
 			auto pointer = gDataManager->GetCardData(hovered_code);
-			if(!pointer || (!event.MouseInput.Shift && !check_limit(pointer)))
+			if(!pointer || (!forceInput && !check_limit(pointer)))
 				break;
 			if (hovered_pos == 1) {
 				if(!push_main(pointer))
@@ -1333,7 +1334,9 @@ void DeckBuilder::ClearDeck() {
 	current_deck.extra.clear();
 	current_deck.side.clear();
 
-	main_and_extra_legend_count = 0;
+	main_and_extra_legend_count_monster = 0;
+	main_legend_count_spell = 0;
+	main_legend_count_trap = 0;
 	main_skill_count = 0;
 	main_monster_count = 0;
 	main_spell_count = 0;
@@ -1349,7 +1352,9 @@ void DeckBuilder::ClearDeck() {
 	side_trap_count = 0;
 }
 void DeckBuilder::RefreshLimitationStatus() {
-	main_and_extra_legend_count = DeckManager::OTCount(current_deck.main, SCOPE_LEGEND) + DeckManager::OTCount(current_deck.extra, SCOPE_LEGEND);
+	main_and_extra_legend_count_monster = DeckManager::CountLegends(current_deck.main, TYPE_MONSTER) + DeckManager::CountLegends(current_deck.extra, TYPE_MONSTER);
+	main_legend_count_spell = DeckManager::CountLegends(current_deck.main, TYPE_SPELL);
+	main_legend_count_trap = DeckManager::CountLegends(current_deck.main, TYPE_TRAP);
 	main_skill_count = DeckManager::TypeCount(current_deck.main, TYPE_SKILL);
 	main_monster_count = DeckManager::TypeCount(current_deck.main, TYPE_MONSTER);
 	main_spell_count = DeckManager::TypeCount(current_deck.main, TYPE_SPELL);
@@ -1368,14 +1373,21 @@ void DeckBuilder::RefreshLimitationStatusOnRemoved(const CardDataC* card, DeckTy
 	switch(location) {
 		case DeckType::MAIN:
 		{
-			if(card->ot & SCOPE_LEGEND)
-				--main_and_extra_legend_count;
-			if(card->type & TYPE_MONSTER)
+			if(card->type & TYPE_MONSTER) {
 				--main_monster_count;
-			if(card->type & TYPE_SPELL)
+				if(card->ot & SCOPE_LEGEND)
+					--main_and_extra_legend_count_monster;
+			}
+			if(card->type & TYPE_SPELL) {
 				--main_spell_count;
-			if(card->type & TYPE_TRAP)
+				if(card->ot & SCOPE_LEGEND)
+					--main_legend_count_spell;
+			}
+			if(card->type & TYPE_TRAP) {
 				--main_trap_count;
+				if(card->ot & SCOPE_LEGEND)
+					--main_legend_count_trap;
+			}
 			if(card->type & TYPE_SKILL)
 				--main_skill_count;
 			break;
@@ -1383,7 +1395,7 @@ void DeckBuilder::RefreshLimitationStatusOnRemoved(const CardDataC* card, DeckTy
 		case DeckType::EXTRA:
 		{
 			if(card->ot & SCOPE_LEGEND)
-				--main_and_extra_legend_count;
+				--main_and_extra_legend_count_monster;
 			if(card->type & TYPE_FUSION)
 				--extra_fusion_count;
 			if(card->type & TYPE_XYZ)
@@ -1410,14 +1422,21 @@ void DeckBuilder::RefreshLimitationStatusOnAdded(const CardDataC* card, DeckType
 	switch(location) {
 		case DeckType::MAIN:
 		{
-			if(card->ot & SCOPE_LEGEND)
-				++main_and_extra_legend_count;
-			if(card->type & TYPE_MONSTER)
+			if(card->type & TYPE_MONSTER) {
 				++main_monster_count;
-			if(card->type & TYPE_SPELL)
+				if(card->ot & SCOPE_LEGEND)
+					++main_and_extra_legend_count_monster;
+			}
+			if(card->type & TYPE_SPELL) {
 				++main_spell_count;
-			if(card->type & TYPE_TRAP)
+				if(card->ot & SCOPE_LEGEND)
+					++main_legend_count_spell;
+			}
+			if(card->type & TYPE_TRAP) {
 				++main_trap_count;
+				if(card->ot & SCOPE_LEGEND)
+					++main_legend_count_trap;
+			}
 			if(card->type & TYPE_SKILL)
 				++main_skill_count;
 			break;
@@ -1425,7 +1444,7 @@ void DeckBuilder::RefreshLimitationStatusOnAdded(const CardDataC* card, DeckType
 		case DeckType::EXTRA:
 		{
 			if(card->ot & SCOPE_LEGEND)
-				++main_and_extra_legend_count;
+				++main_and_extra_legend_count_monster;
 			if(card->type & TYPE_FUSION)
 				++extra_fusion_count;
 			if(card->type & TYPE_XYZ)
@@ -1453,7 +1472,11 @@ bool DeckBuilder::push_main(const CardDataC* pointer, int seq, bool forced) {
 		return false;
 	auto& container = current_deck.main;
 	if(!forced && !mainGame->is_siding) {
-		if(main_and_extra_legend_count >= 1 && (pointer->ot & SCOPE_LEGEND))
+		if(main_and_extra_legend_count_monster >= 1 && (pointer->ot & SCOPE_LEGEND) && (pointer->type & TYPE_MONSTER))
+			return false;
+		if(main_legend_count_spell >= 1 && (pointer->ot & SCOPE_LEGEND) && (pointer->type & TYPE_SPELL))
+			return false;
+		if(main_legend_count_trap >= 1 && (pointer->ot & SCOPE_LEGEND) && (pointer->type & TYPE_TRAP))
 			return false;
 		if(main_skill_count >= 1 && (pointer->type & TYPE_SKILL))
 			return false;
@@ -1473,7 +1496,7 @@ bool DeckBuilder::push_extra(const CardDataC* pointer, int seq, bool forced) {
 		return false;
 	auto& container = current_deck.extra;
 	if(!forced && !mainGame->is_siding) {
-		if(main_and_extra_legend_count >= 1 && (pointer->ot & SCOPE_LEGEND))
+		if(main_and_extra_legend_count_monster >= 1 && (pointer->ot & SCOPE_LEGEND))
 			return false;
 		if(container.size() >= 15)
 			return false;

@@ -27,6 +27,7 @@
 ////////////////////////////////////////////////////////////
 #ifndef SFAUDIO_USE_MPG123
 #define MINIMP3_IMPLEMENTATION
+#define MINIMP3_NO_STDIO
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -55,12 +56,12 @@ namespace priv
 ////////////////////////////////////////////////////////////
 bool SoundFileReaderMp3::check(InputStream& stream)
 {
-    char hdr[10];
+    uint8_t hdr[10];
     if (stream.read(hdr, sizeof(hdr)) < sizeof(hdr))
         return false;
     if (!memcmp(hdr, "ID3", 3) && !((hdr[5] & 15) || (hdr[6] & 0x80) || (hdr[7] & 0x80) || (hdr[8] & 0x80) || (hdr[9] & 0x80)))
         return true;
-    if (hdr_valid((const uint8_t *)hdr))
+    if (hdr_valid(hdr))
         return true;
     return false;
 }
@@ -68,6 +69,8 @@ bool SoundFileReaderMp3::check(InputStream& stream)
 
 ////////////////////////////////////////////////////////////
 SoundFileReaderMp3::SoundFileReaderMp3() :
+m_io{},
+m_decoder{},
 m_numSamples(0),
 m_position(0)
 {

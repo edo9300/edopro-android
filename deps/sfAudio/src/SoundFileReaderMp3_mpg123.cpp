@@ -149,7 +149,7 @@ uint64_t SoundFileReaderMp3::read(int16_t* samples, uint64_t maxCount)
 {
 	if(myHandle) {
 		size_t done;
-		mpg123_read(myHandle, (unsigned char*)samples, std::min<uint64_t>(maxCount, myBufferSize), &done);
+		mpg123_read(myHandle, (unsigned char*)samples, std::min(static_cast<size_t>(maxCount), myBufferSize), &done);
 		return done / sizeof(short);
 	}
 	return 0;
@@ -182,7 +182,7 @@ off_t MemoryDataLSeek(void* rawMp3Data, off_t offset, int whence) {
 		case SEEK_END: cur = stream->getSize() + offset; break;
 	}
 	uint64_t position = stream->seek(cur);
-	return stream->tell();
+	return (off_t)stream->tell();
 }
 
 void MemoryDataCleanup(void* rawMp3Data) {
