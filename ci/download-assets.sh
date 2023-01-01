@@ -22,6 +22,9 @@ git submodule sync
 git submodule update --init --recursive --force
 cd ..
 
+curl --retry 5 --connect-timeout 30 --location --remote-header-name --remote-name https://raw.githubusercontent.com/ProjectIgnis/Distribution/master/fonts/NotoSansJP-Regular.otf
+lua ci/bin2c.lua "NotoSansJP-Regular.otf" "deps/gframe/CGUITTFont/bundled_font.cpp"
+
 rsync -ar --exclude='.*' --exclude='*.sh' --exclude='script/.*' \
 	--exclude='expansions/.*' --exclude='expansions/ci' --exclude='expansions/*rerelease*' --exclude='expansions/README.md' \
 	--exclude='expansions/unofficial-fossil.cdb' --exclude='expansions/release.cdb' --exclude='script/pre-release' \

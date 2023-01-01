@@ -19,8 +19,12 @@ jobs:
       JKS_PASS: ${{ secrets.JKS_PASS }}
       PICS_URL: ${{ secrets.PICS_URL }}
       UPDATE_URL: ${{ secrets.UPDATE_URL }}
+      USE_BUNDLED_FONT: 1
     steps:
     - uses: actions/checkout@v1
+    - name: Install apt deps
+      run: |
+        sudo apt install lua5.3
     - name: Download libwindbot
       run: |
         mkdir -p libs
@@ -28,11 +32,13 @@ jobs:
     - name: Set local.properties
       run: |
        echo "sdk.dir=$ANDROID_HOME" > local.properties
+    - name: Prepare assets
+      run: |
+       ./ci/touch-assets.sh
     - name: Build client
       run: ./ci/build-android.sh
     - name: Build base apk
       run: |
-       ./ci/touch-assets.sh
        ./gradlew assemble
        ./ci/sign-apk.sh EDOPro-release-base.apk
     - name: Deploy

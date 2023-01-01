@@ -104,7 +104,12 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/Android/COSAndroidOperator.cpp \
 				   $(GFRAME_PATH)/utils.cpp \
 				   $(GFRAME_PATH)/utils_gui.cpp \
 				   $(GFRAME_PATH)/windbot.cpp \
-				   $(GFRAME_PATH)/windbot_panel.cpp 
+				   $(GFRAME_PATH)/windbot_panel.cpp
+
+ifneq ($(USE_BUNDLED_FONT),)
+LOCAL_SRC_FILES += $(GFRAME_PATH)/CGUITTFont/bundled_font.cpp
+LOCAL_CFLAGS += -DYGOPRO_USE_BUNDLED_FONT
+endif
 
 LOCAL_STATIC_LIBRARIES := Irrlicht \
 						  libevent2 \
