@@ -1,6 +1,7 @@
 package io.github.edo9300.edopro;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.res.AssetManager;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -11,7 +12,6 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.content.Intent;
 
 import java.io.BufferedReader;
 import java.io.IOException;
