@@ -10,7 +10,6 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.Uri;
-import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.content.FileProvider;
@@ -21,6 +20,12 @@ import android.view.View;
 import android.view.WindowManager;
 
 import java.io.File;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 
 import libwindbot.windbot.WindBot;
 
@@ -265,9 +270,24 @@ public class EpNativeActivity extends NativeActivity {
 	}
 
 	@SuppressWarnings("unused")
-	public int getLocalIpAddress() {
-		WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
-		return wm.getConnectionInfo().getIpAddress();
+	public byte[][] getLocalIpAddresses() {
+		List<byte[]> ret = new LinkedList<byte[]>();
+		try {
+			List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+			for (NetworkInterface intf : interfaces) {
+				if (!intf.isUp() || intf.isLoopback())
+					continue;
+				List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
+				for (InetAddress addr : addrs) {
+					if (!(addr instanceof Inet4Address))
+						continue;
+					Log.e("EDOPro", "found interface address: " + addr.toString());
+					ret.add(addr.getAddress());
+				}
+			}
+		} catch (Exception ignored) {
+		}
+		return ret.toArray(new byte[ret.size()][]);
 	}
 
 	public void setClipboard(final String text) {
