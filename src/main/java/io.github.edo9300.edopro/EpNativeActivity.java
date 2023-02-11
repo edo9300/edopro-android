@@ -281,7 +281,6 @@ public class EpNativeActivity extends NativeActivity {
 				for (InetAddress addr : addrs) {
 					if (!(addr instanceof Inet4Address))
 						continue;
-					Log.e("EDOPro", "found interface address: " + addr.toString());
 					ret.add(addr.getAddress());
 				}
 			}
