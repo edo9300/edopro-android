@@ -52,8 +52,6 @@ public:
 
 	void PseudoRefreshDeck(uint8_t player, uint32_t flag = 0x1181fff);
 	static ReplayStream replay_stream;
-
-	bool swapped;
 	
 protected:
 	std::vector<CoreUtils::Packet> packets_cache;
@@ -83,14 +81,12 @@ protected:
 		}
 	};
 	bool CheckReady();
-	uint32_t GetCount(const std::vector<duelist>& players);
-	bool CheckFree(const std::vector<duelist>& players);
-	int GetFirstFree(int start = 0);
+	int8_t GetFirstFree(int8_t start = 0);
 	void SetAtPos(DuelPlayer* dp, size_t pos);
 	duelist& GetAtPos(uint8_t pos);
 	void Catchup(DuelPlayer* dp);
-	int GetPos(DuelPlayer* dp);
-	void OrderPlayers(std::vector<duelist>& players, int offset = 0);
+	uint8_t GetPos(DuelPlayer* dp);
+	void OrderPlayers(std::vector<duelist>& players, size_t offset = 0);
 	template<typename T, typename T2>
 	inline void Iter(T& list, const T2& func) {
 		for(auto& dlr : list) {
@@ -139,6 +135,7 @@ protected:
 	bool relay;
 	int best_of;
 	uint32_t match_kill;
+	bool swapped;
 	uint32_t turn_count;
 	std::vector<uint8_t> match_result;
 	uint16_t time_limit[2];

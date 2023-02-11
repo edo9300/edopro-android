@@ -3,7 +3,7 @@ LOCAL_PATH := $(call my-dir)/..
 include $(CLEAR_VARS)
 LOCAL_MODULE := EDOProClient
 
-LOCAL_CFLAGS := -DYGOPRO_USE_SFML -D_ANDROID -DYGOPRO_BUILD_DLL -Wno-deprecated-declarations -Wno-inconsistent-missing-override
+LOCAL_CFLAGS := -DYGOPRO_USE_SFML -D_ANDROID -DYGOPRO_BUILD_DLL -Wno-deprecated-declarations -Wno-inconsistent-missing-override -Wextra -Wno-missing-field-initializers -Wno-unused-parameter
 
 ifeq ($(APP_OPTIM),debug)
 LOCAL_CFLAGS += -g -D_DEBUG
@@ -64,6 +64,7 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/Android/COSAndroidOperator.cpp \
 				   $(GFRAME_PATH)/CProgressBar/CProgressBar.cpp \
 				   $(GFRAME_PATH)/CXMLRegistry/CXMLNode.cpp \
 				   $(GFRAME_PATH)/CXMLRegistry/CXMLRegistry.cpp \
+				   $(GFRAME_PATH)/MD5/MD5.c \
 				   $(GFRAME_PATH)/ResizeablePanel/ResizeablePanel.cpp \
 				   $(GFRAME_PATH)/client_card.cpp \
 				   $(GFRAME_PATH)/client_field.cpp \

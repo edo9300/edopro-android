@@ -25,14 +25,14 @@ namespace gui {
 
 //! constructor
 CGUIFileSelectListBox::CGUIFileSelectListBox(IGUIEnvironment* environment, IGUIElement* parent,
-											 s32 id, core::rect<s32> rectangle, io::IFileSystem* filesystem, bool clip,
+											 s32 id, core::rect<s32> rectangle, bool clip,
 											 bool drawBack, bool moveOverSelect)
-	: IGUIListBox(environment, parent, id, rectangle), Selected(-1),
-	ItemHeight(0), ItemHeightOverride(0),
-	TotalItemHeight(0), ItemsIconWidth(0), Font(0), IconBank(0),
-	ScrollBar(0), selectTime(0), LastKeyTime(0), Selecting(false), DrawBack(drawBack),
+	: IGUIListBox(environment, parent, id, rectangle),
+	basePath {}, curRelPath{}, filter(0),
+	Selected(-1), ItemHeight(0), ItemHeightOverride(0), TotalItemHeight(0),
+	ItemsIconWidth(0), Font(0), IconBank(0), ScrollBar(0), selectTime(0),
+	LastKeyTime(0), Selecting(false), TotalFolders(0), BaseIsRoot(false), DrawBack(drawBack),
 	MoveOverSelect(moveOverSelect), AutoScroll(true), HighlightWhenNotFocused(true),
-	filesystem(filesystem), basePath{}, curRelPath{}, TotalFolders(0), filter(0),
 	NativeDirectoryHandling(false) {
 #ifdef _DEBUG
 	setDebugName("CGUIFileSelectListBox");
@@ -59,8 +59,8 @@ CGUIFileSelectListBox::CGUIFileSelectListBox(IGUIEnvironment* environment, IGUIE
 	updateAbsolutePosition();
 }
 
-CGUIFileSelectListBox * CGUIFileSelectListBox::addFileSelectListBox(IGUIEnvironment * environment, IGUIElement * parent, s32 id, core::rect<s32> rectangle, io::IFileSystem* filesystem, bool clip, bool drawBack, bool moveOverSelect) {
-	CGUIFileSelectListBox* box = new CGUIFileSelectListBox(environment, parent, id, rectangle, filesystem, clip, drawBack, moveOverSelect);
+CGUIFileSelectListBox * CGUIFileSelectListBox::addFileSelectListBox(IGUIEnvironment * environment, IGUIElement * parent, s32 id, core::rect<s32> rectangle, bool clip, bool drawBack, bool moveOverSelect) {
+	CGUIFileSelectListBox* box = new CGUIFileSelectListBox(environment, parent, id, rectangle, clip, drawBack, moveOverSelect);
 	box->drop();
 	return box;
 }
@@ -81,7 +81,7 @@ CGUIFileSelectListBox::~CGUIFileSelectListBox() {
 
 //! returns amount of list items
 u32 CGUIFileSelectListBox::getItemCount() const {
-	return Items.size();
+	return static_cast<u32>(Items.size());
 }
 
 
@@ -134,7 +134,7 @@ s32 CGUIFileSelectListBox::getItemAt(s32 xpos, s32 ypos) const {
 		return -1;
 
 	s32 item = ((ypos - AbsoluteRect.UpperLeftCorner.Y - 1) + ScrollBar->getPos()) / ItemHeight;
-	if(item < 0 || item >= (s32)Items.size())
+	if(item < 0 || item >= static_cast<s32>(Items.size()))
 		return -1;
 
 	return item;
@@ -172,7 +172,7 @@ void CGUIFileSelectListBox::recalculateItemHeight() {
 		}
 	}
 
-	TotalItemHeight = ItemHeight * Items.size();
+	TotalItemHeight = static_cast<s32>(ItemHeight * Items.size());
 	ScrollBar->setMax(core::max_(0, TotalItemHeight - AbsoluteRect.getHeight()));
 	s32 minItemHeight = ItemHeight > 0 ? ItemHeight : 1;
 	ScrollBar->setSmallStep(minItemHeight);
@@ -208,7 +208,7 @@ void CGUIFileSelectListBox::setSelected(const wchar_t *item) {
 	s32 index = -1;
 
 	if(item) {
-		for(index = 0; index < (s32)Items.size(); ++index) {
+		for(index = 0; index < static_cast<s32>(Items.size()); ++index) {
 			if(Items[index].text == item)
 				break;
 		}
@@ -240,7 +240,7 @@ bool CGUIFileSelectListBox::OnEvent(const SEvent& event) {
 							Selected = 0;
 							break;
 						case KEY_END:
-							Selected = (s32)Items.size() - 1;
+							Selected = static_cast<s32>(Items.size()) - 1;
 							break;
 						case KEY_NEXT:
 							Selected += AbsoluteRect.getHeight() / ItemHeight;
@@ -251,8 +251,8 @@ bool CGUIFileSelectListBox::OnEvent(const SEvent& event) {
 						default:
 							break;
 					}
-					if(Selected >= (s32)Items.size())
-						Selected = Items.size() - 1;
+					if(Selected >= static_cast<s32>(Items.size()))
+						Selected = static_cast<s32>(Items.size()) - 1;
 					else
 						if(Selected < 0)
 							Selected = 0;
@@ -271,90 +271,90 @@ bool CGUIFileSelectListBox::OnEvent(const SEvent& event) {
 					}
 
 					return true;
-				} else
-					if(!event.KeyInput.PressedDown && (event.KeyInput.Key == KEY_RETURN || event.KeyInput.Key == KEY_SPACE)) {
-						if(Items[Selected].isDirectory) {
-							prevRelPath = curRelPath;
-							curRelPath = Items[Selected].reltext;
-							Selected = 0;
-							if(ScrollBar)
-								ScrollBar->setPos(0);
-							LoadFolderContents();
-							return true;
-						}
-						if(Parent) {
-							SEvent e;
-							e.EventType = EET_GUI_EVENT;
-							e.GUIEvent.Caller = this;
-							e.GUIEvent.Element = 0;
-							e.GUIEvent.EventType = EGET_LISTBOX_SELECTED_AGAIN;
-							Parent->OnEvent(e);
-						}
-						return true;
-					} else if(event.KeyInput.PressedDown && event.KeyInput.Char) {
-						// change selection based on text as it is typed.
-						u32 now = os::Timer::getTime();
-
-						if(now - LastKeyTime < 500) {
-							// add to key buffer if it isn't a key repeat
-							if(!(KeyBuffer.size() == 1 && KeyBuffer[0] == event.KeyInput.Char)) {
-								KeyBuffer += L" ";
-								KeyBuffer[KeyBuffer.size() - 1] = event.KeyInput.Char;
-							}
-						} else {
-							KeyBuffer = L" ";
-							KeyBuffer[0] = event.KeyInput.Char;
-						}
-						LastKeyTime = now;
-
-						// find the selected item, starting at the current selection
-						s32 start = Selected;
-						// dont change selection if the key buffer matches the current item
-						if(Selected > -1 && KeyBuffer.size() > 1) {
-							if(Items[Selected].text.size() >= KeyBuffer.size() &&
-							   ygo::Utils::EqualIgnoreCase(KeyBuffer, Items[Selected].text.substr(0, KeyBuffer.size())))
-								return true;
-						}
-
-						s32 current;
-						for(current = start + 1; current < (s32)Items.size(); ++current) {
-							if(Items[current].text.size() >= KeyBuffer.size()) {
-								if(ygo::Utils::EqualIgnoreCase(KeyBuffer, Items[current].text.substr(0, KeyBuffer.size()))) {
-									if(Parent && Selected != current && !Selecting && !MoveOverSelect) {
-										Selected = current;
-										SEvent e;
-										e.EventType = EET_GUI_EVENT;
-										e.GUIEvent.Caller = this;
-										e.GUIEvent.Element = 0;
-										e.GUIEvent.EventType = EGET_LISTBOX_CHANGED;
-										Parent->OnEvent(e);
-									}
-									setSelected(current);
-									return true;
-								}
-							}
-						}
-						for(current = 0; current <= start; ++current) {
-							if(Items[current].text.size() >= KeyBuffer.size()) {
-								if(ygo::Utils::EqualIgnoreCase(KeyBuffer, Items[current].text.substr(0, KeyBuffer.size()))) {
-									if(Parent && Selected != current && !Selecting && !MoveOverSelect) {
-										Selected = current;
-										SEvent e;
-										e.EventType = EET_GUI_EVENT;
-										e.GUIEvent.Caller = this;
-										e.GUIEvent.Element = 0;
-										e.GUIEvent.EventType = EGET_LISTBOX_CHANGED;
-										Parent->OnEvent(e);
-									}
-									setSelected(current);
-									return true;
-								}
-							}
-						}
-
+				} else if (!event.KeyInput.PressedDown && (event.KeyInput.Key == KEY_RETURN || event.KeyInput.Key == KEY_SPACE)) {
+					if (Items[Selected].isDirectory) {
+						prevRelPath = curRelPath;
+						curRelPath = Items[Selected].reltext;
+						Selected = 0;
+						if (ScrollBar)
+							ScrollBar->setPos(0);
+						LoadFolderContents();
 						return true;
 					}
-					break;
+					if (Parent) {
+						SEvent e;
+						e.EventType = EET_GUI_EVENT;
+						e.GUIEvent.Caller = this;
+						e.GUIEvent.Element = 0;
+						e.GUIEvent.EventType = EGET_LISTBOX_SELECTED_AGAIN;
+						Parent->OnEvent(e);
+					}
+					return true;
+				} else if (event.KeyInput.PressedDown && event.KeyInput.Char) {
+					// change selection based on text as it is typed.
+					u32 now = os::Timer::getTime();
+
+					if (now - LastKeyTime < 500) {
+						// add to key buffer if it isn't a key repeat
+						if (!(KeyBuffer.size() == 1 && KeyBuffer[0] == event.KeyInput.Char)) {
+							KeyBuffer += L" ";
+							KeyBuffer[KeyBuffer.size() - 1] = event.KeyInput.Char;
+						}
+					}
+					else {
+						KeyBuffer = L" ";
+						KeyBuffer[0] = event.KeyInput.Char;
+					}
+					LastKeyTime = now;
+
+					// find the selected item, starting at the current selection
+					s32 start = Selected;
+					// dont change selection if the key buffer matches the current item
+					if (Selected > -1 && KeyBuffer.size() > 1) {
+						if (Items[Selected].text.size() >= KeyBuffer.size() &&
+							ygo::Utils::EqualIgnoreCase(KeyBuffer, Items[Selected].text.substr(0, KeyBuffer.size())))
+							return true;
+					}
+
+					s32 current;
+					for (current = start + 1; current < static_cast<s32>(Items.size()); ++current) {
+						if (Items[current].text.size() >= KeyBuffer.size()) {
+							if (ygo::Utils::EqualIgnoreCase(KeyBuffer, Items[current].text.substr(0, KeyBuffer.size()))) {
+								if (Parent && Selected != current && !Selecting && !MoveOverSelect) {
+									Selected = current;
+									SEvent e;
+									e.EventType = EET_GUI_EVENT;
+									e.GUIEvent.Caller = this;
+									e.GUIEvent.Element = 0;
+									e.GUIEvent.EventType = EGET_LISTBOX_CHANGED;
+									Parent->OnEvent(e);
+								}
+								setSelected(current);
+								return true;
+							}
+						}
+					}
+					for (current = 0; current <= start; ++current) {
+						if (Items[current].text.size() >= KeyBuffer.size()) {
+							if (ygo::Utils::EqualIgnoreCase(KeyBuffer, Items[current].text.substr(0, KeyBuffer.size()))) {
+								if (Parent && Selected != current && !Selecting && !MoveOverSelect) {
+									Selected = current;
+									SEvent e;
+									e.EventType = EET_GUI_EVENT;
+									e.GUIEvent.Caller = this;
+									e.GUIEvent.Element = 0;
+									e.GUIEvent.EventType = EGET_LISTBOX_CHANGED;
+									Parent->OnEvent(e);
+								}
+								setSelected(current);
+								return true;
+							}
+						}
+					}
+
+					return true;
+				}
+				break;
 
 			case EET_GUI_EVENT:
 				switch(event.GUIEvent.EventType) {
@@ -421,7 +421,7 @@ bool CGUIFileSelectListBox::OnEvent(const SEvent& event) {
 }
 
 bool CGUIFileSelectListBox::isDirectory(u32 index) {
-	return index >= 0 && index < Items.size() && Items[index].isDirectory;
+	return index < Items.size() && Items[index].isDirectory;
 }
 
 void CGUIFileSelectListBox::enterDirectory(u32 index) {
@@ -527,7 +527,7 @@ void CGUIFileSelectListBox::draw() {
 
 	bool hl = (HighlightWhenNotFocused || Environment->hasFocus(this) || Environment->hasFocus(ScrollBar));
 
-	for(s32 i = 0; i < (s32)Items.size(); ++i) {
+	for(s32 i = 0; i < static_cast<s32>(Items.size()); ++i) {
 		if(frameRect.LowerRightCorner.Y >= AbsoluteRect.UpperLeftCorner.Y &&
 		   frameRect.UpperLeftCorner.Y <= AbsoluteRect.LowerRightCorner.Y) {
 			if(i == Selected && hl)
@@ -689,7 +689,7 @@ void CGUIFileSelectListBox::serializeAttributes(io::IAttributes* out, io::SAttri
 	out->addBool("MoveOverSelect", MoveOverSelect);
 	out->addBool("AutoScroll", AutoScroll);
 
-	out->addInt("ItemCount", Items.size());
+	out->addInt("ItemCount", static_cast<s32>(Items.size()));
 	for(u32 i = 0; i < Items.size(); ++i) {
 		core::stringc label("text");
 		label += i;

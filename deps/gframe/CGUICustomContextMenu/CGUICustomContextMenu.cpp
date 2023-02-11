@@ -25,14 +25,13 @@ namespace gui {
 CGUICustomContextMenu::CGUICustomContextMenu(IGUIEnvironment* environment,
 											 IGUIElement* parent, s32 id, core::rect<s32> rectangle,
 											 bool getFocus, bool allowFocus, core::rect<s32>* maxRect)
-	: IGUIContextMenu(environment, parent, id, rectangle), EventParent(0), LastFont(0),
-	CloseHandling(ECMC_REMOVE), HighLighted(-1), ChangeTime(0), AllowFocus(allowFocus), scrOrizontal(nullptr), scrVertical(nullptr) {
+	: IGUIContextMenu(environment, parent, id, rectangle), scrOrizontal(nullptr), scrVertical(nullptr), MaxRect(maxRect),
+	Pos(rectangle.UpperLeftCorner), EventParent(0), LastFont(0), CloseHandling(ECMC_REMOVE),
+	HighLighted(-1), ChangeTime(0), AllowFocus(allowFocus) {
 #ifdef _DEBUG
 	setDebugName("CGUICustomContextMenu");
 #endif
 
-	Pos = rectangle.UpperLeftCorner;
-	MaxRect = maxRect;
 	recalculateSize();
 
 	if(getFocus)
@@ -286,12 +285,12 @@ bool CGUICustomContextMenu::OnEvent(const SEvent& event) {
 							IGUIElement * p = EventParent ? EventParent : Parent;
 							setEventParent(p);
 
-							SEvent event;
-							event.EventType = EET_GUI_EVENT;
-							event.GUIEvent.Caller = this;
-							event.GUIEvent.Element = 0;
-							event.GUIEvent.EventType = EGET_ELEMENT_CLOSED;
-							if(!p->OnEvent(event)) {
+							SEvent closed_event;
+							closed_event.EventType = EET_GUI_EVENT;
+							closed_event.GUIEvent.Caller = this;
+							closed_event.GUIEvent.Element = 0;
+							closed_event.GUIEvent.EventType = EGET_ELEMENT_CLOSED;
+							if(!p->OnEvent(closed_event)) {
 								if(CloseHandling & ECMC_HIDE) {
 									setVisible(false);
 								}
@@ -505,7 +504,6 @@ void CGUICustomContextMenu::draw() {
 	// loop through all menu items
 
 	rect = AbsoluteRect;
-	s32 y = AbsoluteRect.UpperLeftCorner.Y;
 
 	for(s32 i = 0; i < (s32)Items.size(); ++i) {
 		if(Items[i].IsSeparator) {
@@ -520,8 +518,6 @@ void CGUICustomContextMenu::draw() {
 			rect.LowerRightCorner.Y += 1;
 			rect.UpperLeftCorner.Y += 1;
 			skin->draw2DRectangle(this, skin->getColor(EGDC_3D_HIGH_LIGHT), rect, clip);
-
-			y += 10;
 		} else if(Items[i].IsCustom) {
 			/*draw of tose elements is andled by the engine*/
 		} else {

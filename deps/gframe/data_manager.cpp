@@ -67,33 +67,30 @@ sqlite3* DataManager::OpenDb(irr::io::IReadFile* reader) {
 
 static inline bool GetWstring(std::wstring& out, sqlite3_stmt* stmt, int iCol) {
 #if WCHAR_MAX == UINT16_MAX
-	auto* text = (const wchar_t*)sqlite3_column_text16(stmt, iCol);
-	if(text != nullptr) {
-		auto len = static_cast<size_t>(sqlite3_column_bytes16(stmt, iCol)) / sizeof(wchar_t);
-		if(len != 0) {
-			out.assign(text, len);
-			return true;
-		}
+	auto* text = static_cast<const wchar_t*>(sqlite3_column_text16(stmt, iCol));
+	if(text == nullptr || *text == L'\0') {
+		out.clear();
+		return false;
 	}
+	auto len = static_cast<size_t>(sqlite3_column_bytes16(stmt, iCol)) / sizeof(wchar_t);
+	out.assign(text, len);
 #else
-	auto* text = (const char*)sqlite3_column_text(stmt, iCol);
-	if(text != nullptr) {
-		auto len = static_cast<size_t>(sqlite3_column_bytes(stmt, iCol));
-		if(len != 0) {
-			out = BufferIO::DecodeUTF8({ text, len });
-			return true;
-		}
+	auto* text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, iCol));
+	if(text == nullptr || *text == '\0') {
+		out.clear();
+		return false;
 	}
+	auto len = static_cast<size_t>(sqlite3_column_bytes(stmt, iCol));
+	out = BufferIO::DecodeUTF8({ text, len });
 #endif
-	out.clear();
-	return false;
+	return true;
 }
 
 bool DataManager::ParseDB(sqlite3* pDB) {
 	if(pDB == nullptr)
 		return false;
 	sqlite3_stmt* pStmt;
-	if(sqlite3_prepare_v2(pDB, SELECT_STMT.data(), SELECT_STMT.size() + 1, &pStmt, 0) != SQLITE_OK)
+	if(sqlite3_prepare_v2(pDB, SELECT_STMT.data(), static_cast<int>(SELECT_STMT.size() + 1), &pStmt, 0) != SQLITE_OK)
 		return Error(pDB);
 	auto indexesiterator = indexes.begin();
 	for(int step = sqlite3_step(pStmt); step != SQLITE_DONE; step = sqlite3_step(pStmt)) {
@@ -175,7 +172,7 @@ bool DataManager::ParseLocaleDB(sqlite3* pDB) {
 	if(pDB == nullptr)
 		return false;
 	sqlite3_stmt* pStmt;
-	if(sqlite3_prepare_v2(pDB, SELECT_STMT_LOCALE.data(), SELECT_STMT_LOCALE.size() + 1, &pStmt, 0) != SQLITE_OK)
+	if(sqlite3_prepare_v2(pDB, SELECT_STMT_LOCALE.data(), static_cast<int>(SELECT_STMT_LOCALE.size() + 1), &pStmt, 0) != SQLITE_OK)
 		return Error(pDB);
 	auto indexesiterator = indexes.begin();
 	for(int step = sqlite3_step(pStmt); step != SQLITE_DONE; step = sqlite3_step(pStmt)) {
@@ -412,7 +409,7 @@ std::vector<uint16_t> DataManager::GetSetCode(const std::vector<std::wstring>& s
 	}
 	return res;
 }
-std::wstring DataManager::GetNumString(int num, bool bracket) const {
+std::wstring DataManager::GetNumString(size_t num, bool bracket) const {
 	if(!bracket)
 		return fmt::to_wstring(num);
 	return epro::format(L"({})", num);

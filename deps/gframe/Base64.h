@@ -55,20 +55,6 @@ static const char* base64_chars[2] = {
 			 "0123456789"
 			 "-_" };
 
-static int pos_of_char(int chr) {
-	//
-	// Return the position of chr within base64_encode()
-	//
-
-	if(chr >= 'A' && chr <= 'Z') return chr - 'A';
-	else if(chr >= 'a' && chr <= 'z') return chr - 'a' + ('Z' - 'A') + 1;
-	else if(chr >= '0' && chr <= '9') return chr - '0' + ('Z' - 'A') + ('z' - 'a') + 2;
-	else if(chr == '+' || chr == '-') return 62; // Be liberal with input and accept both url ('-') and non-url ('+') base 64 characters (
-	else if(chr == '/' || chr == '_') return 63; // Ditto for '/' and '_'
-
-	return -1;
-}
-
 template<typename T = std::wstring>
 static T insert_linebreaks(T str, size_t distance) {
 	using valtype = typename T::value_type;
@@ -164,6 +150,20 @@ R base64_encode_mime(const T& s) {
 template<typename R = std::vector<uint8_t>, typename T = wchar_t>
 R base64_decode(const T* encoded_string, size_t in_len, bool remove_linebreaks = false, bool abort_on_invalid = false) {
 	using valtype = typename R::value_type;
+
+	auto pos_of_char = [](int chr)->int {
+		//
+		// Return the position of chr within base64_encode()
+		//
+
+		if (chr >= 'A' && chr <= 'Z') return chr - 'A';
+		else if (chr >= 'a' && chr <= 'z') return chr - 'a' + ('Z' - 'A') + 1;
+		else if (chr >= '0' && chr <= '9') return chr - '0' + ('Z' - 'A') + ('z' - 'a') + 2;
+		else if (chr == '+' || chr == '-') return 62; // Be liberal with input and accept both url ('-') and non-url ('+') base 64 characters (
+		else if (chr == '/' || chr == '_') return 63; // Ditto for '/' and '_'
+
+		return -1;
+	};
 
 	if(remove_linebreaks) {
 

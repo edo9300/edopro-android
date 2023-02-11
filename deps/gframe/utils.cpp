@@ -127,11 +127,11 @@ LONG WINAPI crashDumpHandler(EXCEPTION_POINTERS* pExceptionInfo) {
 		return EXCEPTION_CONTINUE_SEARCH;
 
 	/*
-     * Dump as much as we can, except shared memory, code segments, and
-     * memory mapped files. Exactly what we can dump depends on the
-     * version of dbghelp.dll, see:
-     * http://msdn.microsoft.com/en-us/library/ms680519(v=VS.85).aspx
-    */
+	* Dump as much as we can, except shared memory, code segments, and
+	* memory mapped files. Exactly what we can dump depends on the
+	* version of dbghelp.dll, see:
+	* http://msdn.microsoft.com/en-us/library/ms680519(v=VS.85).aspx
+	*/
 	auto dumpType = static_cast<MINIDUMP_TYPE>(MiniDumpNormal | MiniDumpWithHandleData | MiniDumpWithDataSegs);
 
 	if(GetProcAddress(dbgHelpDLL, "EnumDirTree") != nullptr) {
@@ -610,8 +610,6 @@ namespace ygo {
 				int percentage = 0;
 				auto reader = archive->createAndOpenFile(i);
 				if(reader) {
-					FileStream out{ epro::format(EPRO_TEXT("{}/{}"), dest, filename), FileStream::out | FileStream::binary };
-					int r, rx = reader->getSize();
 					if(payload) {
 						payload->is_new = true;
 						payload->cur = i;
@@ -620,8 +618,10 @@ namespace ygo {
 						callback(payload);
 						payload->is_new = false;
 					}
+					FileStream out{ epro::format(EPRO_TEXT("{}/{}"), dest, filename), FileStream::out | FileStream::binary };
+					size_t r, rx = reader->getSize();
 					for(r = 0; r < rx; /**/) {
-						int wx = reader->read(buff, buff_size);
+						int wx = static_cast<int>(reader->read(buff, buff_size));
 						out.write(buff, wx);
 						r += wx;
 						cur_fullsize += wx;
@@ -697,6 +697,7 @@ namespace ygo {
 #ifdef __linux__
 			execl(path.data(), path.data(), "-C", GetWorkingDirectory().data(), "-l", nullptr);
 #else
+			(void)path;
 			execlp("open", "open", "-b", "io.github.edo9300.ygoprodll", "--args", "-C", GetWorkingDirectory().data(), "-l", nullptr);
 #endif
 			_exit(EXIT_FAILURE);

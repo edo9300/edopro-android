@@ -38,8 +38,8 @@ static void UpdateDeck() {
 	const auto totsize = deck.main.size() + deck.extra.size() + deck.side.size();
 	if(totsize > max_deck_size)
 		return;
-	BufferIO::Write<uint32_t>(pdeck, deck.main.size() + deck.extra.size());
-	BufferIO::Write<uint32_t>(pdeck, deck.side.size());
+	BufferIO::Write<uint32_t>(pdeck, static_cast<uint32_t>(deck.main.size() + deck.extra.size()));
+	BufferIO::Write<uint32_t>(pdeck, static_cast<uint32_t>(deck.side.size()));
 	for(const auto& pcard : deck.main)
 		BufferIO::Write<uint32_t>(pdeck, pcard->code);
 	for(const auto& pcard : deck.extra)
@@ -307,14 +307,10 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				break;
 			}
 			case BUTTON_HP_KICK: {
-				int id = 0;
-				while(id < 6) {
-					if(mainGame->btnHostPrepKick[id] == caller)
-						break;
-					id++;
-				}
 				CTOS_Kick csk;
-				csk.pos = id;
+				csk.pos = 0;
+				while (csk.pos < 6 && mainGame->btnHostPrepKick[csk.pos] != caller)
+					csk.pos++;
 				DuelClient::SendPacketToServer(CTOS_HS_KICK, csk);
 				break;
 			}
@@ -913,7 +909,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 					}
 	#undef CHECK
 					mainGame->duel_param |= tcg;
-					for (int i = 0; i < sizeofarr(mainGame->chkCustomRules); ++i) {
+					for (auto i = 0u; i < sizeofarr(mainGame->chkCustomRules); ++i) {
 						bool set = false;
 						if(i == 19)
 							set = mainGame->duel_param & DUEL_USE_TRAPS_IN_NEW_CHAIN;
@@ -930,7 +926,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 							mainGame->chkCustomRules[4]->setEnabled(set);
 					}
 					static constexpr uint32_t limits[]{ TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
-					for (int i = 0; i < sizeofarr(mainGame->chkTypeLimit); ++i)
+					for (auto i = 0u; i < sizeofarr(mainGame->chkTypeLimit); ++i)
 							mainGame->chkTypeLimit[i]->setChecked(mainGame->forbiddentypes & limits[i]);
 				}
 				break;
@@ -991,7 +987,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 				mainGame->UpdateExtraRules();
 				}
 #undef CHECK
-				for(int i = 0; i < sizeofarr(mainGame->chkCustomRules); ++i) {
+				for(auto i = 0u; i < sizeofarr(mainGame->chkCustomRules); ++i) {
 					bool set = false;
 					if(i == 19)
 						set = mainGame->duel_param & DUEL_USE_TRAPS_IN_NEW_CHAIN;
@@ -1008,7 +1004,7 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 						mainGame->chkCustomRules[4]->setEnabled(set);
 				}
 				static constexpr uint32_t limits[]{ TYPE_FUSION, TYPE_SYNCHRO, TYPE_XYZ, TYPE_PENDULUM, TYPE_LINK };
-				for(int i = 0; i < sizeofarr(mainGame->chkTypeLimit); ++i)
+				for(auto i = 0u; i < sizeofarr(mainGame->chkTypeLimit); ++i)
 					mainGame->chkTypeLimit[i]->setChecked(mainGame->forbiddentypes & limits[i]);
 				break;
 			}
