@@ -32,7 +32,7 @@ namespace irr
 			Fullscreen(false),
 			WindowResizable(false),
 			Stencilbuffer(true),
-			Vsync(false),
+			Vsync(0),
 			AntiAlias(0),
 			HandleSRGB(false),
 			WithAlphaChannel(false),
@@ -144,11 +144,15 @@ namespace irr
 		Default: true. */
 		bool Stencilbuffer;
 
-		//! Specifies vertical synchronization.
-		/** If set to true, the driver will wait for the vertical
-		retrace period, otherwise not. May be silently ignored.
-		Default: false */
-		bool Vsync;
+		//! Specifies vertical synchronization interval.
+		/** 
+		A value of 0 means no vertical synchronization is performed,
+		a value of 1 means that the driver will try to match the monitor's refresh rate when drawing
+		a value of 2 means that the driver will try to match the monitor's refresh rate halved when drawing
+		and so on.
+		The driver might not uspport high values and they will be silently ignored
+		Default: 0 */
+		u8 Vsync;
 
 		//! Specifies if the device should use fullscreen anti aliasing
 		/** Makes sharp/pixelated edges softer, but requires more

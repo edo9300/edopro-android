@@ -115,6 +115,9 @@ struct SExposedVideoData
 
 		//! The SDL_GLContext* object.
 		void* Context;
+
+		//! The HWND handle for Windows
+		void* HWnd;
 	};
 
 	union

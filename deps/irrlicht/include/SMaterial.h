@@ -660,11 +660,11 @@ namespace video
 				}
 				break;
 				case EMF_ANTI_ALIASING:
-					AntiAliasing = value?EAAM_SIMPLE:EAAM_OFF; break;
+					AntiAliasing = (u8)(value?EAAM_SIMPLE:EAAM_OFF); break;
 				case EMF_COLOR_MASK:
-					ColorMask = value?ECP_ALL:ECP_NONE; break;
+					ColorMask = (u8)(value?ECP_ALL:ECP_NONE); break;
 				case EMF_COLOR_MATERIAL:
-					ColorMaterial = value?ECM_DIFFUSE:ECM_NONE; break;
+					ColorMaterial = (u8)(value?ECM_DIFFUSE:ECM_NONE); break;
 				case EMF_USE_MIP_MAPS:
 					UseMipMaps = value; break;
 				case EMF_BLEND_OPERATION:

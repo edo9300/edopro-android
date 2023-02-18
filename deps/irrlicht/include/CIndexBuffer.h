@@ -78,6 +78,10 @@ namespace scene
 
 			virtual void* pointer() _IRR_OVERRIDE_  {return Indices.pointer();}
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4127) //conditional expression is constant
+#endif
 			virtual video::E_INDEX_TYPE getType() const _IRR_OVERRIDE_
 			{
 				if (sizeof(T)==sizeof(u16))
@@ -85,6 +89,9 @@ namespace scene
 				else
 					return video::EIT_32BIT;
 			}
+#ifdef _MSC_VER
+#pragma warning(pop) //conditional expression is constant
+#endif
 		};
 
 	public:

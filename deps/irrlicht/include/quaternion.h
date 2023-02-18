@@ -404,24 +404,24 @@ inline void quaternion::getMatrix(matrix4 &dest,
 
 	quaternion q( *this);
 	q.normalize();
-	f32 X = q.X;
-	f32 Y = q.Y;
-	f32 Z = q.Z;
-	f32 W = q.W;
+	f32 normalized_X = q.X;
+	f32 normalized_Y = q.Y;
+	f32 normalized_Z = q.Z;
+	f32 normalized_W = q.W;
 
-	dest[0] = 1.0f - 2.0f*Y*Y - 2.0f*Z*Z;
-	dest[1] = 2.0f*X*Y + 2.0f*Z*W;
-	dest[2] = 2.0f*X*Z - 2.0f*Y*W;
+	dest[0] = 1.0f - 2.0f*normalized_Y*normalized_Y - 2.0f*normalized_Z*normalized_Z;
+	dest[1] = 2.0f*normalized_X*normalized_Y + 2.0f*normalized_Z*normalized_W;
+	dest[2] = 2.0f*normalized_X*normalized_Z - 2.0f*normalized_Y*normalized_W;
 	dest[3] = 0.0f;
 
-	dest[4] = 2.0f*X*Y - 2.0f*Z*W;
-	dest[5] = 1.0f - 2.0f*X*X - 2.0f*Z*Z;
-	dest[6] = 2.0f*Z*Y + 2.0f*X*W;
+	dest[4] = 2.0f*normalized_X*normalized_Y - 2.0f*normalized_Z*normalized_W;
+	dest[5] = 1.0f - 2.0f*normalized_X*normalized_X - 2.0f*normalized_Z*normalized_Z;
+	dest[6] = 2.0f*normalized_Z*normalized_Y + 2.0f*normalized_X*normalized_W;
 	dest[7] = 0.0f;
 
-	dest[8] = 2.0f*X*Z + 2.0f*Y*W;
-	dest[9] = 2.0f*Z*Y - 2.0f*X*W;
-	dest[10] = 1.0f - 2.0f*X*X - 2.0f*Y*Y;
+	dest[8] = 2.0f*normalized_X*normalized_Z + 2.0f*normalized_Y*normalized_W;
+	dest[9] = 2.0f*normalized_Z*normalized_Y - 2.0f*normalized_X*normalized_W;
+	dest[10] = 1.0f - 2.0f*normalized_X*normalized_X - 2.0f*normalized_Y*normalized_Y;
 	dest[11] = 0.0f;
 
 	dest[12] = center.X;
@@ -451,24 +451,24 @@ inline void quaternion::getMatrixCenter(matrix4 &dest,
 {
 	quaternion q(*this);
 	q.normalize();
-	f32 X = q.X;
-	f32 Y = q.Y;
-	f32 Z = q.Z;
-	f32 W = q.W;
+	f32 normalized_X = q.X;
+	f32 normalized_Y = q.Y;
+	f32 normalized_Z = q.Z;
+	f32 normalized_W = q.W;
 
-	dest[0] = 1.0f - 2.0f*Y*Y - 2.0f*Z*Z;
-	dest[1] = 2.0f*X*Y + 2.0f*Z*W;
-	dest[2] = 2.0f*X*Z - 2.0f*Y*W;
+	dest[0] = 1.0f - 2.0f*normalized_Y*normalized_Y - 2.0f*normalized_Z*normalized_Z;
+	dest[1] = 2.0f*normalized_X*normalized_Y + 2.0f*normalized_Z*normalized_W;
+	dest[2] = 2.0f*normalized_X*normalized_Z - 2.0f*normalized_Y*normalized_W;
 	dest[3] = 0.0f;
 
-	dest[4] = 2.0f*X*Y - 2.0f*Z*W;
-	dest[5] = 1.0f - 2.0f*X*X - 2.0f*Z*Z;
-	dest[6] = 2.0f*Z*Y + 2.0f*X*W;
+	dest[4] = 2.0f*normalized_X*normalized_Y - 2.0f*normalized_Z*normalized_W;
+	dest[5] = 1.0f - 2.0f*normalized_X*normalized_X - 2.0f*normalized_Z*normalized_Z;
+	dest[6] = 2.0f*normalized_Z*normalized_Y + 2.0f*normalized_X*normalized_W;
 	dest[7] = 0.0f;
 
-	dest[8] = 2.0f*X*Z + 2.0f*Y*W;
-	dest[9] = 2.0f*Z*Y - 2.0f*X*W;
-	dest[10] = 1.0f - 2.0f*X*X - 2.0f*Y*Y;
+	dest[8] = 2.0f*normalized_X*normalized_Z + 2.0f*normalized_Y*normalized_W;
+	dest[9] = 2.0f*normalized_Z*normalized_Y - 2.0f*normalized_X*normalized_W;
+	dest[10] = 1.0f - 2.0f*normalized_X*normalized_X - 2.0f*normalized_Y*normalized_Y;
 	dest[11] = 0.0f;
 
 	dest.setRotationCenter ( center, translation );
@@ -479,24 +479,24 @@ inline void quaternion::getMatrix_transposed(matrix4 &dest) const
 {
 	quaternion q(*this);
 	q.normalize();
-	f32 X = q.X;
-	f32 Y = q.Y;
-	f32 Z = q.Z;
-	f32 W = q.W;
+	f32 normalized_X = q.X;
+	f32 normalized_Y = q.Y;
+	f32 normalized_Z = q.Z;
+	f32 normalized_W = q.W;
 
-	dest[0] = 1.0f - 2.0f*Y*Y - 2.0f*Z*Z;
-	dest[4] = 2.0f*X*Y + 2.0f*Z*W;
-	dest[8] = 2.0f*X*Z - 2.0f*Y*W;
+	dest[0] = 1.0f - 2.0f*normalized_Y*normalized_Y - 2.0f*normalized_Z*normalized_Z;
+	dest[4] = 2.0f*normalized_X*normalized_Y + 2.0f*normalized_Z*normalized_W;
+	dest[8] = 2.0f*normalized_X*normalized_Z - 2.0f*normalized_Y*normalized_W;
 	dest[12] = 0.0f;
 
-	dest[1] = 2.0f*X*Y - 2.0f*Z*W;
-	dest[5] = 1.0f - 2.0f*X*X - 2.0f*Z*Z;
-	dest[9] = 2.0f*Z*Y + 2.0f*X*W;
+	dest[1] = 2.0f*normalized_X*normalized_Y - 2.0f*normalized_Z*normalized_W;
+	dest[5] = 1.0f - 2.0f*normalized_X*normalized_X - 2.0f*normalized_Z*normalized_Z;
+	dest[9] = 2.0f*normalized_Z*normalized_Y + 2.0f*normalized_X*normalized_W;
 	dest[13] = 0.0f;
 
-	dest[2] = 2.0f*X*Z + 2.0f*Y*W;
-	dest[6] = 2.0f*Z*Y - 2.0f*X*W;
-	dest[10] = 1.0f - 2.0f*X*X - 2.0f*Y*Y;
+	dest[2] = 2.0f*normalized_X*normalized_Z + 2.0f*normalized_Y*normalized_W;
+	dest[6] = 2.0f*normalized_Z*normalized_Y - 2.0f*normalized_X*normalized_W;
+	dest[10] = 1.0f - 2.0f*normalized_X*normalized_X - 2.0f*normalized_Y*normalized_Y;
 	dest[14] = 0.0f;
 
 	dest[3] = 0.f;
