@@ -3454,7 +3454,7 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 		const auto count = CompatRead<uint8_t, uint32_t>(pbuf);
 		auto lock = LockIf();
 		auto& deck = mainGame->dField.deck[player];
-		for (auto it = deck.rbegin(), end = it + 5; it != end; ++it) {
+		for (auto it = deck.crbegin(), end = it + count; it != end; ++it) {
 			auto pcard = *it;
 			const auto code = BufferIO::Read<uint32_t>(pbuf);
 			if(!mainGame->dInfo.compat_mode) {
@@ -4482,7 +4482,7 @@ void DuelClient::ReplayPrompt(bool local_stream) {
 	mainGame->btnChainWhenAvail->setVisible(false);
 	mainGame->btnCancelOrFinish->setVisible(false);
 	auto now = std::time(nullptr);
-	mainGame->PopupSaveWindow(gDataManager->GetSysString(1340), epro::format(L"{:%Y-%m-%d %H-%M-%S}", *std::localtime(&now)), gDataManager->GetSysString(1342));
+	mainGame->PopupSaveWindow(gDataManager->GetSysString(1340), epro::format(L"{:%Y-%m-%d %H-%M-%S}", fmt::localtime(now)), gDataManager->GetSysString(1342));
 	mainGame->replaySignal.Wait(lock);
 	if(mainGame->saveReplay || !is_local_host) {
 		if(mainGame->saveReplay)
