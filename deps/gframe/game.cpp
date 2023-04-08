@@ -39,13 +39,10 @@
 #include "joystick_wrapper.h"
 #include "CGUIWindowedTabControl/CGUIWindowedTabControl.h"
 #include "file_stream.h"
+#include "porting.h"
 
 #if defined(__ANDROID__) || defined(EDOPRO_IOS)
 #include "CGUICustomComboBox/CGUICustomComboBox.h"
-namespace porting {
-	void dispatchQueuedMessages();
-}
-
 #define EnableMaterial2D(enable) driver->enableMaterial2D(enable)
 #define DispatchQueue() porting::dispatchQueuedMessages()
 #else
@@ -313,6 +310,7 @@ void Game::Initialize() {
 	btnCreateHost->setEnabled(coreloaded);
 
 	PopulateGameHostWindows();
+	PopulateAIBotWindow();
 
 	//img
 	wCardImg = env->addStaticText(L"", Scale(1, 1, 1 + CARD_IMG_WRAPPER_WIDTH, 1 + CARD_IMG_WRAPPER_HEIGHT), true, false, 0, -1, true);
@@ -1346,21 +1344,6 @@ void Game::PopulateGameHostWindows() {
 		chkHostPrepReady[i] = env->addCheckBox(false, Scale(250, 65 + i * 25, 270, 85 + i * 25), wHostPrepare, CHECKBOX_HP_READY, L"");
 		chkHostPrepReady[i]->setEnabled(false);
 	}
-	gBot.window = env->addWindow(Scale(750, 120, 960, 420), false, gDataManager->GetSysString(2051).data());
-	defaultStrings.emplace_back(gBot.window, 2051);
-	gBot.window->getCloseButton()->setVisible(false);
-	gBot.window->setVisible(false);
-	gBot.deckProperties = env->addStaticText(L"", Scale(10, 25, 200, 100), true, true, gBot.window);
-	gBot.chkThrowRock = env->addCheckBox(gGameConfig->botThrowRock, Scale(10, 105, 200, 130), gBot.window, -1, gDataManager->GetSysString(2052).data());
-	defaultStrings.emplace_back(gBot.chkThrowRock, 2052);
-	gBot.chkMute = env->addCheckBox(gGameConfig->botMute, Scale(10, 135, 200, 160), gBot.window, -1, gDataManager->GetSysString(2053).data());
-	defaultStrings.emplace_back(gBot.chkMute, 2053);
-	gBot.cbBotDeck = AddComboBox(env, Scale(10, 165, 200, 190), gBot.window, COMBOBOX_BOT_DECK);
-	gBot.stBotEngine = env->addStaticText(gDataManager->GetSysString(2082).data(), Scale(10, 195, 200, 220), false, false, gBot.window);
-	defaultStrings.emplace_back(gBot.stBotEngine, 2082);
-	gBot.cbBotEngine = AddComboBox(env, Scale(10, 225, 200, 250), gBot.window, COMBOBOX_BOT_ENGINE);
-	gBot.btnAdd = env->addButton(Scale(10, 260, 200, 285), gBot.window, BUTTON_BOT_ADD, gDataManager->GetSysString(2054).data());
-	defaultStrings.emplace_back(gBot.btnAdd, 2054);
 	btnHostPrepOB = env->addButton(Scale(10, 180, 110, 205), wHostPrepare, BUTTON_HP_OBSERVER, gDataManager->GetSysString(1252).data());
 	defaultStrings.emplace_back(btnHostPrepOB, 1252);
 	stHostPrepOB = env->addStaticText(epro::format(L"{} 0", gDataManager->GetSysString(1253)).data(), Scale(10, 210, 270, 230), false, false, wHostPrepare);
@@ -1380,6 +1363,33 @@ void Game::PopulateGameHostWindows() {
 	defaultStrings.emplace_back(btnHostPrepStart, 1215);
 	btnHostPrepCancel = env->addButton(Scale(350, 280, 460, 305), wHostPrepare, BUTTON_HP_CANCEL, gDataManager->GetSysString(1210).data());
 	defaultStrings.emplace_back(btnHostPrepCancel, 1210);
+}
+
+void Game::PopulateAIBotWindow() {
+#if !defined(__ANDROID__) && !defined(EDOPRO_IOS)
+	static constexpr bool showWindbotArgs = true;
+#else
+	static constexpr bool showWindbotArgs = false;
+#endif
+	gBot.window = env->addWindow(Scale(750, 120, 960, showWindbotArgs ? 455 : 420), false, gDataManager->GetSysString(2051).data());
+	defaultStrings.emplace_back(gBot.window, 2051);
+	gBot.window->getCloseButton()->setVisible(false);
+	gBot.window->setVisible(false);
+	gBot.deckProperties = env->addStaticText(L"", Scale(10, 25, 200, 100), true, true, gBot.window);
+	gBot.chkThrowRock = env->addCheckBox(gGameConfig->botThrowRock, Scale(10, 105, 200, 130), gBot.window, -1, gDataManager->GetSysString(2052).data());
+	defaultStrings.emplace_back(gBot.chkThrowRock, 2052);
+	gBot.chkMute = env->addCheckBox(gGameConfig->botMute, Scale(10, 135, 200, 160), gBot.window, -1, gDataManager->GetSysString(2053).data());
+	defaultStrings.emplace_back(gBot.chkMute, 2053);
+	gBot.cbBotDeck = AddComboBox(env, Scale(10, 165, 200, 190), gBot.window, COMBOBOX_BOT_DECK);
+	gBot.stBotEngine = env->addStaticText(gDataManager->GetSysString(2082).data(), Scale(10, 195, 200, 220), false, false, gBot.window);
+	defaultStrings.emplace_back(gBot.stBotEngine, 2082);
+	gBot.cbBotEngine = AddComboBox(env, Scale(10, 225, 200, 250), gBot.window, COMBOBOX_BOT_ENGINE);
+	gBot.btnAdd = env->addButton(Scale(10, 260, 200, 285), gBot.window, BUTTON_BOT_ADD, gDataManager->GetSysString(2054).data());
+	defaultStrings.emplace_back(gBot.btnAdd, 2054);
+	if(showWindbotArgs) {
+		gBot.btnCommand = env->addButton(Scale(10, 295, 200, 320), gBot.window, BUTTON_BOT_COPY_COMMAND, gDataManager->GetSysString(12120).data());
+		defaultStrings.emplace_back(gBot.btnCommand, 12120);
+	}
 }
 
 void Game::PopulateTabSettingsWindow() {
@@ -2596,6 +2606,12 @@ void Game::SaveConfig() {
 	gGameConfig->useIntegratedGpu = gSettings.chkIntegratedGPU->isChecked();
 #endif
 	gGameConfig->driver_type = static_cast<irr::video::E_DRIVER_TYPE>(gSettings.cbVideoDriver->getItemData(gSettings.cbVideoDriver->getSelected()));
+#ifdef __ANDROID__
+	if(gGameConfig->Save(epro::format("{}/system.conf", porting::internal_storage))) {
+		Utils::FileCopy(epro::format("{}/system.conf", porting::internal_storage), EPRO_TEXT("./config/system.conf"));
+		return;
+	}
+#endif
 	gGameConfig->Save(EPRO_TEXT("./config/system.conf"));
 }
 Game::RepoGui* Game::AddGithubRepositoryStatusWindow(const GitRepo* repo) {
