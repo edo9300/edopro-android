@@ -12,3 +12,4 @@ local.properties
 *.iml
 *.directory
 .DS_Store
+bundled_font.cpp
