@@ -3,7 +3,9 @@ LOCAL_PATH := $(call my-dir)/..
 include $(CLEAR_VARS)
 LOCAL_MODULE := EDOProClient
 
-LOCAL_CFLAGS := -DYGOPRO_USE_SFML -D_ANDROID -DYGOPRO_BUILD_DLL -Wno-deprecated-declarations -Wno-inconsistent-missing-override -Wextra -Wno-missing-field-initializers -Wno-unused-parameter
+LOCAL_CFLAGS := -DYGOPRO_USE_SFML -D_ANDROID -DYGOPRO_BUILD_DLL -Wno-deprecated-declarations -Wextra -Wpedantic -Wall\
+				-Wno-unused-parameter -Wno-unused-lambda-capture -Wno-missing-braces -Wno-unused-function\
+				-Wno-missing-field-initializers -Wno-main
 
 ifeq ($(APP_OPTIM),debug)
 LOCAL_CFLAGS += -g -D_DEBUG
