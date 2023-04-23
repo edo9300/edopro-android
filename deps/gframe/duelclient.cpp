@@ -1,12 +1,13 @@
 #include <algorithm>
 #include <fmt/printf.h>
 #include <fmt/chrono.h>
-#if defined(_WIN32)
+#include "config.h"
+#if EDOPRO_WINDOWS
 #include <ws2tcpip.h>
 #else
 #include <arpa/inet.h>
 #include <unistd.h>
-#if !defined(__ANDROID__)
+#if !EDOPRO_ANDROID
 #include <sys/types.h>
 #include <signal.h>
 #include <ifaddrs.h>
@@ -162,7 +163,7 @@ void DuelClient::StopClient(bool is_exiting) {
 		to_analyze.clear();
 		event_base_loopbreak(client_base);
 		to_analyze_mutex.unlock();
-#if !defined(_WIN32) && !defined(__ANDROID__)
+#if EDOPRO_LINUX || EDOPRO_MACOS
 		for(auto& pid : mainGame->gBot.windbotsPids) {
 			kill(pid, SIGKILL);
 			(void)waitpid(pid, nullptr, 0);
@@ -3832,15 +3833,9 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 	case MSG_ANNOUNCE_RACE: {
 		/*const auto player = */mainGame->LocalPlayer(BufferIO::Read<uint8_t>(pbuf));
 		mainGame->dField.announce_count = BufferIO::Read<uint8_t>(pbuf);
-		const auto available = BufferIO::Read<uint64_t>(pbuf);
-		uint64_t filter = 0x1;
-		for(int i = 0; i < 25; ++i, filter <<= 1) {
-			mainGame->chkRace[i]->setChecked(false);
-			if(filter & available)
-				mainGame->chkRace[i]->setVisible(true);
-			else mainGame->chkRace[i]->setVisible(false);
-		}
+		const auto available = CompatRead<uint32_t, uint64_t>(pbuf);
 		std::unique_lock<epro::mutex> lock(mainGame->gMutex);
+		mainGame->dField.ShowSelectRace(available);
 		mainGame->wANRace->setText(gDataManager->GetDesc(select_hint ? select_hint : 563, mainGame->dInfo.compat_mode).data());
 		mainGame->PopupElement(mainGame->wANRace);
 		select_hint = 0;
@@ -3850,11 +3845,10 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 		/*const auto player = */mainGame->LocalPlayer(BufferIO::Read<uint8_t>(pbuf));
 		mainGame->dField.announce_count = BufferIO::Read<uint8_t>(pbuf);
 		const auto available = BufferIO::Read<uint32_t>(pbuf);
-		for(int i = 0, filter = 0x1; i < 7; ++i, filter <<= 1) {
+		uint32_t filter = 0x1;
+		for(auto i = 0u; i < sizeofarr(mainGame->chkAttribute); ++i, filter <<= 1) {
 			mainGame->chkAttribute[i]->setChecked(false);
-			if(filter & available)
-				mainGame->chkAttribute[i]->setVisible(true);
-			else mainGame->chkAttribute[i]->setVisible(false);
+			mainGame->chkAttribute[i]->setVisible((filter& available) != 0);
 		}
 		std::unique_lock<epro::mutex> lock(mainGame->gMutex);
 		mainGame->wANAttribute->setText(gDataManager->GetDesc(select_hint ? select_hint : 562, mainGame->dInfo.compat_mode).data());
@@ -4262,9 +4256,9 @@ void DuelClient::SendResponse() {
 
 static std::vector<uint32_t> getAddresses() {
 	std::vector<uint32_t> addresses;
-#ifdef __ANDROID__
+#if EDOPRO_ANDROID
 	return porting::getLocalIP();
-#elif defined(_WIN32)
+#elif EDOPRO_WINDOWS
 	char hname[256];
 	gethostname(hname, 256);
 	evutil_addrinfo hints;

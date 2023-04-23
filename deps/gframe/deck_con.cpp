@@ -828,7 +828,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 		}
 		break;
 	}
-#if !defined(__ANDROID__) && !defined(EDOPRO_IOS)
+#if !EDOPRO_ANDROID && !EDOPRO_IOS
 	case irr::EET_DROP_EVENT: {
 		static std::wstring to_open_file;
 		switch(event.DropEvent.DropType) {
@@ -1033,7 +1033,7 @@ void DeckBuilder::StartFilter(bool force_refresh) {
 	filter_lm = static_cast<limitation_search_filters>(mainGame->cbLimit->getItemData(mainGame->cbLimit->getSelected()));
 	if(filter_type == 1) {
 		filter_attrib = mainGame->cbAttribute->getItemData(mainGame->cbAttribute->getSelected());
-		filter_race = mainGame->cbRace->getItemData(mainGame->cbRace->getSelected());
+		filter_race = UINT64_C(1) << mainGame->cbRace->getItemData(mainGame->cbRace->getSelected());
 		filter_atk = parse_filter(mainGame->ebAttack->getText(), filter_atktype);
 		filter_def = parse_filter(mainGame->ebDefense->getText(), filter_deftype);
 		filter_lv = parse_filter(mainGame->ebStar->getText(), filter_lvtype);
