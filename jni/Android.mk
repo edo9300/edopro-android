@@ -68,6 +68,7 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/Android/COSAndroidOperator.cpp \
 				   $(GFRAME_PATH)/CXMLRegistry/CXMLRegistry.cpp \
 				   $(GFRAME_PATH)/MD5/md5.c \
 				   $(GFRAME_PATH)/ResizeablePanel/ResizeablePanel.cpp \
+				   $(GFRAME_PATH)/address.cpp \
 				   $(GFRAME_PATH)/client_card.cpp \
 				   $(GFRAME_PATH)/client_field.cpp \
 				   $(GFRAME_PATH)/client_updater.cpp \
