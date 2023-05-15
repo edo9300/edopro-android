@@ -21,6 +21,7 @@ import android.view.WindowManager;
 
 import java.io.File;
 import java.net.Inet4Address;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.Collections;
@@ -279,7 +280,7 @@ public class EpNativeActivity extends NativeActivity {
 					continue;
 				List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
 				for (InetAddress addr : addrs) {
-					if (!(addr instanceof Inet4Address))
+					if (!(addr instanceof Inet4Address) && !(addr instanceof Inet6Address))
 						continue;
 					ret.add(addr.getAddress());
 				}
