@@ -5,7 +5,7 @@ buildscript {
 		jcenter()
 	}
 	dependencies {
-		classpath 'com.android.tools.build:gradle:3.4.2'
+		classpath 'com.android.tools.build:gradle:4.2.2'
 	}
 }
 
@@ -26,6 +26,7 @@ android {
 		versionCode 19
 		versionName "40.1.4"
 		minSdkVersion 16
+		//noinspection ExpiredTargetSdkVersion
 		targetSdkVersion 28
 		applicationId "io.github.edo9300.edopro"
 		manifestPlaceholders = [package: "io.github.edo9300.edopro", project: project.name]
@@ -80,6 +81,7 @@ repositories {
 }
 
 dependencies {
+	implementation 'com.android.support:appcompat-v7:28.0.0'
 	implementation 'com.android.support:support-v4:28.0.0'
 	implementation(name: 'libWindbot', ext: 'aar')
 }
