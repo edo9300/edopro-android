@@ -57,7 +57,10 @@ namespace irr
 #else
 			OGLES2ShaderPath("../../media/Shaders/"),
 #endif
-			UseIntegratedGPU(false)
+			UseIntegratedGPU(false),
+			ClassName(0),
+			WindowCaption(0),
+			WindowIcon(0)
 		{
 		}
 
@@ -93,6 +96,9 @@ namespace irr
 			PrivateData = other.PrivateData;
 			OGLES2ShaderPath = other.OGLES2ShaderPath;
 			UseIntegratedGPU = other.UseIntegratedGPU;
+			ClassName = other.ClassName;
+			WindowCaption = other.WindowCaption;
+			WindowIcon = other.WindowIcon;
 			return *this;
 		}
 
@@ -332,6 +338,18 @@ namespace irr
 		//! Created the OpenGL context on the integrated GPU.
 		/** This is only used on OpenGL contexts created on MacOS. */
 		bool UseIntegratedGPU;
+
+		//! Define the window's class name.
+		/** Used on Wayland/X11 to set the WM class name so that windows are grouped
+		on Windows it will be used as class name when creating the window. */
+		const fschar_t* ClassName;
+
+		//! Define the window's title.
+		const fschar_t* WindowCaption;
+
+		//! Defines the path to search the window's icon in.
+		/** This is only used on Window devices. */
+		const fschar_t* WindowIcon;
 	};
 
 
