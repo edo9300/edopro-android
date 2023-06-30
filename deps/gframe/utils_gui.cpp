@@ -80,31 +80,30 @@ static inline irr::video::E_DRIVER_TYPE getDefaultDriver(irr::E_DEVICE_TYPE devi
 irr::IrrlichtDevice* GUIUtils::CreateDevice(GameConfig* configs) {
 	irr::SIrrlichtCreationParameters params{};
 	params.AntiAlias = configs->antialias;
-#if EDOPRO_LINUX && (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
+	params.Vsync = configs->vsync;
+#if (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
+	// This correspond to the program's class name, used by window managers and
+	// desktop environments to group multiple instances with their desktop file
+	params.ClassName = EPRO_TEXT("edopro");
+	params.WindowCaption = EPRO_TEXT("Project Ignis: EDOPro");
+	params.OGLES2ShaderPath = EPRO_TEXT("BUNDLED");
+	params.WindowResizable = true;
+#if EDOPRO_WINDOWS
+	params.WindowIcon = MAKEINTRESOURCE(1);
+#endif
+#if EDOPRO_LINUX
 	if(configs->useWayland == 2) {
 		if(!try_guess_wayland())
 			configs->useWayland = 0;
 	} else if(configs->useWayland == 1 && try_guess_wayland()) {
 		params.DeviceType = irr::E_DEVICE_TYPE::EIDT_WAYLAND;
-		fmt::print("You're using the wayland device backend.\n"
-				   "Keep in mind that it's still experimental and might be unstable.\n"
-				   "If you are getting any major issues, or the game doesn't start,\n"
-				   "you can manually disable this option from the system.conf file by toggling the useWayland option.\n"
-				   "Feel free to report any issues you encounter.\n");
+		epro::print("You're using the wayland device backend.\n"
+					"Keep in mind that it's still experimental and might be unstable.\n"
+					"If you are getting any major issues, or the game doesn't start,\n"
+					"you can manually disable this option from the system.conf file by toggling the useWayland option.\n"
+					"Feel free to report any issues you encounter.\n");
 	}
-	// This correspond to the program's class name, used by window managers and
-	// desktop environments to group multiple instances with their desktop file
-	char class_name[] = "edopro";
-	params.PrivateData = class_name;
 #endif
-	params.Vsync = configs->vsync;
-	if(configs->driver_type == irr::video::EDT_COUNT)
-		params.DriverType = getDefaultDriver(params.DeviceType);
-	else
-		params.DriverType = configs->driver_type;
-#if (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
-	params.OGLES2ShaderPath = EPRO_TEXT("BUNDLED");
-	params.WindowResizable = true;
 #if EDOPRO_MACOS
 	params.UseIntegratedGPU = configs->useIntegratedGpu > 0;
 #endif
@@ -118,6 +117,10 @@ irr::IrrlichtDevice* GUIUtils::CreateDevice(GameConfig* configs) {
 	params.AntiAlias = 0;
 	params.WindowSize = {};
 #endif
+	if(configs->driver_type == irr::video::EDT_COUNT)
+		params.DriverType = getDefaultDriver(params.DeviceType);
+	else
+		params.DriverType = configs->driver_type;
 	irr::IrrlichtDevice* device = irr::createDeviceEx(params);
 	if(!device)
 		throw std::runtime_error("Failed to create Irrlicht Engine device!");
@@ -139,29 +142,36 @@ irr::IrrlichtDevice* GUIUtils::CreateDevice(GameConfig* configs) {
 #endif
 #if EDOPRO_ANDROID || EDOPRO_IOS
 	device->getGUIEnvironment()->setOSOperator(Utils::OSOperator);
-	if(!driver->queryFeature(irr::video::EVDF_TEXTURE_NPOT))
-		driver->setTextureCreationFlag(irr::video::ETCF_ALLOW_NON_POWER_2, true);
+#endif
+#if EDOPRO_IOS_SIMULATOR
+	driver->disableFeature(irr::video::EVDF_TEXTURE_NPOT);
 #endif
 	driver->setTextureCreationFlag(irr::video::ETCF_CREATE_MIP_MAPS, false);
 	driver->setTextureCreationFlag(irr::video::ETCF_OPTIMIZED_FOR_QUALITY, true);
-	device->setWindowCaption(L"Project Ignis: EDOPro");
 #if !(IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
+	device->setWindowCaption(L"Project Ignis: EDOPro");
 	device->setResizable(true);
-#endif
 #if EDOPRO_WINDOWS
 	auto hInstance = static_cast<HINSTANCE>(GetModuleHandle(nullptr));
 	auto hSmallIcon = static_cast<HICON>(LoadImage(hInstance, MAKEINTRESOURCE(1), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CXSMICON), LR_DEFAULTCOLOR));
 	auto hBigIcon = static_cast<HICON>(LoadImage(hInstance, MAKEINTRESOURCE(1), IMAGE_ICON, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR));
-	auto hWnd = GetWindowHandle(driver);
-	SendMessage(hWnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hSmallIcon));
-	SendMessage(hWnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hBigIcon));
+	{
+		auto hWnd = GetWindowHandle(driver);
+		SendMessage(hWnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hSmallIcon));
+		SendMessage(hWnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hBigIcon));
+	}
+#endif
+#endif
+#if EDOPRO_WINDOWS
 	if(gGameConfig->windowStruct.size()) {
 		auto winstruct = base64_decode(gGameConfig->windowStruct);
 		if(winstruct.size() == sizeof(WINDOWPLACEMENT)) {
 			WINDOWPLACEMENT wp;
 			memcpy(&wp, winstruct.data(), sizeof(WINDOWPLACEMENT));
-			if(wp.length == sizeof(WINDOWPLACEMENT))
+			if(wp.length == sizeof(WINDOWPLACEMENT)) {
+				auto hWnd = GetWindowHandle(driver);
 				SetWindowPlacement(hWnd, &wp);
+			}
 		}
 	}
 #elif EDOPRO_MACOS
@@ -343,7 +353,7 @@ void GUIUtils::ShowErrorWindow(epro::stringview context, epro::stringview messag
 		nullptr, //icon url, use default, you can change it depending message_type flags
 		nullptr, //not used
 		nullptr, //localization of strings
-		header_ref, //header text 
+		header_ref, //header text
 		message_ref, //message text
 		nullptr, //default "ok" text in button
 		nullptr, //alternate button title
@@ -357,10 +367,13 @@ void GUIUtils::ShowErrorWindow(epro::stringview context, epro::stringview messag
 #elif EDOPRO_LINUX
 	const auto* context_cstr = context.data();
 	const auto* message_cstr = message.data();
+	const auto xmessage = fmt::format("{}\n{}", context, message);
+	const auto xmessage_cstr = xmessage.data();
 	auto pid = vfork();
 	if(pid == 0) {
-		execl("/usr/bin/kdialog", "kdialog", "--title", context_cstr, "--error", message_cstr);
-		execl("/usr/bin/zenity", "zenity", "--title", context_cstr, "--error", message_cstr);
+		execl("/usr/bin/kdialog", "kdialog", "--title", context_cstr, "--error", message_cstr, nullptr);
+		execl("/usr/bin/zenity", "zenity", "--title", context_cstr, "--error", message_cstr, nullptr);
+		execl("/usr/bin/xmessage", "xmessage", xmessage_cstr, nullptr);
 		_exit(EXIT_FAILURE);
 	} else if(pid > 0)
 		(void)waitpid(pid, nullptr, 0);

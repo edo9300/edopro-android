@@ -607,7 +607,7 @@ void Game::Initialize() {
 	stHandTestSettings->setEnabled(coreloaded);
 	stHandTestSettings->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	defaultStrings.emplace_back(stHandTestSettings, 1375);
-	
+
 	wHandTest = env->addWindow(Scale(mainMenuLeftX, 200, mainMenuRightX, 450), false, gDataManager->GetSysString(1297).data());
 	wHandTest->getCloseButton()->setVisible(false);
 	wHandTest->setVisible(false);
@@ -1248,7 +1248,7 @@ void Game::PopulateGameHostWindows() {
 		chkNoCheckDeckSizeSecondary = env->addCheckBox(gGameConfig->noCheckDeckSize, GetNextRect(), tDeckSettings, DONT_CHECK_DECK_SIZE, gDataManager->GetSysString(12113).data());
 		defaultStrings.emplace_back(chkNoCheckDeckSizeSecondary, 12113);
 		menuHandler.MakeElementSynchronized(chkNoCheckDeckSizeSecondary);
-		
+
 #define ADD_DECK_SIZE_CHECKBOXES(deck) do { \
 		eb##deck##Min = env->addEditBox(WStr(gGameConfig->min##deck##DeckSize), GetCurrentRectWithXOffset(310, 360), true, tDeckSettings, EDITBOX_NUMERIC); \
 		defaultStrings.emplace_back(env->addStaticText(gDataManager->GetSysString(12106 + idx).data(), GetCurrentRectWithXOffset(20, 300), false, false, tDeckSettings), 12106 + idx); \
@@ -1872,16 +1872,6 @@ static inline irr::core::matrix4 BuildProjectionMatrix(irr::f32 left, irr::f32 r
 	mProjection[9] = (CAMERA_TOP + CAMERA_BOTTOM) / (CAMERA_BOTTOM - CAMERA_TOP);
 	return mProjection;
 }
-#if EDOPRO_IOS
-static constexpr bool hasNPotSupport(void* driver) { return false; }
-#else
-static bool hasNPotSupport(irr::video::IVideoDriver* driver) {
-	static const bool supported = [](auto driver)->bool {
-		return driver->queryFeature(irr::video::EVDF_TEXTURE_NPOT);
-	}(driver);
-	return supported;
-}
-#endif
 
 irr::core::vector3df getTarget() {
 	return { FIELD_X, 0.f, 0.f };
@@ -1938,7 +1928,7 @@ bool Game::MainLoop() {
 	bool was_connected = false;
 	bool update_prompted = false;
 	bool update_checked = false;
-	if(!hasNPotSupport(driver)) {
+	if(!driver->queryFeature(irr::video::EVDF_TEXTURE_NPOT)) {
 		auto SetClamp = [](irr::video::SMaterialLayer layer[irr::video::MATERIAL_MAX_TEXTURES]) {
 			layer[0].TextureWrapU = irr::video::ETC_CLAMP_TO_EDGE;
 			layer[0].TextureWrapV = irr::video::ETC_CLAMP_TO_EDGE;
@@ -2496,7 +2486,7 @@ void Game::RefreshLFLists() {
 }
 void Game::RefreshAiDecks() {
 	gBot.bots.clear();
-	FileStream windbots("./WindBot/bots.json", FileStream::in);
+	FileStream windbots{ EPRO_TEXT("./WindBot/bots.json"), FileStream::in };
 	if (windbots.good()) {
 		nlohmann::json j;
 		try {
@@ -3696,7 +3686,7 @@ void Game::OnResize() {
 	repos_with_min_x(tabSettings.scrSoundVolume);
 	repos_with_min_x(tabSettings.scrMusicVolume);
 	repos_with_min_x(btnTabShowSettings);
-	
+
 	SetCentered(gSettings.window);
 
 	ResizePhaseButtons();
@@ -3887,7 +3877,7 @@ void Game::MessageHandler(void* payload, const char* string, int type) {
 			str.erase(pos);
 		game->AddDebugMsg(str);
 		if(type > 1)
-			fmt::print("{}\n", str);
+			epro::print("{}\n", str);
 	}
 }
 void Game::UpdateDownloadBar(int percentage, int cur, int tot, const char* filename, bool is_new, void* payload) {

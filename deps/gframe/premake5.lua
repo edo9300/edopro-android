@@ -23,7 +23,7 @@ local ygopro_config=function(static_core)
 			}
 		filter {}
 	end
-	
+
 	filter { "action:not vs*" }
 		enablewarnings "pedantic"
 	filter {}
@@ -111,7 +111,9 @@ local ygopro_config=function(static_core)
 					links { "mpg123" }
 				end
 			filter "system:macosx or ios"
-				links { "CoreAudio.framework", "AudioToolbox.framework", "AudioUnit.framework" }
+				links { "CoreAudio.framework", "AudioToolbox.framework" }
+			filter "system:macosx"
+				links { "AudioUnit.framework" }
 			filter { "system:windows", "action:not vs*" }
 				links { "FLAC", "vorbisfile", "vorbis", "ogg", "OpenAL32" }
 				if _OPTIONS["use-mpg123"] then
@@ -197,7 +199,7 @@ local ygopro_config=function(static_core)
 		if _OPTIONS["vcpkg-root"] then
 			for _,arch in ipairs(archs) do
 				local full_vcpkg_root_path=get_vcpkg_root_path(arch)
-				local platform="platforms:" .. ((arch == "armv7" and "arm") or arch)
+				local platform="platforms:" .. arch
 				filter { "system:not windows", platform }
 					_includedirs { full_vcpkg_root_path .. "/include/irrlicht" }
 			end
@@ -213,14 +215,14 @@ local ygopro_config=function(static_core)
 			links "lua-c++"
 		end
 		if _OPTIONS["vcpkg-root"] then
-			links { "ssl", "crypto", "z", "jpeg" }
+			links { "ssl", "crypto", "zlib", "jpeg" }
 		end
 
 	filter "system:not windows"
 		links { "pthread" }
 
 	filter "system:windows"
-		links { "wbemuuid", "opengl32", "ws2_32", "winmm", "gdi32", "kernel32", "user32", "imm32", "wldap32", "crypt32", "advapi32", "rpcrt4", "ole32", "uuid", "winhttp" }
+		links { "wbemuuid", "opengl32", "ws2_32", "winmm", "gdi32", "kernel32", "user32", "imm32", "wldap32", "crypt32", "advapi32", "rpcrt4", "ole32", "OleAut32", "uuid", "winhttp" }
 		if not _OPTIONS["oldwindows"] then
 			links "Iphlpapi"
 		end
@@ -231,7 +233,7 @@ if _OPTIONS["sound"]=="sfml" then
 	include "../sfAudio"
 end
 
-if _OPTIONS["no-core"]~="true" then
+if not _OPTIONS["no-core"] then
 	project "ygopro"
 		targetname "ygopro"
 		if _OPTIONS["prebuilt-core"] then

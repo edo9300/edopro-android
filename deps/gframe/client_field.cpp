@@ -90,6 +90,7 @@ void ClientField::Clear() {
 	ssetable_cards.clear();
 	reposable_cards.clear();
 	attackable_cards.clear();
+	sort_list.clear();
 	disabled_field = 0;
 	panel = 0;
 	hovered_card = 0;
@@ -106,9 +107,9 @@ void ClientField::Clear() {
 	extra_act[0] = extra_act[1] = false;
 	pzone_act[0] = pzone_act[1] = false;
 	conti_act = false;
+	conti_selecting = false;
 	deck_reversed = false;
 }
-#undef CLEAR_VECTOR
 void ClientField::Initial(uint8_t player, uint32_t deckc, uint32_t extrac) {
 	ClientCard* pcard;
 	for(uint32_t i = 0; i < deckc; ++i) {
@@ -181,6 +182,7 @@ void ClientField::AddCard(ClientCard* pcard, uint8_t controler, uint8_t location
 	pcard->controler = controler;
 	pcard->location = location;
 	pcard->sequence = sequence;
+	float z_increase = gGameConfig->topdown_view ? 0.0f : 0.01f;
 	switch(location) {
 	case LOCATION_DECK: {
 		if (sequence != 0 || deck[controler].empty()) {
@@ -191,7 +193,7 @@ void ClientField::AddCard(ClientCard* pcard, uint8_t controler, uint8_t location
 			for(auto i = deck[controler].size() - 1; i > 0; --i) {
 				deck[controler][i] = deck[controler][i - 1];
 				deck[controler][i]->sequence++;
-				deck[controler][i]->curPos.Z += 0.01f;
+				deck[controler][i]->curPos.Z += z_increase;
 				deck[controler][i]->mTransform.setTranslation(deck[controler][i]->curPos);
 			}
 			deck[controler][0] = pcard;
@@ -233,7 +235,7 @@ void ClientField::AddCard(ClientCard* pcard, uint8_t controler, uint8_t location
 			for(auto i = extra[controler].size() - 1; i > p; --i) {
 				extra[controler][i] = extra[controler][i - 1];
 				extra[controler][i]->sequence++;
-				extra[controler][i]->curPos.Z += 0.01f;
+				extra[controler][i]->curPos.Z += z_increase;
 				extra[controler][i]->mTransform.setTranslation(extra[controler][i]->curPos);
 			}
 			extra[controler][p] = pcard;
@@ -246,17 +248,22 @@ void ClientField::AddCard(ClientCard* pcard, uint8_t controler, uint8_t location
 	}
 }
 ClientCard* ClientField::RemoveCard(uint8_t controler, uint8_t location, uint32_t sequence) {
-	ClientCard* pcard = 0;
+	auto RemoveFromPile = [&](auto& pile) {
+		float z_decrease = gGameConfig->topdown_view ? 0.0f : 0.01f;
+		auto pcard = pile[controler][sequence];
+		for(size_t i = sequence; i < pile[controler].size() - 1; ++i) {
+			pile[controler][i] = pile[controler][i + 1];
+			pile[controler][i]->sequence--;
+			pile[controler][i]->curPos.Z -= z_decrease;
+			pile[controler][i]->mTransform.setTranslation(pile[controler][i]->curPos);
+		}
+		pile[controler].pop_back();
+		return pcard;
+	};
+	ClientCard* pcard = nullptr;
 	switch (location) {
 	case LOCATION_DECK: {
-		pcard = deck[controler][sequence];
-		for (size_t i = sequence; i < deck[controler].size() - 1; ++i) {
-			deck[controler][i] = deck[controler][i + 1];
-			deck[controler][i]->sequence--;
-			deck[controler][i]->curPos.Z -= 0.01f;
-			deck[controler][i]->mTransform.setTranslation(deck[controler][i]->curPos);
-		}
-		deck[controler].pop_back();
+		pcard = RemoveFromPile(deck);
 		break;
 	}
 	case LOCATION_HAND: {
@@ -269,46 +276,23 @@ ClientCard* ClientField::RemoveCard(uint8_t controler, uint8_t location, uint32_
 		break;
 	}
 	case LOCATION_MZONE: {
-		pcard = mzone[controler][sequence];
-		mzone[controler][sequence] = 0;
+		std::swap(pcard, mzone[controler][sequence]);
 		break;
 	}
 	case LOCATION_SZONE: {
-		pcard = szone[controler][sequence];
-		szone[controler][sequence] = 0;
+		std::swap(pcard, szone[controler][sequence]);
 		break;
 	}
 	case LOCATION_GRAVE: {
-		pcard = grave[controler][sequence];
-		for (size_t i = sequence; i < grave[controler].size() - 1; ++i) {
-			grave[controler][i] = grave[controler][i + 1];
-			grave[controler][i]->sequence--;
-			grave[controler][i]->curPos.Z -= 0.01f;
-			grave[controler][i]->mTransform.setTranslation(grave[controler][i]->curPos);
-		}
-		grave[controler].pop_back();
+		pcard = RemoveFromPile(grave);
 		break;
 	}
 	case LOCATION_REMOVED: {
-		pcard = remove[controler][sequence];
-		for (size_t i = sequence; i < remove[controler].size() - 1; ++i) {
-			remove[controler][i] = remove[controler][i + 1];
-			remove[controler][i]->sequence--;
-			remove[controler][i]->curPos.Z -= 0.01f;
-			remove[controler][i]->mTransform.setTranslation(remove[controler][i]->curPos);
-		}
-		remove[controler].pop_back();
+		pcard = RemoveFromPile(remove);
 		break;
 	}
 	case LOCATION_EXTRA: {
-		pcard = extra[controler][sequence];
-		for (size_t i = sequence; i < extra[controler].size() - 1; ++i) {
-			extra[controler][i] = extra[controler][i + 1];
-			extra[controler][i]->sequence--;
-			extra[controler][i]->curPos.Z -= 0.01f;
-			extra[controler][i]->mTransform.setTranslation(extra[controler][i]->curPos);
-		}
-		extra[controler].pop_back();
+		pcard = RemoveFromPile(extra);
 		if (pcard->position & POS_FACEUP)
 			extra_p_count[controler]--;
 		break;
@@ -505,7 +489,7 @@ void ClientField::ShowChainCard() {
 		}
 		curstring->setVisible(true);
 		curstring->setRelativePosition(mainGame->Scale<irr::s32>(static_cast<irr::s32>(startpos + i * 125), 30, static_cast<irr::s32>(startpos + 120 + i * 125), 50));
-	} 
+	}
 	if(selectable_cards.size() <= 5) {
 		for(auto i = selectable_cards.size(); i < 5; ++i) {
 			mainGame->btnCardSelect[i]->setVisible(false);
@@ -559,19 +543,19 @@ void ClientField::ShowLocationCard() {
 				curstring->setOverrideColor(skin::DUELFIELD_CARD_SELECT_WINDOW_OVERLAY_TEXT_VAL);
 			if(curcard->overlayTarget->controler)
 				curstring->setBackgroundColor(skin::DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND_VAL);
-			else 
+			else
 				curstring->setBackgroundColor(skin::DUELFIELD_CARD_SELF_WINDOW_BACKGROUND_VAL);
 		} else if(curcard->location == LOCATION_EXTRA || curcard->location == LOCATION_REMOVED) {
 			if(curcard->position & POS_FACEDOWN)
 				curstring->setOverrideColor(skin::DUELFIELD_CARD_SELECT_WINDOW_SET_TEXT_VAL);
 			if(curcard->controler)
 				curstring->setBackgroundColor(skin::DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND_VAL);
-			else 
+			else
 				curstring->setBackgroundColor(skin::DUELFIELD_CARD_SELF_WINDOW_BACKGROUND_VAL);
 		} else {
 			if(curcard->controler)
 				curstring->setBackgroundColor(skin::DUELFIELD_CARD_OPPONENT_WINDOW_BACKGROUND_VAL);
-			else 
+			else
 				curstring->setBackgroundColor(skin::DUELFIELD_CARD_SELF_WINDOW_BACKGROUND_VAL);
 		}
 		curstring->setVisible(true);
@@ -710,6 +694,8 @@ void ClientField::RefreshAllCards() {
 		refresh(skills[p]);
 	}
 	refreshloc(overlay_cards);
+	for(auto& chit : chains)
+		chit.UpdateDrawCoordinates();
 	mainGame->should_refresh_hands = true;
 }
 void ClientField::GetChainDrawCoordinates(uint8_t controler, uint8_t location, uint32_t sequence, irr::core::vector3df* t) {
@@ -719,11 +705,15 @@ void ClientField::GetChainDrawCoordinates(uint8_t controler, uint8_t location, u
 		t->Z = 0.03f;
 		return;
 	}
+	auto PileZ = [&](auto& pile) {
+		auto multiplier = gGameConfig->topdown_view ? 1 : pile.size();
+		t->Z = multiplier * 0.01f + 0.03f;
+	};
 	const irr::video::S3DVertex* loc = nullptr;
 	switch((location & (~LOCATION_OVERLAY))) {
 	case LOCATION_DECK: {
 		loc = matManager.getDeck()[controler];
-		t->Z = deck[controler].size() * 0.01f + 0.03f;
+		PileZ(deck[controler]);
 		break;
 	}
 	case LOCATION_MZONE: {
@@ -738,17 +728,17 @@ void ClientField::GetChainDrawCoordinates(uint8_t controler, uint8_t location, u
 	}
 	case LOCATION_GRAVE: {
 		loc = matManager.getGrave()[controler];
-		t->Z = grave[controler].size() * 0.01f + 0.03f;
+		PileZ(grave[controler]);
 		break;
 	}
 	case LOCATION_REMOVED: {
 		loc = matManager.getRemove()[controler];
-		t->Z = remove[controler].size() * 0.01f + 0.03f;
+		PileZ(remove[controler]);
 		break;
 	}
 	case LOCATION_EXTRA: {
 		loc = matManager.getExtra()[controler];
-		t->Z = extra[controler].size() * 0.01f + 0.03f;
+		PileZ(extra[controler]);
 		break;
 	}
 	default:
