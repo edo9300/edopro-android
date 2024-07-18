@@ -19,6 +19,8 @@ jobs:
       USE_BUNDLED_FONT: 1
     steps:
     - uses: actions/checkout@v1
+      with:
+        fetch-depth: 1
     - name: Install apt deps
       run: |
         sudo apt install lua5.3
