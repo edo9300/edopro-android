@@ -45,7 +45,7 @@ jobs:
       shell: bash
       run: ./ci/deploy.sh
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: EDOPro
         path: release/EDOPro-release-base.apk
