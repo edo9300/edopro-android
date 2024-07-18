@@ -261,6 +261,7 @@ enum GUI {
 	BUTTON_ONLINE_MULTIPLAYER, // first button on main menu
 
 	ACTION_UPDATE_PROMPT,
+	ACTION_ACKNOWLEDGE_HOST,
 	ACTION_SHOW_CHANGELOG,
 #if EDOPRO_LINUX && (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
 	ACTION_TRY_WAYLAND,
@@ -289,9 +290,9 @@ enum GUI {
 	DONT_SHUFFLE_DECK,
 };
 
-class MenuHandler : public irr::IEventReceiver {
+class MenuHandler final : public irr::IEventReceiver {
 public:
-	virtual bool OnEvent(const irr::SEvent& event);
+	bool OnEvent(const irr::SEvent& event) override;
 	void SynchronizeElement(irr::gui::IGUIElement* elem) const;
 	std::unordered_multimap<int, irr::gui::IGUIElement*> synchronized_elements;
 	int prev_operation;

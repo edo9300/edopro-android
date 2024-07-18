@@ -14,7 +14,6 @@
 #include <event2/bufferevent.h>
 #include <event2/buffer.h>
 #include <event2/thread.h>
-#include <fmt/format.h>
 #include "network.h"
 #include "data_manager.h"
 #include "deck_manager.h"
@@ -53,6 +52,7 @@ public:
 	static bool is_local_host;
 	static std::atomic<bool> answered;
 
+	static void JoinFromDiscord();
 	static bool StartClient(const epro::Address& ip, uint16_t port, uint32_t gameid = 0, bool create_game = true);
 	static void ConnectTimeout(evutil_socket_t fd, short events, void* arg);
 	static void StopClient(bool is_exiting = false);
@@ -131,7 +131,7 @@ public:
 	}
 
 	static void ReplayPrompt(bool need_header = false);
-	
+
 protected:
 	static bool is_refreshing;
 	static int match_kill;

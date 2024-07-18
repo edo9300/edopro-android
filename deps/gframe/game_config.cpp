@@ -1,7 +1,6 @@
 #include <IrrCompileConfig.h>
 #include <path.h>
 #include "game_config.h"
-#include <fmt/format.h>
 #include "bufferio.h"
 #include "porting.h"
 #include "utils.h"
@@ -85,9 +84,13 @@ irr::video::E_DRIVER_TYPE parseOption<irr::video::E_DRIVER_TYPE>(std::string& va
 #if EDOPRO_WINDOWS
 	if(value == "D3D9")
 		return irr::video::EDT_DIRECT3D9;
+#if (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
+	if(value == "D3D9ON12")
+		return irr::video::EDT_DIRECT3D9_ON_12;
 #endif
 #endif
-#if !EDOPRO_MACOS && IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
+#endif
+#if  !EDOPRO_MACOS && (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
 	if(value == "OGLES1")
 		return irr::video::EDT_OGLES1;
 	if(value == "OGLES2")
@@ -115,7 +118,7 @@ ygo::GameConfig::FallbackFonts parseOption<ygo::GameConfig::FallbackFonts>(std::
 #ifdef YGOPRO_USE_BUNDLED_FONT
 	bool listed_bundled = false;
 #endif
-	for(auto& font : Utils::TokenizeString(value, '"')) {
+	for(auto& font : Utils::TokenizeString<std::string>(value, '"')) {
 		if(font.find_first_not_of(' ') == std::string::npos)
 			continue;
 		const auto parsed_font = parseOption<GameConfig::TextFont>(font);
@@ -197,11 +200,19 @@ std::string serializeOption(const ygo::GameConfig::FallbackFonts& value) {
 template<>
 std::string serializeOption(const irr::video::E_DRIVER_TYPE& driver) {
 	switch(driver) {
+#if !EDOPRO_ANDROID
 	case irr::video::EDT_OPENGL:
 		return "opengl";
+#if EDOPRO_WINDOWS
 	case irr::video::EDT_DIRECT3D9:
 		return "d3d9";
 #if (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
+	case irr::video::EDT_DIRECT3D9_ON_12:
+		return "d3d9on12";
+#endif
+#endif
+#endif
+#if  !EDOPRO_MACOS && (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
 	case irr::video::EDT_OGLES1:
 		return "ogles1";
 	case irr::video::EDT_OGLES2:

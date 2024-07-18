@@ -74,9 +74,19 @@ struct CardDataC {
 	static constexpr auto CARD_ARTWORK_VERSIONS_OFFSET = 10;
 
 	bool IsInArtworkOffsetRange() const {
-		if(alias == 0)
+		return IsInArtworkOffsetRange(this);
+	}
+
+	template<typename T>
+	static bool IsInArtworkOffsetRange(const T* pcard) {
+		if(pcard->alias == 0)
 			return false;
-		return (alias - code < CARD_ARTWORK_VERSIONS_OFFSET || code - alias < CARD_ARTWORK_VERSIONS_OFFSET);
+		return (pcard->alias - pcard->code < CARD_ARTWORK_VERSIONS_OFFSET || pcard->code - pcard->alias < CARD_ARTWORK_VERSIONS_OFFSET);
+	}
+
+	uint32_t getRealCode() const {
+		// dummy entries have a code of 0 with the alias corresponding to the actual code
+		return code ? code : alias;
 	}
 };
 struct CardString {
@@ -148,7 +158,7 @@ public:
 		//strings 1050 above are already used, read the rest from this other range
 		return (2500 - 30) + race_idx;
 	}
-	std::vector<uint16_t> GetSetCode(const std::vector<std::wstring>& setname) const;
+	std::vector<uint16_t> GetSetCode(const std::vector<epro::wstringview>& setname) const;
 	std::wstring GetNumString(size_t num, bool bracket = false) const;
 	epro::wstringview FormatLocation(uint32_t location, int sequence) const;
 	std::wstring FormatAttribute(uint32_t attribute) const;
@@ -174,7 +184,7 @@ private:
 	class LocaleStringHelper {
 	public:
 		indexed_map<std::wstring> map{};
-		epro::wstringview GetLocale(uint32_t code, epro::wstringview ret = DataManager::unknown_string)  const {
+		epro::wstringview GetLocale(uint32_t code, epro::wstringview ret = DataManager::unknown_string) const {
 			auto search = map.find(code);
 			if(search == map.end() || search->second.first.empty())
 				return ret;

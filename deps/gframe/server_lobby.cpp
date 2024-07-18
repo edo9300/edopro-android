@@ -7,7 +7,6 @@
 #include <IGUIWindow.h>
 #include <ICursorControl.h>
 #include "server_lobby.h"
-#include <fmt/format.h>
 #include <curl/curl.h>
 #include "utils.h"
 #include "data_manager.h"
@@ -124,7 +123,7 @@ void ServerLobby::FillOnlineRooms() {
 			} else
 				roomListTable->setCellText(index, 3, L"Custom");
 		} else
-			roomListTable->setCellText(index, 3, epro::format(L"{}MR {}", 
+			roomListTable->setCellText(index, 3, epro::format(L"{}MR {}",
 															 (duel_flag & DUEL_TCG_SEGOC_NONPUBLIC) ? L"TCG " : L"",
 															 (rule == 0) ? 3 : rule).data());
 		roomListTable->setCellText(index, 4, banlist.data());
@@ -189,14 +188,10 @@ void ServerLobby::GetRoomsThread() {
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &retrieved_data);
 	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, ygo::Utils::GetUserAgent().data());
 
-	curl_easy_setopt(curl_handle, CURLOPT_NOPROXY, "*"); 
+	curl_easy_setopt(curl_handle, CURLOPT_NOPROXY, "*");
 	curl_easy_setopt(curl_handle, CURLOPT_DNS_CACHE_TIMEOUT, 0);
 	if(gGameConfig->ssl_certificate_path.size() && Utils::FileExists(Utils::ToPathString(gGameConfig->ssl_certificate_path)))
 		curl_easy_setopt(curl_handle, CURLOPT_CAINFO, gGameConfig->ssl_certificate_path.data());
-#if EDOPRO_WINDOWS
-	else
-		curl_easy_setopt(curl_handle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
-#endif
 
 	const auto res = curl_easy_perform(curl_handle);
 	curl_easy_cleanup(curl_handle);
@@ -263,6 +258,11 @@ void ServerLobby::GetRoomsThread() {
 	has_refreshed = true;
 	is_refreshing = false;
 }
+bool ServerLobby::IsKnownHost(epro::Host host) {
+	return std::find_if(serversVector.begin(), serversVector.end(), [&](const ServerInfo& konwn_host) {
+		return konwn_host.Resolved() == host;
+	}) != serversVector.end();
+}
 void ServerLobby::RefreshRooms() {
 	if(is_refreshing)
 		return;
@@ -278,7 +278,7 @@ void ServerLobby::JoinServer(bool host) {
 	mainGame->ebNickName->setText(mainGame->ebNickNameOnline->getText());
 	auto selected = mainGame->serverChoice->getSelected();
 	if (selected < 0) return;
-	const auto serverinfo = serversVector[selected].Resolved();
+	const auto& serverinfo = serversVector[selected].Resolved();
 	if(serverinfo.address.family == epro::Address::UNK)
 		return;
 	if(host) {

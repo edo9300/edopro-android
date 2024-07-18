@@ -1,6 +1,4 @@
 #include <algorithm>
-#include <fmt/format.h>
-#include <fmt/printf.h>
 #include "utils.h"
 #include "game_config.h"
 #include "client_field.h"
@@ -1613,13 +1611,12 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 					SetShowMark(mcard, true);
 					if(mcard->code) {
 						mainGame->ShowCardInfo(mcard->code);
-						if(mcard->location & (0xe|0x400)) {
+						if(mcard->location & (LOCATION_HAND | LOCATION_MZONE | LOCATION_SZONE | LOCATION_SKILL)) {
 							std::wstring str(gDataManager->GetName(mcard->code));
+							if(!CardDataC::IsInArtworkOffsetRange(mcard) && str != gDataManager->GetName(mcard->alias)) {
+								str.append(epro::format(L"\n({})", gDataManager->GetName(mcard->alias)));
+							}
 							if(mcard->type & TYPE_MONSTER) {
-								if(mcard->alias && (mcard->alias < mcard->code - 10 || mcard->alias > mcard->code + 10)
-										&& wcscmp(gDataManager->GetName(mcard->code).data(), gDataManager->GetName(mcard->alias).data())) {
-									str.append(epro::format(L"\n({})",gDataManager->GetName(mcard->alias)));
-								}
 								if (mcard->type & TYPE_LINK) {
 									str.append(epro::format(L"\n{}/Link {}\n{}/{}", mcard->atkstring, mcard->link, gDataManager->FormatRace(mcard->race),
 										gDataManager->FormatAttribute(mcard->attribute)));
@@ -1631,16 +1628,9 @@ bool ClientField::OnEvent(const irr::SEvent& event) {
 										str.append(epro::format(L"\n{}{} {}/{}", (mcard->level ? L"\u2605" : L"\u2606"), (mcard->level ? mcard->level : mcard->rank), gDataManager->FormatRace(mcard->race), gDataManager->FormatAttribute(mcard->attribute)));
 									}
 								}
-								if(mcard->location == LOCATION_HAND && (mcard->type & TYPE_PENDULUM)) {
-									str.append(epro::format(L"\n{}/{}", mcard->lscale, mcard->rscale));
-								}
-							} else {
-								if(mcard->alias && (mcard->alias < mcard->code - 10 || mcard->alias > mcard->code + 10)) {
-									str.append(epro::format(L"\n({})", gDataManager->GetName(mcard->alias)));
-								}
-								if(mcard->location == LOCATION_SZONE && (mcard->type & TYPE_PENDULUM)) {
-									str.append(epro::format(L"\n{}/{}", mcard->lscale, mcard->rscale));
-								}
+							}
+							if((mcard->location & (LOCATION_HAND | LOCATION_SZONE)) != 0 && (mcard->type & TYPE_PENDULUM)) {
+								str.append(epro::format(L"\n{}/{}", mcard->lscale, mcard->rscale));
 							}
 							for(auto ctit = mcard->counters.begin(); ctit != mcard->counters.end(); ++ctit) {
 								str.append(epro::format(L"\n[{}]: {}", gDataManager->GetCounterName(ctit->first), ctit->second));
@@ -2840,7 +2830,7 @@ static int GetSuitableReturn(uint32_t maxseq, uint32_t size) {
 template<typename T>
 static inline void WriteCard(ProgressiveBuffer& buffer, uint32_t i, uint32_t value) {
 	static constexpr auto off = 8 >> (sizeof(T) / 2);
-	buffer.at<T>(i + off) = static_cast<T>(value);
+	buffer.set<T>(i + off, static_cast<T>(value));
 }
 void ClientField::SetResponseSelectedCards() const {
 	if (!mainGame->dInfo.compat_mode) {
@@ -2856,28 +2846,28 @@ void ClientField::SetResponseSelectedCards() const {
 			ProgressiveBuffer ret;
 			switch(GetSuitableReturn(maxseq, size)) {
 				case 3: {
-					ret.at<int32_t>(0) = 3;
+					ret.set<int32_t>(0, 3);
 					for(auto c : selected_cards)
-						ret.bitSet(c->select_seq + (sizeof(int32_t) * 8));
+						ret.bitToggle(c->select_seq + (sizeof(int32_t) * 8), true);
 					break;
 				}
 				case 2:	{
-					ret.at<int32_t>(0) = 2;
-					ret.at<uint32_t>(1) = size;
+					ret.set<int32_t>(0, 2);
+					ret.set<uint32_t>(1, size);
 					for(uint32_t i = 0; i < size; ++i)
 						WriteCard<uint8_t>(ret, i, selected_cards[i]->select_seq);
 					break;
 				}
 				case 1:	{
-					ret.at<int32_t>(0) = 1;
-					ret.at<uint32_t>(1) = size;
+					ret.set<int32_t>(0, 1);
+					ret.set<uint32_t>(1, size);
 					for(uint32_t i = 0; i < size; ++i)
 						WriteCard<uint16_t>(ret, i, selected_cards[i]->select_seq);
 					break;
 				}
 				case 0:	{
-					ret.at<int32_t>(0) = 0;
-					ret.at<uint32_t>(1) = size;
+					ret.set<int32_t>(0, 0);
+					ret.set<uint32_t>(1, size);
 					for(uint32_t i = 0; i < size; ++i)
 						WriteCard<uint32_t>(ret, i, selected_cards[i]->select_seq);
 					break;

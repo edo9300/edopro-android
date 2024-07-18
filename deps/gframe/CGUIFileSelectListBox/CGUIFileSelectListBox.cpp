@@ -375,7 +375,7 @@ bool CGUIFileSelectListBox::OnEvent(const SEvent& event) {
 
 			case EET_MOUSE_INPUT_EVENT:
 			{
-				core::position2d<s32> p(event.MouseInput.X, event.MouseInput.Y);
+				core::vector2d<s32> p(event.MouseInput.X, event.MouseInput.Y);
 
 				switch(event.MouseInput.Event) {
 					case EMIE_MOUSE_WHEEL:
@@ -539,7 +539,7 @@ void CGUIFileSelectListBox::draw() {
 
 			if(Font) {
 				if(IconBank && (Items[i].icon > -1)) {
-					core::position2di iconPos = textRect.UpperLeftCorner;
+					core::vector2di iconPos = textRect.UpperLeftCorner;
 					iconPos.Y += textRect.getHeight() / 2;
 					iconPos.X += ItemsIconWidth / 2;
 
@@ -894,7 +894,7 @@ void CGUIFileSelectListBox::addFilteredExtensions(std::vector<std::wstring> exte
 
 bool CGUIFileSelectListBox::defaultFilter(std::wstring name, bool is_directory) {
 	if(is_directory) {
-		auto elements = ygo::Utils::TokenizeString<std::wstring>(name, L"/");
+		auto elements = ygo::Utils::TokenizeString<epro::wstringview>(name, L'/');
 		return !(elements.size() && elements.back().size() && elements.back().front() == L'.' && elements.back() != L"..");
 	}
 	if(std::find(filtered_extensions.begin(), filtered_extensions.end(), ygo::Utils::GetFileExtension(name)) == filtered_extensions.end())

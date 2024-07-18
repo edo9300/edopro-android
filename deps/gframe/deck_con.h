@@ -2,7 +2,7 @@
 #define DECK_CON_H
 
 #include "config.h"
-#include <position2d.h>
+#include <vector2d.h>
 #include <IEventReceiver.h>
 #include <map>
 #include <vector>
@@ -15,7 +15,7 @@ struct CardDataC;
 class CardDataM;
 struct CardString;
 
-class DeckBuilder: public irr::IEventReceiver {
+class DeckBuilder final : public irr::IEventReceiver {
 public:
 	enum limitation_search_filters {
 		LIMITATION_FILTER_NONE,
@@ -41,7 +41,12 @@ public:
 		SEARCH_MODIFIER_ARCHETYPE_ONLY = 0x2,
 		SEARCH_MODIFIER_NEGATIVE_LOOKUP = 0x4
 	};
-	virtual bool OnEvent(const irr::SEvent& event);
+	struct SearchParameter {
+		std::vector<epro::wstringview> tokens;
+		std::vector<uint16_t> setcodes;
+		SEARCH_MODIFIER modifier;
+	};
+	bool OnEvent(const irr::SEvent& event) override;
 	void Initialize(bool refresh = true);
 	void Terminate(bool showmenu = true);
 	const Deck& GetCurrentDeck() const {
@@ -58,7 +63,8 @@ private:
 	void GetHoveredCard();
 	bool FiltersChanged();
 	void FilterCards(bool force_refresh = false);
-	bool CheckCard(CardDataM* data, SEARCH_MODIFIER modifier, const std::vector<std::wstring>& tokens, const std::vector<uint16_t>& setcode);
+	bool CheckCardProperties(const CardDataM& data);
+	bool CheckCardText(const CardDataM& data, const SearchParameter& search_parameter);
 	void ClearFilter();
 	void ClearSearch();
 	void SortList();
@@ -102,7 +108,7 @@ private:
 	DECLARE_WITH_CACHE(limitation_search_filters, filter_lm)
 #undef DECLARE_WITH_CACHE
 
-	irr::core::position2di mouse_pos;
+	irr::core::vector2di mouse_pos;
 
 	uint16_t main_and_extra_legend_count_monster;
 	uint16_t main_legend_count_spell;

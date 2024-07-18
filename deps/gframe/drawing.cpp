@@ -1,4 +1,3 @@
-#include <fmt/format.h>
 #include "game_config.h"
 #include <irrlicht.h>
 #include "game.h"
@@ -438,11 +437,8 @@ inline void DrawShadowTextPos(irr::gui::CGUITTFont* font, const T& text, const i
 	font->drawustring(text, mainposition, color, hcenter, vcenter, clip);
 }
 //We don't want multiple function signatures per argument combination
-#if !defined(_MSC_VER) && !defined(__forceinline)
-#define __forceinline __attribute__((always_inline)) inline
-#endif
 template<typename T, typename... Args>
-__forceinline void DrawShadowText(irr::gui::CGUITTFont* font, const T& text, const irr::core::recti& shadowposition, const irr::core::recti& padding, Args&&... args) {
+ForceInline void DrawShadowText(irr::gui::CGUITTFont* font, const T& text, const irr::core::recti& shadowposition, const irr::core::recti& padding, Args&&... args) {
 	const irr::core::recti position(shadowposition.UpperLeftCorner.X + padding.UpperLeftCorner.X, shadowposition.UpperLeftCorner.Y + padding.UpperLeftCorner.Y,
 									shadowposition.LowerRightCorner.X + padding.LowerRightCorner.X, shadowposition.LowerRightCorner.Y + padding.LowerRightCorner.Y);
 	DrawShadowTextPos(font, text, shadowposition, position, std::forward<Args>(args)...);
@@ -560,7 +556,7 @@ void Game::DrawMisc() {
 			DRAWRECT(lpbar_pos, 2, nullptr);
 		}
 	}
-	
+
 	if(lpframe > 0 && delta_frames) {
 		dInfo.lp[lpplayer] -= lpd * delta_frames;
 		dInfo.strLP[lpplayer] = fmt::to_wstring(std::max(0, dInfo.lp[lpplayer]));
@@ -1182,7 +1178,7 @@ void Game::WaitFrameSignal(int frame, std::unique_lock<epro::mutex>& _lck) {
 	signalFrame = (gGameConfig->quick_animation && frame >= 12) ? 12 * 1000 / 60 : frame * 1000 / 60;
 	frameSignal.Wait(_lck);
 }
-void Game::DrawThumb(const CardDataC* cp, irr::core::position2di pos, LFList* lflist, bool drag, const irr::core::recti* cliprect, bool load_image) {
+void Game::DrawThumb(const CardDataC* cp, irr::core::vector2di pos, LFList* lflist, bool drag, const irr::core::recti* cliprect, bool load_image) {
 	auto code = cp->code;
 	auto flit = lflist->GetLimitationIterator(cp);
 	int count = 3;
@@ -1284,13 +1280,13 @@ void Game::DrawDeckBd() {
 		DRAWRECT(MAIN, 310, 160, 797, 436);
 		DRAWOUTLINE(MAIN, 309, 159, 797, 436);
 
-		const int lx = (current_deck.main.size() > 40) ? static_cast<int>((current_deck.main.size() - 41) / 4 + 11) : 10;
-		const float dx = 436.0f / (lx - 1);
+		const int cards_per_row = (current_deck.main.size() > 40) ? static_cast<int>((current_deck.main.size() - 41) / 4 + 11) : 10;
+		const float dx = 436.0f / (cards_per_row - 1);
 
 		for(int i = 0; i < static_cast<int>(current_deck.main.size()); ++i) {
-			DrawThumb(current_deck.main[i], irr::core::vector2di(314 + (i % lx) * dx, 164 + (i / lx) * 68), deckBuilder.filterList);
+			DrawThumb(current_deck.main[i], irr::core::vector2di(314 + (i % cards_per_row) * dx, 164 + (i / cards_per_row) * 68), deckBuilder.filterList);
 			if(deckBuilder.hovered_pos == 1 && deckBuilder.hovered_seq == i)
-				driver->draw2DRectangleOutline(Resize(313 + (i % lx) * dx, 163 + (i / lx) * 68, 359 + (i % lx) * dx, 228 + (i / lx) * 68), skin::DECK_WINDOW_HOVERED_CARD_OUTLINE_VAL);
+				driver->draw2DRectangleOutline(Resize(313 + (i % cards_per_row) * dx, 163 + (i / cards_per_row) * 68, 359 + (i % cards_per_row) * dx, 228 + (i / cards_per_row) * 68), skin::DECK_WINDOW_HOVERED_CARD_OUTLINE_VAL);
 		}
 	}
 	//extra deck

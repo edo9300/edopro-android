@@ -1,5 +1,4 @@
 #include <stack>
-#include <fmt/format.h>
 #include "utils.h"
 #include "game_config.h"
 #include <IGUIWindow.h>
@@ -84,6 +83,7 @@ void ClientField::Clear() {
 	player_desc_hints[1].clear();
 	chains.clear();
 	activatable_cards.clear();
+	queued_panel_confirm_cards.clear();
 	summonable_cards.clear();
 	spsummonable_cards.clear();
 	msetable_cards.clear();

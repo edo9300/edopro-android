@@ -56,12 +56,17 @@ namespace ygo {
 		static irr::io::IFileSystem* filesystem;
 		static irr::IOSOperator* OSOperator;
 		static void SetupCrashDumpLogging();
+		static bool IsRunningAsAdmin();
 		static epro::stringview GetLastErrorString();
-		static bool MakeDirectory(epro::path_stringview path);
 		static bool FileCopyFD(int source, int destination);
 		static bool FileCopy(epro::path_stringview source, epro::path_stringview destination);
 		static bool FileMove(epro::path_stringview source, epro::path_stringview destination);
 		static bool FileExists(epro::path_stringview path);
+		static bool FileDelete(epro::path_stringview source);
+		static bool MakeDirectory(epro::path_stringview path);
+		static bool ClearDirectory(epro::path_stringview path);
+		static bool DeleteDirectory(epro::path_stringview path);
+		static bool DirectoryExists(epro::path_stringview path);
 		static inline epro::path_string ToPathString(epro::wstringview input);
 		static inline epro::path_string ToPathString(epro::stringview input);
 		static inline std::string ToUTF8IfNeeded(epro::stringview input);
@@ -70,9 +75,6 @@ namespace ygo {
 		static inline std::wstring ToUnicodeIfNeeded(epro::wstringview input);
 		static bool SetWorkingDirectory(epro::path_stringview newpath);
 		static const epro::path_string& GetWorkingDirectory();
-		static bool FileDelete(epro::path_stringview source);
-		static bool ClearDirectory(epro::path_stringview path);
-		static bool DeleteDirectory(epro::path_stringview source);
 		static void CreateResourceFolders();
 		static void FindFiles(epro::path_stringview path, const std::function<void(epro::path_stringview, bool)>& cb);
 		static std::vector<epro::path_string> FindFiles(epro::path_stringview path, const std::vector<epro::path_stringview>& extensions, int subdirectorylayers = 0);
@@ -108,9 +110,9 @@ namespace ygo {
 		static epro::path_string GetAbsolutePath(epro::path_stringview path);
 
 		template<typename T>
-		static inline std::vector<T> TokenizeString(const T& input, const T& token);
+		static inline std::vector<T> TokenizeString(epro::basic_string_view<typename T::value_type> input, const T& token);
 		template<typename T>
-		static inline std::vector<T> TokenizeString(const T& input, const typename T::value_type& token);
+		static inline std::vector<T> TokenizeString(epro::basic_string_view<typename T::value_type> input, typename T::value_type token);
 		template<typename T>
 		static T ToUpperChar(T c);
 		template<typename T>
@@ -118,7 +120,7 @@ namespace ygo {
 		template<typename T>
 		static T& ToUpperNoAccentsSelf(T& input);
 		/** Returns true if and only if all tokens are contained in the input. */
-		static bool ContainsSubstring(epro::wstringview input, const std::vector<std::wstring>& tokens);
+		static bool ContainsSubstring(epro::wstringview input, const std::vector<epro::wstringview>& tokens);
 		template<typename T>
 		static bool KeepOnlyDigits(T& input, bool negative = false);
 		template<typename T>
@@ -152,7 +154,7 @@ namespace ygo {
 			SHARE_FILE,
 		};
 
-		static void SystemOpen(epro::path_stringview arg, OpenType type = OPEN_URL);
+		static void SystemOpen(epro::path_stringview arg, OpenType type);
 
 		static void Reboot();
 
@@ -187,7 +189,7 @@ auto Utils::NormalizePathImpl(const epro::basic_string_view<T>& _path, bool trai
 	static constexpr auto prev = CHAR_T_STRINGVIEW(T, "..");
 	static constexpr auto slash = CAST('/');
 	std::replace(path.begin(), path.end(), CAST('\\'), slash);
-	auto paths = TokenizeString(path, slash);
+	auto paths = TokenizeString<std::basic_string<T>>(path, slash);
 	if(paths.empty())
 		return path;
 	bool is_absolute = path.size() && path[0] == slash;
@@ -266,30 +268,30 @@ auto Utils::GetFileNameImpl(const epro::basic_string_view<T>& _file, bool keepex
 #undef CAST
 
 template<typename T>
-inline std::vector<T> Utils::TokenizeString(const T& input, const T& token) {
+inline std::vector<T> Utils::TokenizeString(epro::basic_string_view<typename T::value_type> input, const T& token) {
 	std::vector<T> res;
 	typename T::size_type pos1, pos2 = 0;
 	while((pos1 = input.find(token, pos2)) != T::npos) {
 		if(pos1 != pos2)
-			res.emplace_back(input.begin() + pos2, input.begin() + pos1);
+			res.emplace_back(input.begin() + pos2, pos1 - pos2);
 		pos2 = pos1 + token.size();
 	}
 	if(pos2 != input.size())
-		res.emplace_back(input.begin() + pos2, input.end());
+		res.emplace_back(input.begin() + pos2, input.size() - pos2);
 	return res;
 }
 
 template<typename T>
-inline std::vector<T> Utils::TokenizeString(const T& input, const typename T::value_type& token) {
+inline std::vector<T> Utils::TokenizeString(epro::basic_string_view<typename T::value_type> input, typename T::value_type token) {
 	std::vector<T> res;
 	typename T::size_type pos1, pos2 = 0;
 	while((pos1 = input.find(token, pos2)) != T::npos) {
 		if(pos1 != pos2)
-			res.emplace_back(input.begin() + pos2, input.begin() + pos1);
+			res.emplace_back(input.begin() + pos2, pos1 - pos2);
 		pos2 = pos1 + 1;
 	}
 	if(pos2 != input.size())
-		res.emplace_back(input.begin() + pos2, input.end());
+		res.emplace_back(input.begin() + pos2, input.size() - pos2);
 	return res;
 }
 

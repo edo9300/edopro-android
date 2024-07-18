@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <sstream>
 #include <unordered_map>
-#include <fmt/format.h>
 #include <irrlicht.h>
 #include "config.h"
 #include "deck_con.h"
@@ -598,7 +597,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 					}
 				}
 				StartFilter(true);
-				break; 
+				break;
 			}
 			case COMBOBOX_SORTTYPE: {
 				SortList();
@@ -866,7 +865,8 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 							pos++;
 						to.erase(pos);
 					}
-					uint32_t code = BufferIO::GetVal(to.data());
+					auto* chbuff = to.data();
+					uint32_t code = BufferIO::GetVal(*chbuff == L'C' ? chbuff + 1 : chbuff);
 					const CardDataC* pointer = nullptr;
 					if(!code || !(pointer = gDataManager->GetCardData(code))) {
 						for(auto& card : gDataManager->cards) {
@@ -896,7 +896,7 @@ bool DeckBuilder::OnEvent(const irr::SEvent& event) {
 					mainGame->ShowCardInfo(firstcode);
 				return true;
 			}
-			case irr::DROP_END:	{
+			case irr::DROP_END: {
 				if(to_open_file.size()) {
 					auto extension = Utils::GetFileExtension(to_open_file);
 					if(!mainGame->is_siding && extension == L"ydk" && mainGame->deckBuilder.SetCurrentDeckFromFile(Utils::ToPathString(to_open_file), true)) {
@@ -926,74 +926,97 @@ void DeckBuilder::GetHoveredCard() {
 	auto relative_mouse_pos = mainGame->Resize(mouse_pos.X, mouse_pos.Y, true);
 	auto x = relative_mouse_pos.X;
 	auto y = relative_mouse_pos.Y;
+	const irr::core::recti searchResultRect{ 810, 165, 995, 626 };
 	auto pre_code = hovered_code;
+	hovered_seq = -1;
 	hovered_pos = 0;
 	hovered_code = 0;
 	is_lastcard = 0;
-	if(x >= 314 && x <= 794) {
-		if(y >= 164 && y <= 435) {
-			int lx = 10, px, py = (y - 164) / 68;
-			hovered_pos = 1;
-			if(current_deck.main.size() > 40)
-				lx = static_cast<int>(current_deck.main.size() - 41) / 4 + 11;
-			if(x >= 750)
-				px = lx - 1;
-			else
-				px = (x - 314) * (lx - 1) / 436;
-			hovered_seq = py * lx + px;
-			if(hovered_seq >= (int)current_deck.main.size()) {
-				hovered_seq = -1;
-				hovered_code = 0;
-			} else {
-				hovered_code = current_deck.main[hovered_seq]->code;
-			}
-		} else if(y >= 466 && y <= 530) {
-			int lx = static_cast<int>(current_deck.extra.size());
-			hovered_pos = 2;
-			if(lx < 10)
-				lx = 10;
-			if(x >= 750)
-				hovered_seq = lx - 1;
-			else
-				hovered_seq = (x - 314) * (lx - 1) / 436;
-			if(hovered_seq >= static_cast<int>(current_deck.extra.size())) {
-				hovered_seq = -1;
-				hovered_code = 0;
-			} else {
-				hovered_code = current_deck.extra[hovered_seq]->code;
-				if(x >= 772)
-					is_lastcard = 1;
-			}
-		} else if (y >= 564 && y <= 628) {
-			int lx = static_cast<int>(current_deck.side.size());
-			hovered_pos = 3;
-			if(lx < 10)
-				lx = 10;
-			if(x >= 750)
-				hovered_seq = lx - 1;
-			else
-				hovered_seq = (x - 314) * (lx - 1) / 436;
-			if(hovered_seq >= static_cast<int>(current_deck.side.size())) {
-				hovered_seq = -1;
-				hovered_code = 0;
-			} else {
-				hovered_code = current_deck.side[hovered_seq]->code;
-				if(x >= 772)
-					is_lastcard = 1;
-			}
-		}
-	} else if(x >= 810 && x <= 995 && y >= 165 && y <= 626) {
-		const int offset = (mainGame->scrFilter->getPos() % DECK_SEARCH_SCROLL_STEP) * -1.f * 0.65f;
-		hovered_pos = 4;
-		hovered_seq = (y - 165 - offset) / 66;
-		int pos = floor(mainGame->scrFilter->getPos() / DECK_SEARCH_SCROLL_STEP) + hovered_seq;
-		if(pos >= (int)results.size()) {
-			hovered_seq = -1;
-			hovered_code = 0;
-		} else {
+
+	auto UpdateHoverCode = [&]() {
+		if(searchResultRect.isPointInside(relative_mouse_pos)) {
+			hovered_pos = 4;
+			if(results.empty())
+				return;
+			const int offset = (mainGame->scrFilter->getPos() % DECK_SEARCH_SCROLL_STEP) * -1.f * 0.65f;
+			auto seq = (y - 165 - offset) / 66;
+			int pos = (mainGame->scrFilter->getPos() / DECK_SEARCH_SCROLL_STEP) + seq;
+
+			if(pos >= static_cast<int>(results.size()))
+				return;
+
+			hovered_seq = seq;
 			hovered_code = results[pos]->code;
+			return;
 		}
-	}
+
+		if(x < 314 || x > 794)
+			return;
+
+		if(y >= 164 && y <= 435) {
+			constexpr auto DECK_LIST_VERTICAL_SPACING = 4;
+			hovered_pos = 1;
+			int pile_size = static_cast<int>(current_deck.main.size());
+			if(pile_size == 0)
+				return;
+			int cards_per_row = 10;
+			bool last_row_not_full = false;
+			if(current_deck.main.size() > 40) {
+				auto res = div(pile_size + 3, 4);
+				cards_per_row = res.quot;
+				last_row_not_full = res.rem != 3;
+			}
+			int y_index = (y - 164) / (CARD_THUMB_HEIGHT + DECK_LIST_VERTICAL_SPACING);
+			int x_index = cards_per_row - 1;
+			if(x < 750)
+				x_index = ((x - 314) * x_index) / 436;
+			auto seq = y_index * cards_per_row + x_index;
+			if(seq >= pile_size) {
+				if(!last_row_not_full)
+					return;
+				const float dx = 436.0f / (cards_per_row - 1);
+				auto a = ((pile_size % cards_per_row) - 1) * dx + CARD_THUMB_WIDTH;
+				if((x - 314) >= a)
+					return;
+				seq = y_index * cards_per_row + ((pile_size % cards_per_row) - 1);
+			}
+			hovered_seq = seq;
+			hovered_code = current_deck.main[hovered_seq]->code;
+			return;
+		}
+		if(y >= 466 && y <= 530) {
+			hovered_pos = 2;
+			int pile_size = static_cast<int>(current_deck.extra.size());
+			if(pile_size == 0)
+				return;
+			int cards_per_row = std::max(10, pile_size);
+			auto seq = cards_per_row - 1;
+			if(x < 750)
+				seq = ((x - 314) * seq) / 436;
+			if(seq >= pile_size)
+				return;
+			hovered_seq = seq;
+			hovered_code = current_deck.extra[hovered_seq]->code;
+			is_lastcard = x >= 772;
+			return;
+		}
+		if(y >= 564 && y <= 628) {
+			hovered_pos = 3;
+			int pile_size = static_cast<int>(current_deck.side.size());
+			if(pile_size == 0)
+				return;
+			int cards_per_row = std::max(10, pile_size);
+			auto seq = cards_per_row - 1;
+			if(x < 750)
+				seq = ((x - 314) * seq) / 436;
+			if(seq >= pile_size)
+				return;
+			hovered_seq = seq;
+			hovered_code = current_deck.side[hovered_seq]->code;
+			is_lastcard = x >= 772;
+		}
+	};
+	UpdateHoverCode();
 	if(is_draging) {
 		dragx = mouse_pos.X;
 		dragy = mouse_pos.Y;
@@ -1069,43 +1092,58 @@ void DeckBuilder::FilterCards(bool force_refresh) {
 		else
 			it++;
 	}
-	for(const auto& term : searchterms) {
-		int trycode = BufferIO::GetVal(term.data());
+	for(const auto& term_ : searchterms) {
+		int trycode = BufferIO::GetVal(term_.data());
 		const CardDataC* data = nullptr;
 		if(trycode && (data = gDataManager->GetCardData(trycode))) {
-			searched_terms[term] = { data };
+			searched_terms[term_] = { data };
 			continue;
 		}
-		std::vector<std::wstring> tokens;
-		int modif = 0;
-		if(!term.empty()) {
-			size_t start = 0;
-			if(term.size() >= 2 && memcmp(L"!!", term.data(), sizeof(wchar_t) * 2) == 0) {
-				modif |= SEARCH_MODIFIER_NEGATIVE_LOOKUP;
-				start += 2;
-			}
-			if(term.size() + start >= 1) {
-				if(term[start] == L'@') {
+		auto subterms = Utils::TokenizeString<epro::wstringview>(term_, L"&&");
+		std::vector<SearchParameter> search_parameters;
+		search_parameters.reserve(subterms.size());
+		bool would_return_nothing = false;
+		for(auto subterm : subterms) {
+			std::vector<epro::wstringview> tokens;
+			int modif = 0;
+			if(!subterm.empty()) {
+				if(subterm.starts_with(L"!!")) {
+					modif |= SEARCH_MODIFIER_NEGATIVE_LOOKUP;
+					subterm.remove_prefix(2);
+				}
+				if(subterm.starts_with(L'@')) {
 					modif |= SEARCH_MODIFIER_ARCHETYPE_ONLY;
-					start++;
-				}
-				else if(term[start] == L'$') {
+					subterm.remove_prefix(1);
+				} else if(subterm.starts_with(L'$')) {
 					modif |= SEARCH_MODIFIER_NAME_ONLY;
-					start++;
+					subterm.remove_prefix(1);
 				}
+				tokens = Utils::TokenizeString<epro::wstringview>(subterm, L'*');
 			}
-			tokens = Utils::TokenizeString<std::wstring>(term.data() + start, L"*");
+			if(tokens.empty()) {
+				if((modif & SEARCH_MODIFIER_NEGATIVE_LOOKUP) == 0)
+					continue;
+				would_return_nothing = true;
+				break;
+			}
+			auto setcodes = gDataManager->GetSetCode(tokens);
+			search_parameters.push_back(SearchParameter{std::move(tokens), std::move(setcodes), static_cast<SEARCH_MODIFIER>(modif)});
 		}
-		auto set_code = gDataManager->GetSetCode(tokens);
-		if(tokens.empty())
-			tokens.push_back(L"");
-		std::vector<const CardDataC*> result;
-		for(auto& card : gDataManager->cards) {
-			if(CheckCard(&card.second, static_cast<SEARCH_MODIFIER>(modif), tokens, set_code))
-				result.push_back(&card.second._data);
+		if(would_return_nothing)
+			continue;
+		std::vector<const CardDataC*> searchterm_results;
+		for(const auto& card : gDataManager->cards) {
+			if(!CheckCardProperties(card.second))
+				continue;
+			for(const auto& search_parameter : search_parameters) {
+				if(!CheckCardText(card.second, search_parameter))
+					goto skip;
+			}
+			searchterm_results.push_back(&card.second._data);
+		skip:;
 		}
-		if(result.size())
-			searched_terms[term] = result;
+		if(searchterm_results.size())
+			searched_terms[term_] = searchterm_results;
 	}
 	for(const auto& res : searched_terms) {
 		results.insert(results.end(), res.second.begin(), res.second.end());
@@ -1123,71 +1161,71 @@ void DeckBuilder::FilterCards(bool force_refresh) {
 	}
 	mainGame->scrFilter->setPos(0);
 }
-bool DeckBuilder::CheckCard(CardDataM* data, SEARCH_MODIFIER modifier, const std::vector<std::wstring>& tokens, const std::vector<uint16_t>& set_code) {
-	if(data->_data.type & TYPE_TOKEN  || data->_data.ot & SCOPE_HIDDEN || ((data->_data.ot & SCOPE_OFFICIAL) != data->_data.ot && (!mainGame->chkAnime->isChecked() && !filterList->whitelist)))
+bool DeckBuilder::CheckCardProperties(const CardDataM& data) {
+	if(data._data.type & TYPE_TOKEN  || data._data.ot & SCOPE_HIDDEN || ((data._data.ot & SCOPE_OFFICIAL) != data._data.ot && (!mainGame->chkAnime->isChecked() && !filterList->whitelist)))
 		return false;
 	switch(filter_type) {
 	case 1: {
-		if(!(data->_data.type & TYPE_MONSTER) || (data->_data.type & filter_type2) != filter_type2)
+		if(!(data._data.type & TYPE_MONSTER) || (data._data.type & filter_type2) != filter_type2)
 			return false;
-		if(filter_race && data->_data.race != filter_race)
+		if(filter_race && data._data.race != filter_race)
 			return false;
-		if(filter_attrib && data->_data.attribute != filter_attrib)
+		if(filter_attrib && data._data.attribute != filter_attrib)
 			return false;
 		if(filter_atktype) {
-			if((filter_atktype == 1 && data->_data.attack != filter_atk) || (filter_atktype == 2 && data->_data.attack < filter_atk)
-				|| (filter_atktype == 3 && data->_data.attack <= filter_atk) || (filter_atktype == 4 && (data->_data.attack > filter_atk || data->_data.attack < 0))
-				|| (filter_atktype == 5 && (data->_data.attack >= filter_atk || data->_data.attack < 0)) || (filter_atktype == 6 && data->_data.attack != -2))
+			if((filter_atktype == 1 && data._data.attack != filter_atk) || (filter_atktype == 2 && data._data.attack < filter_atk)
+				|| (filter_atktype == 3 && data._data.attack <= filter_atk) || (filter_atktype == 4 && (data._data.attack > filter_atk || data._data.attack < 0))
+				|| (filter_atktype == 5 && (data._data.attack >= filter_atk || data._data.attack < 0)) || (filter_atktype == 6 && data._data.attack != -2))
 				return false;
 		}
 		if(filter_deftype) {
-			if((filter_deftype == 1 && data->_data.defense != filter_def) || (filter_deftype == 2 && data->_data.defense < filter_def)
-				|| (filter_deftype == 3 && data->_data.defense <= filter_def) || (filter_deftype == 4 && (data->_data.defense > filter_def || data->_data.defense < 0))
-				|| (filter_deftype == 5 && (data->_data.defense >= filter_def || data->_data.defense < 0)) || (filter_deftype == 6 && data->_data.defense != -2)
-				|| (data->_data.type & TYPE_LINK))
+			if((filter_deftype == 1 && data._data.defense != filter_def) || (filter_deftype == 2 && data._data.defense < filter_def)
+				|| (filter_deftype == 3 && data._data.defense <= filter_def) || (filter_deftype == 4 && (data._data.defense > filter_def || data._data.defense < 0))
+				|| (filter_deftype == 5 && (data._data.defense >= filter_def || data._data.defense < 0)) || (filter_deftype == 6 && data._data.defense != -2)
+				|| (data._data.type & TYPE_LINK))
 				return false;
 		}
 		if(filter_lvtype) {
-			if((filter_lvtype == 1 && data->_data.level != filter_lv) || (filter_lvtype == 2 && data->_data.level < filter_lv)
-				|| (filter_lvtype == 3 && data->_data.level <= filter_lv) || (filter_lvtype == 4 && data->_data.level > filter_lv)
-				|| (filter_lvtype == 5 && data->_data.level >= filter_lv) || filter_lvtype == 6)
+			if((filter_lvtype == 1 && data._data.level != filter_lv) || (filter_lvtype == 2 && data._data.level < filter_lv)
+				|| (filter_lvtype == 3 && data._data.level <= filter_lv) || (filter_lvtype == 4 && data._data.level > filter_lv)
+				|| (filter_lvtype == 5 && data._data.level >= filter_lv) || filter_lvtype == 6)
 				return false;
 		}
 		if(filter_scltype) {
-			if((filter_scltype == 1 && data->_data.lscale != filter_scl) || (filter_scltype == 2 && data->_data.lscale < filter_scl)
-				|| (filter_scltype == 3 && data->_data.lscale <= filter_scl) || (filter_scltype == 4 && (data->_data.lscale > filter_scl))
-				|| (filter_scltype == 5 && (data->_data.lscale >= filter_scl)) || filter_scltype == 6
-				|| !(data->_data.type & TYPE_PENDULUM))
+			if((filter_scltype == 1 && data._data.lscale != filter_scl) || (filter_scltype == 2 && data._data.lscale < filter_scl)
+				|| (filter_scltype == 3 && data._data.lscale <= filter_scl) || (filter_scltype == 4 && (data._data.lscale > filter_scl))
+				|| (filter_scltype == 5 && (data._data.lscale >= filter_scl)) || filter_scltype == 6
+				|| !(data._data.type & TYPE_PENDULUM))
 				return false;
 		}
 		break;
 	}
 	case 2: {
-		if(!(data->_data.type & TYPE_SPELL))
+		if(!(data._data.type & TYPE_SPELL))
 			return false;
-		if(filter_type2 && data->_data.type != filter_type2)
+		if(filter_type2 && data._data.type != filter_type2)
 			return false;
 		break;
 	}
 	case 3: {
-		if(!(data->_data.type & TYPE_TRAP))
+		if(!(data._data.type & TYPE_TRAP))
 			return false;
-		if(filter_type2 && data->_data.type != filter_type2)
+		if(filter_type2 && data._data.type != filter_type2)
 			return false;
 		break;
 	}
 	case 4: {
-		if(!(data->_data.type & TYPE_SKILL))
+		if(!(data._data.type & TYPE_SKILL))
 			return false;
 		break;
 	}
 	}
-	if(filter_effect && !(data->_data.category & filter_effect))
+	if(filter_effect && !(data._data.category & filter_effect))
 		return false;
-	if(filter_marks && (data->_data.link_marker & filter_marks) != filter_marks)
+	if(filter_marks && (data._data.link_marker & filter_marks) != filter_marks)
 		return false;
 	if((filter_lm != LIMITATION_FILTER_NONE || filterList->whitelist) && filter_lm != LIMITATION_FILTER_ALL) {
-		auto flit = filterList->GetLimitationIterator(&data->_data);
+		auto flit = filterList->GetLimitationIterator(&data._data);
 		int count = 3;
 		if(flit == filterList->content.end()) {
 			if(filterList->whitelist)
@@ -1206,47 +1244,47 @@ bool DeckBuilder::CheckCard(CardDataM* data, SEARCH_MODIFIER modifier, const std
 					return false;
 				break;
 			case LIMITATION_FILTER_OCG:
-				if(data->_data.ot != SCOPE_OCG)
+				if(data._data.ot != SCOPE_OCG)
 					return false;
 				break;
 			case LIMITATION_FILTER_TCG:
-				if(data->_data.ot != SCOPE_TCG)
+				if(data._data.ot != SCOPE_TCG)
 					return false;
 				break;
 			case LIMITATION_FILTER_TCG_OCG:
-				if(data->_data.ot != SCOPE_OCG_TCG)
+				if(data._data.ot != SCOPE_OCG_TCG)
 					return false;
 				break;
 			case LIMITATION_FILTER_PRERELEASE:
-				if(!(data->_data.ot & SCOPE_PRERELEASE))
+				if(!(data._data.ot & SCOPE_PRERELEASE))
 					return false;
 				break;
 			case LIMITATION_FILTER_SPEED:
-				if(!(data->_data.ot & SCOPE_SPEED))
+				if(!(data._data.ot & SCOPE_SPEED))
 					return false;
 				break;
 			case LIMITATION_FILTER_RUSH:
-				if(!(data->_data.ot & SCOPE_RUSH))
+				if(!(data._data.ot & SCOPE_RUSH))
 					return false;
 				break;
 			case LIMITATION_FILTER_LEGEND:
-				if(!(data->_data.ot & SCOPE_LEGEND))
+				if(!(data._data.ot & SCOPE_LEGEND))
 					return false;
 				break;
 			case LIMITATION_FILTER_ANIME:
-				if(data->_data.ot != SCOPE_ANIME)
+				if(data._data.ot != SCOPE_ANIME)
 					return false;
 				break;
 			case LIMITATION_FILTER_ILLEGAL:
-				if(data->_data.ot != SCOPE_ILLEGAL)
+				if(data._data.ot != SCOPE_ILLEGAL)
 					return false;
 				break;
 			case LIMITATION_FILTER_VIDEOGAME:
-				if(data->_data.ot != SCOPE_VIDEO_GAME)
+				if(data._data.ot != SCOPE_VIDEO_GAME)
 					return false;
 				break;
 			case LIMITATION_FILTER_CUSTOM:
-				if(data->_data.ot != SCOPE_CUSTOM)
+				if(data._data.ot != SCOPE_CUSTOM)
 					return false;
 				break;
 			default:
@@ -1255,25 +1293,28 @@ bool DeckBuilder::CheckCard(CardDataM* data, SEARCH_MODIFIER modifier, const std
 		if(filterList->whitelist && count < 0)
 			return false;
 	}
-	if(tokens.size()) {
-		const auto checkNeg = [negative = !!(modifier & SEARCH_MODIFIER_NEGATIVE_LOOKUP)] (bool res) -> bool {
-			if(negative)
-				return !res;
-			return res;
-		};
-		const auto& strings = data->GetStrings();
-		if(modifier & SEARCH_MODIFIER_NAME_ONLY) {
-			return checkNeg(Utils::ContainsSubstring(strings.uppercase_name, tokens));
-		} else if(modifier & SEARCH_MODIFIER_ARCHETYPE_ONLY) {
-			if(set_code.empty() && tokens.size() > 0 && tokens.front().size())
-				return checkNeg(false);
-			return checkNeg(check_set_code(data->_data, set_code));
-		} else {
-			return checkNeg((set_code.size() && check_set_code(data->_data, set_code)) || Utils::ContainsSubstring(strings.uppercase_name, tokens)
-					|| Utils::ContainsSubstring(strings.uppercase_text, tokens));
-		}
-	}
 	return true;
+}
+bool DeckBuilder::CheckCardText(const CardDataM& data, const SearchParameter& search_parameter) {
+	if(search_parameter.tokens.empty())
+		return true;
+	const auto checkNeg = [negative = !!(search_parameter.modifier & SEARCH_MODIFIER_NEGATIVE_LOOKUP)](bool res) -> bool {
+		if(negative)
+			return !res;
+		return res;
+	};
+	const auto& strings = data.GetStrings();
+	if(search_parameter.modifier & SEARCH_MODIFIER_NAME_ONLY) {
+		return checkNeg(Utils::ContainsSubstring(strings.uppercase_name, search_parameter.tokens));
+	} else if(search_parameter.modifier & SEARCH_MODIFIER_ARCHETYPE_ONLY) {
+		if(search_parameter.setcodes.empty() && search_parameter.tokens.front().size())
+			return checkNeg(false);
+		return checkNeg(check_set_code(data._data, search_parameter.setcodes));
+	} else {
+		return checkNeg((search_parameter.setcodes.size() && check_set_code(data._data, search_parameter.setcodes))
+						|| Utils::ContainsSubstring(strings.uppercase_name, search_parameter.tokens)
+						|| Utils::ContainsSubstring(strings.uppercase_text, search_parameter.tokens));
+	}
 }
 void DeckBuilder::ClearSearch() {
 	mainGame->cbCardType->setSelected(0);

@@ -1,5 +1,4 @@
 #include "game_config.h"
-#include <fmt/format.h>
 #include "utils.h"
 #include <IImage.h>
 #include <IGUIImage.h>
@@ -41,7 +40,7 @@ irr::s32 toPow2(irr::video::IVideoDriver* driver, irr::s32 size) {
 	if(!hasNPotSupport(driver))
 		return npot2(size);
 	return size;
-};
+}
 }
 
 ImageManager::ImageManager() {

@@ -1,7 +1,5 @@
 #include <sstream>
 #include <nlohmann/json.hpp>
-#include <fmt/format.h>
-#include <fmt/printf.h>
 #include <irrlicht.h>
 #include "client_updater.h"
 #include "game_config.h"
@@ -122,7 +120,7 @@ void Game::Initialize() {
 					return true;
 				return false;
 			}
-			irr::core::position2di convpos = mainGame->Resize(pos.X, pos.Y, true);
+			irr::core::vector2di convpos = mainGame->Resize(pos.X, pos.Y, true);
 			auto x = convpos.X;
 			auto y = convpos.Y;
 			if(mainGame->is_building && !mainGame->is_siding) {
@@ -140,11 +138,6 @@ void Game::Initialize() {
 #endif
 	filesystem = device->getFileSystem();
 	filesystem->grab();
-	coreloaded = true;
-#ifdef YGOPRO_BUILD_DLL
-	if(!(ocgcore = LoadOCGcore(Utils::GetWorkingDirectory())) && !(ocgcore = LoadOCGcore(epro::format(EPRO_TEXT("{}/expansions/"), Utils::GetWorkingDirectory()))))
-		coreloaded = false;
-#endif
 	skinSystem = new CGUISkinSystem(epro::format(EPRO_TEXT("{}/skin"), Utils::GetWorkingDirectory()).data(), device);
 	if(!skinSystem)
 		throw std::runtime_error("Couldn't create skin system");
@@ -241,7 +234,6 @@ void Game::Initialize() {
 	int titleWidth = stVersion->getTextWidth();
 	stVersion->setRelativePosition(irr::core::recti(Scale(10), Scale(10), titleWidth + Scale(10), Scale(35)));
 	stCoreVersion = env->addStaticText(L"", Scale(10, 40, 500, 65), false, false, wVersion);
-	RefreshUICoreVersion();
 	stExpectedCoreVersion = env->addStaticText(
 		GetLocalizedExpectedCore().data(),
 		Scale(10, 70, 290, 95), false, true, wVersion);
@@ -277,7 +269,6 @@ void Game::Initialize() {
 	defaultStrings.emplace_back(btnModeExit, 1210);
 	offset += 35;
 #undef OFFSET
-	btnSingleMode->setEnabled(coreloaded);
 	//lan mode
 	wLanWindow = env->addWindow(Scale(220, 100, 800, 520), false, gDataManager->GetSysString(1200).data());
 	defaultStrings.emplace_back(wLanWindow, 1200);
@@ -307,7 +298,6 @@ void Game::Initialize() {
 	defaultStrings.emplace_back(btnJoinCancel, 1212);
 	btnCreateHost = env->addButton(Scale(460, 25, 570, 50), wLanWindow, BUTTON_CREATE_HOST, gDataManager->GetSysString(1224).data());
 	defaultStrings.emplace_back(btnCreateHost, 1224);
-	btnCreateHost->setEnabled(coreloaded);
 
 	PopulateGameHostWindows();
 	PopulateAIBotWindow();
@@ -596,15 +586,12 @@ void Game::Initialize() {
 	btnHandTest = AlignElementWithParent(env->addButton(Scale(205, 90, 295, 130), nullptr, BUTTON_HAND_TEST, gDataManager->GetSysString(1297).data()));
 	defaultStrings.emplace_back(btnHandTest, 1297);
 	btnHandTest->setVisible(false);
-	btnHandTest->setEnabled(coreloaded);
 
 	btnHandTestSettings = AlignElementWithParent(env->addButton(Scale(205, 140, 295, 180), 0, BUTTON_HAND_TEST_SETTINGS, L""));
 	btnHandTestSettings->setVisible(false);
-	btnHandTestSettings->setEnabled(coreloaded);
 
 	stHandTestSettings = AlignElementWithParent(irr::gui::CGUICustomText::addCustomText(gDataManager->GetSysString(1375).data(), false, env, btnHandTestSettings, -1, Scale(0, 0, 90, 40)));
 	stHandTestSettings->setWordWrap(true);
-	stHandTestSettings->setEnabled(coreloaded);
 	stHandTestSettings->setTextAlignment(irr::gui::EGUIA_CENTER, irr::gui::EGUIA_CENTER);
 	defaultStrings.emplace_back(stHandTestSettings, 1375);
 
@@ -639,6 +626,7 @@ void Game::Initialize() {
 	//
 
 	btnYdkeManage = AlignElementWithParent(env->addButton(Scale(205, 190, 295, 230), 0, BUTTON_DECK_YDKE_MANAGE, gDataManager->GetSysString(2083).data()));
+	defaultStrings.emplace_back(btnYdkeManage, 2083);
 	btnYdkeManage->setVisible(false);
 	btnYdkeManage->setEnabled(true);
 
@@ -693,6 +681,7 @@ void Game::Initialize() {
 	cbAttribute->setMaxSelectionRows(10);
 	ReloadCBAttribute();
 	stRace = env->addStaticText(gDataManager->GetSysString(1321).data(), Scale(10, 51, 70, 71), false, false, wFilter);
+	defaultStrings.emplace_back(stRace, 1321);
 	cbRace = AlignElementWithParent(AddComboBox(env, Scale(60, 49, 190, 69), wFilter, COMBOBOX_OTHER_FILT));
 	cbRace->setMaxSelectionRows(10);
 	ReloadCBRace();
@@ -1057,12 +1046,6 @@ void Game::Initialize() {
 
 	//load server(s)
 	LoadServers();
-#ifdef YGOPRO_BUILD_DLL
-	if(!coreloaded) {
-		stMessage->setText(gDataManager->GetSysString(1430).data());
-		PopupElement(wMessage);
-	}
-#endif
 	fpsCounter = env->addStaticText(L"", Scale(950, 620, 1024, 640), false, false);
 	fpsCounter->setOverrideColor(skin::FPS_TEXT_COLOR_VAL);
 	fpsCounter->setVisible(gGameConfig->showFPS);
@@ -1092,6 +1075,21 @@ void Game::Initialize() {
 	Utils::CreateResourceFolders();
 
 	LoadGithubRepositories();
+	if(LoadCore()) {
+		(void)0;
+	}
+#ifdef YGOPRO_BUILD_DLL
+	else {
+		stMessage->setText(gDataManager->GetSysString(1430).data());
+		PopupElement(wMessage);
+	}
+#endif
+	btnSingleMode->setEnabled(coreloaded);
+	btnCreateHost->setEnabled(coreloaded);
+	btnHandTest->setEnabled(coreloaded);
+	btnHandTestSettings->setEnabled(coreloaded);
+	stHandTestSettings->setEnabled(coreloaded);
+	RefreshUICoreVersion();
 	ApplySkin(EPRO_TEXT(""), true);
 	auto selectedLocale = gSettings.cbCurrentLocale->getSelected();
 	if(selectedLocale != 0)
@@ -1102,6 +1100,51 @@ void Game::Initialize() {
 	env->setFocus(wMainMenu);
 }
 
+bool Game::LoadCore() {
+	coreloaded = true;
+#ifdef YGOPRO_BUILD_DLL
+	coreJustLoaded = false;
+	ocgcore = LoadOCGcore(Utils::GetWorkingDirectory());
+	if(ocgcore){
+		corename = Utils::ToUnicodeIfNeeded(Utils::GetWorkingDirectory());
+	} else {
+		const auto path = epro::format(EPRO_TEXT("{}/expansions/"), Utils::GetWorkingDirectory());
+		ocgcore = LoadOCGcore(path);
+		if(ocgcore)
+			corename = Utils::ToUnicodeIfNeeded(path);
+	}
+	coreloaded = ocgcore != nullptr;
+	if(gRepoManager->IsReadOnly())
+		LoadCoreFromRepos();
+#endif
+	return coreloaded;
+}
+
+#ifdef YGOPRO_BUILD_DLL
+void Game::LoadCoreFromRepos() {
+	if(cores_to_load.empty() || gRepoManager->GetUpdatingReposNumber() > 0)
+		return;
+	for(auto& path : cores_to_load) {
+		void* ncore = ChangeOCGcore(Utils::GetWorkingDirectory() + path, ocgcore);
+		if(!ncore)
+			continue;
+		corename = Utils::ToUnicodeIfNeeded(path);
+		coreJustLoaded = true;
+		ocgcore = ncore;
+		if(!coreloaded) {
+			coreloaded = true;
+			btnSingleMode->setEnabled(true);
+			btnCreateHost->setEnabled(true);
+			btnHandTest->setEnabled(true);
+			btnHandTestSettings->setEnabled(true);
+			stHandTestSettings->setEnabled(true);
+		}
+		break;
+	}
+	cores_to_load.clear();
+}
+#endif
+
 static constexpr std::pair<epro::wstringview, irr::video::E_DRIVER_TYPE> supported_graphic_drivers[]{
 	{ L"Default"_sv, irr::video::EDT_COUNT},
 #if !EDOPRO_ANDROID && !EDOPRO_IOS
@@ -1109,8 +1152,11 @@ static constexpr std::pair<epro::wstringview, irr::video::E_DRIVER_TYPE> support
 #endif
 #if EDOPRO_WINDOWS
 	{ L"Direct3D 9"_sv, irr::video::EDT_DIRECT3D9},
+#if (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
+	{ L"Direct3D 9on12"_sv, irr::video::EDT_DIRECT3D9_ON_12},
 #endif
-#if !EDOPRO_MACOS && IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9
+#endif
+#if !EDOPRO_MACOS && (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
 	{ L"OpenGL ES 1"_sv, irr::video::EDT_OGLES1 },
 	{ L"OpenGL ES 2"_sv, irr::video::EDT_OGLES2 },
 #endif
@@ -1535,7 +1581,7 @@ void Game::PopulateTabSettingsWindow() {
 		tabSettings.chkNoChainDelay = env->addCheckBox(gGameConfig->chkWaitChain, GetNextRect(), tabPanel, CHECKBOX_NO_CHAIN_DELAY, gDataManager->GetSysString(1277).data());
 		menuHandler.MakeElementSynchronized(tabSettings.chkNoChainDelay);
 		defaultStrings.emplace_back(tabSettings.chkNoChainDelay, 1277);
-		tabSettings.chkIgnoreDeckContents = env->addCheckBox(gGameConfig->ignoreDeckContents, GetNextRect(), tabPanel, CHECKBOX_IGNORE_DECK_CONTENTS, gDataManager->GetSysString(1277).data());
+		tabSettings.chkIgnoreDeckContents = env->addCheckBox(gGameConfig->ignoreDeckContents, GetNextRect(), tabPanel, CHECKBOX_IGNORE_DECK_CONTENTS, gDataManager->GetSysString(12119).data());
 		menuHandler.MakeElementSynchronized(tabSettings.chkIgnoreDeckContents);
 		defaultStrings.emplace_back(tabSettings.chkIgnoreDeckContents, 12119);
 		// Check OnResize for button placement information
@@ -1960,79 +2006,12 @@ bool Game::MainLoop() {
 				ApplySkin(EPRO_TEXT(""), true);
 			}
 		}
-		auto repos = gRepoManager->GetReadyRepos();
-		if(!repos.empty()) {
-			bool refresh_db = false;
-			for(auto& repo : repos) {
-				auto grepo = &repoInfoGui[repo->repo_path];
-				UpdateRepoInfo(repo, grepo);
-				auto data_path = Utils::ToPathString(repo->data_path);
-				auto files = Utils::FindFiles(data_path, { EPRO_TEXT("cdb") }, 0);
-				if(!repo->is_language) {
-					for(auto& file : files) {
-						const auto db_path = data_path + file;
-						if(gDataManager->LoadDB(db_path)) {
-							WindBot::AddDatabase(db_path);
-							refresh_db = true;
-						}
-					}
-					gDataManager->LoadStrings(data_path + EPRO_TEXT("strings.conf"));
-					refresh_db = gDataManager->LoadIdsMapping(data_path + EPRO_TEXT("mappings.json")) || refresh_db;
-				} else {
-					if(Utils::ToUTF8IfNeeded(gGameConfig->locale) == repo->language) {
-						for(auto& file : files)
-							refresh_db = gDataManager->LoadLocaleDB(data_path + file) || refresh_db;
-						gDataManager->LoadLocaleStrings(data_path + EPRO_TEXT("strings.conf"));
-					}
-					auto langpath = Utils::ToPathString(repo->language);
-					auto lang = Utils::ToUpperNoAccents(langpath);
-					auto it = std::find_if(locales.begin(), locales.end(),
-										   [&lang](const auto& locale) {
-											   return Utils::ToUpperNoAccents(locale.first) == lang;
-										   });
-					if(it != locales.end()) {
-						it->second.push_back(std::move(data_path));
-					} else {
-						Utils::MakeDirectory(EPRO_TEXT("./config/languages/") + langpath);
-						locales.emplace_back(std::move(langpath), std::vector<epro::path_string>{ std::move(data_path) });
-						gSettings.cbCurrentLocale->addItem(BufferIO::DecodeUTF8(repo->language).data());
-					}
-				}
-			}
-			if(refresh_db && is_building) {
-				if(!is_siding)
-					deckBuilder.RefreshCurrentDeck();
-				if(deckBuilder.results.size())
-					deckBuilder.StartFilter(true);
-			}
-			if(gRepoManager->GetUpdatingReposNumber() == 0) {
-				gdeckManager->StopDummyLoading();
-				ReloadElementsStrings();
-			}
-		}
+		ParseGithubRepositories(gRepoManager->GetReadyRepos());
 		if(ServerLobby::HasRefreshedRooms())
 			ServerLobby::FillOnlineRooms();
 #ifdef YGOPRO_BUILD_DLL
-		bool coreJustLoaded = false;
-		if(!dInfo.isStarted && cores_to_load.size() && gRepoManager->GetUpdatingReposNumber() == 0) {
-			for(auto& path : cores_to_load) {
-				void* ncore = nullptr;
-				if((ncore = ChangeOCGcore(Utils::GetWorkingDirectory() + path, ocgcore))) {
-					corename = Utils::ToUnicodeIfNeeded(path);
-					coreJustLoaded = true;
-					ocgcore = ncore;
-					if(!coreloaded) {
-						coreloaded = true;
-						btnSingleMode->setEnabled(true);
-						btnCreateHost->setEnabled(true);
-						btnHandTest->setEnabled(true);
-						btnHandTestSettings->setEnabled(true);
-						stHandTestSettings->setEnabled(true);
-					}
-					break;
-				}
-			}
-			cores_to_load.clear();
+		if(!dInfo.isStarted) {
+			LoadCoreFromRepos();
 		}
 #endif //YGOPRO_BUILD_DLL
 		for(auto& repo : gRepoManager->GetRepoStatus()) {
@@ -2248,6 +2227,14 @@ bool Game::MainLoop() {
 				PopupElement(wQuery);
 				show_changelog = false;
 			}
+			else if(needs_to_acknowledge_discord_host) {
+				std::lock_guard<epro::mutex> lock(gMutex);
+				menuHandler.prev_operation = ACTION_ACKNOWLEDGE_HOST;
+				stQMessage->setText(epro::format(gDataManager->GetSysString(1468), dInfo.secret.host.address, dInfo.secret.host.port).data());
+				SetCentered(wQuery);
+				PopupElement(wQuery);
+				needs_to_acknowledge_discord_host = false;
+			}
 #if EDOPRO_LINUX && (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
 			else if(gGameConfig->useWayland == 2) {
 				std::lock_guard<epro::mutex> lock(gMutex);
@@ -2280,11 +2267,9 @@ bool Game::MainLoop() {
 			}
 		}
 #if EDOPRO_MACOS
-		// Recent versions of macOS break OpenGL vsync while offscreen, resulting in
-		// astronomical FPS and CPU usage. As a workaround, while the game window is
-		// fully occluded, the game is restricted to 30 FPS.
-		int fpsLimit = device->isWindowActive() ? gGameConfig->maxFPS : 30;
-		if (!device->isWindowActive() || (gGameConfig->maxFPS > 0 && !gGameConfig->vsync)) {
+		// Vsync is a lost cause on MacOS, emulate it by hadrcoding to 60 fps
+		int fpsLimit = gGameConfig->vsync ? 60 / gGameConfig->vsync : gGameConfig->maxFPS;
+		if(fpsLimit > 0) {
 #else
 		int fpsLimit = gGameConfig->maxFPS;
 		if(gGameConfig->maxFPS > 0 && !gGameConfig->vsync) {
@@ -2324,8 +2309,7 @@ bool Game::MainLoop() {
 	ClearTextures();
 	SaveConfig();
 #ifdef YGOPRO_BUILD_DLL
-	if(ocgcore)
-		UnloadCore(ocgcore);
+	UnloadCore(ocgcore);
 #endif //YGOPRO_BUILD_DLL
 	//device->drop();
 	return restart;
@@ -2662,6 +2646,59 @@ void Game::LoadGithubRepositories() {
 			update_ready = false;
 		}
 	}
+	if(gRepoManager->IsReadOnly())
+		ParseGithubRepositories(gRepoManager->GetReadyRepos());
+}
+void Game::ParseGithubRepositories(const std::vector<const GitRepo*>& repos) {
+	if(repos.empty())
+		return;
+	bool refresh_db = false;
+	for(auto& repo : repos) {
+		auto grepo = &repoInfoGui[repo->repo_path];
+		UpdateRepoInfo(repo, grepo);
+		auto data_path = Utils::ToPathString(repo->data_path);
+		auto files = Utils::FindFiles(data_path, { EPRO_TEXT("cdb") }, 0);
+		if(!repo->is_language) {
+			for(auto& file : files) {
+				const auto db_path = data_path + file;
+				if(gDataManager->LoadDB(db_path)) {
+					WindBot::AddDatabase(db_path);
+					refresh_db = true;
+				}
+			}
+			gDataManager->LoadStrings(data_path + EPRO_TEXT("strings.conf"));
+			refresh_db = gDataManager->LoadIdsMapping(data_path + EPRO_TEXT("mappings.json")) || refresh_db;
+		} else {
+			if(Utils::ToUTF8IfNeeded(gGameConfig->locale) == repo->language) {
+				for(auto& file : files)
+					refresh_db = gDataManager->LoadLocaleDB(data_path + file) || refresh_db;
+				gDataManager->LoadLocaleStrings(data_path + EPRO_TEXT("strings.conf"));
+			}
+			auto langpath = Utils::ToPathString(repo->language);
+			auto lang = Utils::ToUpperNoAccents(langpath);
+			auto it = std::find_if(locales.begin(), locales.end(),
+								   [&lang](const auto& locale) {
+									   return Utils::ToUpperNoAccents(locale.first) == lang;
+								   });
+			if(it != locales.end()) {
+				it->second.push_back(std::move(data_path));
+			} else {
+				Utils::MakeDirectory(EPRO_TEXT("./config/languages/") + langpath);
+				locales.emplace_back(std::move(langpath), std::vector<epro::path_string>{ std::move(data_path) });
+				gSettings.cbCurrentLocale->addItem(BufferIO::DecodeUTF8(repo->language).data());
+			}
+		}
+	}
+	if(refresh_db && is_building) {
+		if(!is_siding)
+			deckBuilder.RefreshCurrentDeck();
+		if(deckBuilder.results.size())
+			deckBuilder.StartFilter(true);
+	}
+	if(gRepoManager->GetUpdatingReposNumber() == 0) {
+		gdeckManager->StopDummyLoading();
+		ReloadElementsStrings();
+	}
 }
 void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 	if(repo->history.error.size()) {
@@ -2673,9 +2710,11 @@ void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 		grepo->history_button2->setText(gDataManager->GetSysString(1434).data());
 		defaultStrings.emplace_back(grepo->history_button2, 1434);
 		grepo->history_button2->setEnabled(true);
+		auto error_string = repo->not_git_repo ? epro::format(gDataManager->GetSysString(1452), BufferIO::DecodeUTF8(repo->repo_path)) :
+															  epro::format(gDataManager->GetSysString(1435), BufferIO::DecodeUTF8(repo->url));
 		grepo->commit_history_full = epro::format(L"{}\n{}",
-												epro::format(gDataManager->GetSysString(1435), BufferIO::DecodeUTF8(repo->url)),
-												epro::format(gDataManager->GetSysString(1436), BufferIO::DecodeUTF8(repo->history.error))
+												  error_string,
+												  epro::format(gDataManager->GetSysString(1436), BufferIO::DecodeUTF8(repo->history.error))
 		);
 		grepo->commit_history_partial = grepo->commit_history_full;
 		return;
@@ -2712,6 +2751,9 @@ void Game::UpdateRepoInfo(const GitRepo* repo, RepoGui* grepo) {
 	grepo->history_button2->setEnabled(true);
 	if(!repo->is_language) {
 		script_dirs.insert(script_dirs.begin(), Utils::ToPathString(repo->script_path));
+		auto init_script = fmt::format(EPRO_TEXT("{}{}"), script_dirs.front(), EPRO_TEXT("init.lua"));
+		if(Utils::FileExists(init_script))
+			init_scripts.push_back(std::move(init_script));
 		auto script_subdirs = Utils::FindSubfolders(Utils::ToPathString(repo->script_path), 2);
 		script_dirs.insert(script_dirs.begin(), std::make_move_iterator(script_subdirs.begin()), std::make_move_iterator(script_subdirs.end()));
 		pic_dirs.insert(pic_dirs.begin(), Utils::ToPathString(repo->pics_path));
@@ -2732,7 +2774,7 @@ void Game::LoadServers() {
 		if(it != config.end() && it->is_array()) {
 			for(auto& obj : *it) {
 				try {
-					ServerInfo tmp_server;
+					ServerInfo tmp_server{};
 					tmp_server.name = BufferIO::DecodeUTF8(obj.at("name").get_ref<std::string&>());
 					tmp_server.address = obj.at("address").get<std::string>();
 					tmp_server.roomaddress = obj.at("roomaddress").get<std::string>();
@@ -3473,9 +3515,9 @@ void Game::ReloadCBCoreLogOutput() {
 void Game::ReloadCBVsync() {
 	gSettings.cbVSync->clear();
 	auto max = 12118;
-#if (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9)
+#if (IRRLICHT_VERSION_MAJOR==1 && IRRLICHT_VERSION_MINOR==9) && EDOPRO_WINDOWS
 	const auto type = driver->getDriverType();
-	if(type == irr::video::EDT_DIRECT3D9)
+	if(type == irr::video::EDT_DIRECT3D9 || type == irr::video::EDT_DIRECT3D9_ON_12)
 #endif
 		max = 12115;
 	for(int i = 12114; i <= max; ++i)
@@ -3557,6 +3599,10 @@ void Game::ReloadElementsStrings() {
 	ReloadCBCoreLogOutput();
 	gSettings.cbCoreLogOutput->setSelected(prev);
 
+	prev = gSettings.cbVSync->getSelected();
+	ReloadCBVsync();
+	gSettings.cbVSync->setSelected(prev);
+
 	((irr::gui::CGUICustomTable*)roomListTable)->setColumnText(1, gDataManager->GetSysString(1225).data());
 	((irr::gui::CGUICustomTable*)roomListTable)->setColumnText(2, gDataManager->GetSysString(1227).data());
 	((irr::gui::CGUICustomTable*)roomListTable)->setColumnText(3, gDataManager->GetSysString(1236).data());
@@ -3631,7 +3677,7 @@ void Game::OnResize() {
 	wRules->setRelativePosition(ResizeWin(630, 100, 1000, 310));
 	wReplay->setRelativePosition(ResizeWin(220, 100, 800, 520));
 	wSinglePlay->setRelativePosition(ResizeWin(220, 100, 800, 520));
-	gBot.window->setRelativePosition(irr::core::position2di(wHostPrepare->getAbsolutePosition().LowerRightCorner.X, wHostPrepare->getAbsolutePosition().UpperLeftCorner.Y));
+	gBot.window->setRelativePosition(irr::core::vector2di(wHostPrepare->getAbsolutePosition().LowerRightCorner.X, wHostPrepare->getAbsolutePosition().UpperLeftCorner.Y));
 
 	wHand->setRelativePosition(ResizeWin(500, 450, 825, 605));
 	wFTSelect->setRelativePosition(ResizeWin(550, 240, 780, 340));
@@ -3822,32 +3868,38 @@ epro::path_string Game::FindScript(epro::path_stringview name, irr::io::IReadFil
 		return name.data();
 	return EPRO_TEXT("");
 }
-std::vector<char> Game::LoadScript(epro::stringview _name) {
-	irr::io::IReadFile* tmp;
-	auto path = FindScript(Utils::ToPathString(_name), &tmp);
-	if(path.size()) {
-		std::vector<char> buffer;
-		if(path == EPRO_TEXT("archives")) {
-			if(tmp) {
-				buffer.resize(tmp->getSize());
-				if(tmp->read(buffer.data(), buffer.size()) == buffer.size()) {
-					tmp->drop();
-					return buffer;
-				}
-				tmp->drop();
-			}
-		} else {
-			FileStream script{ path, FileStream::in | FileStream::binary };
-			if(!script.fail()) {
-				buffer.insert(buffer.begin(), std::istreambuf_iterator<char>(script), std::istreambuf_iterator<char>());
-				return buffer;
-			}
-		}
+static inline void seek(irr::io::IReadFile& file) { file.seek(0); }
+static inline void seek(FileStream& file) { file.seekg(0); }
+std::vector<char> Game::FindAndReadScript(epro::stringview name) {
+	irr::io::IReadFile* tmp{ nullptr };
+	auto path = FindScript(Utils::ToPathString(name), &tmp);
+	return ReadScript(path, tmp);
+}
+std::vector<char> Game::ReadScript(epro::path_stringview path, irr::io::IReadFile* archive) {
+	auto SkipBom = [](auto& stream) -> auto& {
+		char bom[3]{};
+		stream.read(bom, 3);
+		if(bom[0] != '\xEF' || bom[1] != '\xBB' || bom[2] != '\xBF')
+			seek(stream);
+		return stream;
+	};
+	if(archive) {
+		SkipBom(*archive);
+		std::vector<char> buffer(archive->getSize() - archive->getPos());
+		if(archive->read(buffer.data(), buffer.size()) != buffer.size())
+			buffer.clear();
+		archive->drop();
+		return buffer;
 	}
+	if(path.empty())
+		return {};
+	FileStream script{ path.data(), FileStream::in | FileStream::binary };
+	if(!script.fail())
+		return { std::istreambuf_iterator<char>(SkipBom(script)), std::istreambuf_iterator<char>() };
 	return {};
 }
 bool Game::LoadScript(OCG_Duel pduel, epro::stringview script_name) {
-	auto buf = LoadScript(script_name);
+	auto buf = FindAndReadScript(script_name);
 	return buf.size() && OCG_LoadScript(pduel, buf.data(), static_cast<uint32_t>(buf.size()), script_name.data());
 }
 OCG_Duel Game::SetupDuel(OCG_DuelOptions opts) {
@@ -3862,6 +3914,11 @@ OCG_Duel Game::SetupDuel(OCG_DuelOptions opts) {
 	OCG_CreateDuel(&pduel, opts);
 	LoadScript(pduel, "constant.lua");
 	LoadScript(pduel, "utility.lua");
+	for(const auto& script : init_scripts) {
+		auto buf = ReadScript(script);
+		if(buf.size())
+			OCG_LoadScript(pduel, buf.data(), static_cast<uint32_t>(buf.size()), Utils::ToUTF8IfNeeded(script).data());
+	}
 	return pduel;
 }
 int Game::ScriptReader(void* payload, OCG_Duel duel, const char* name) {
@@ -3908,6 +3965,8 @@ void Game::UpdateUnzipBar(unzip_payload* payload) {
 	status.progressBottom = payload->percentage;
 }
 void Game::PopulateResourcesDirectories() {
+	if(Utils::FileExists(EPRO_TEXT("./init.lua")))
+		init_scripts.push_back(EPRO_TEXT("./init.lua"));
 	script_dirs.push_back(EPRO_TEXT("./expansions/script/"));
 	auto expansions_subdirs = Utils::FindSubfolders(EPRO_TEXT("./expansions/script/"));
 	script_dirs.insert(script_dirs.end(), std::make_move_iterator(expansions_subdirs.begin()), std::make_move_iterator(expansions_subdirs.end()));

@@ -1,16 +1,4 @@
 #include "config.h"
-#if EDOPRO_WINDOWS
-#define WIN32_LEAN_AND_MEAN
-#include <Tchar.h> //_tmain
-#else
-#if EDOPRO_IOS
-#define _tmain epro_ios_main
-#else
-#define _tmain main
-#endif //EDOPRO_IOS
-#include <unistd.h>
-#include <signal.h>
-#endif //EDOPRO_WINDOWS
 #include <curl/curl.h>
 #include <event2/thread.h>
 #include <IrrlichtDevice.h>
@@ -21,6 +9,7 @@
 #include <IGUIEnvironment.h>
 #include <ISceneManager.h>
 #include "client_updater.h"
+#include "cli_args.h"
 #include "config.h"
 #include "data_handler.h"
 #include "logging.h"
@@ -58,60 +47,6 @@ inline void TriggerEvent(irr::gui::IGUIElement* target, irr::gui::EGUI_EVENT_TYP
 inline void SetCheckbox(irr::gui::IGUICheckBox* chk, bool state) {
 	chk->setChecked(state);
 	TriggerEvent(chk, irr::gui::EGET_CHECKBOX_CHANGED);
-}
-
-enum LAUNCH_PARAM {
-	WORK_DIR,
-	MUTE,
-	CHANGELOG,
-	DISCORD,
-	OVERRIDE_UPDATE_URL,
-	COUNT,
-};
-
-LAUNCH_PARAM GetOption(epro::path_char option) {
-	switch(static_cast<char>(option)) {
-	case 'C': return LAUNCH_PARAM::WORK_DIR;
-	case 'm': return LAUNCH_PARAM::MUTE;
-	case 'l': return LAUNCH_PARAM::CHANGELOG;
-	case 'D': return LAUNCH_PARAM::DISCORD;
-	case 'u': return LAUNCH_PARAM::OVERRIDE_UPDATE_URL;
-	default: return LAUNCH_PARAM::COUNT;
-	}
-}
-
-struct Option {
-	bool enabled{ false };
-	epro::path_stringview argument;
-};
-
-using args_t = std::array<Option, LAUNCH_PARAM::COUNT>;
-
-args_t ParseArguments(int argc, epro::path_char* argv[]) {
-	args_t res;
-	for(int i = 1; i < argc; ++i) {
-		epro::path_stringview parameter = argv[i];
-		if(parameter.size() < 2)
-			break;
-		if(parameter[0] == EPRO_TEXT('-')) {
-			auto launch_param = GetOption(parameter[1]);
-			if(launch_param == LAUNCH_PARAM::COUNT)
-				continue;
-			epro::path_stringview argument;
-			if(i + 1 < argc) {
-				const auto* next = argv[i + 1];
-				if(next[0] != EPRO_TEXT('-')) {
-					argument = next;
-					i++;
-				}
-			}
-			res[launch_param].enabled = true;
-			res[launch_param].argument = argument;
-			continue;
-		} else if(parameter == EPRO_TEXT("show_changelog"))
-			res[LAUNCH_PARAM::CHANGELOG].enabled = true;
-	}
-	return res;
 }
 
 void CheckArguments(const args_t& args) {
@@ -165,9 +100,22 @@ using Game = ygo::Game;
 
 }
 
-int _tmain(int argc, epro::path_char* argv[]) {
+#if EDOPRO_WINDOWS
+#define ADMIN_STR "administrator"
+#else
+#define ADMIN_STR "root"
+#endif
+
+int edopro_main(const args_t& args) {
 	std::puts(EDOPRO_VERSION_STRING_DEBUG);
-	const auto args = ParseArguments(argc, argv);
+	if(ygo::Utils::IsRunningAsAdmin() && !args[LAUNCH_PARAM::WANTS_TO_RUN_AS_ADMIN].enabled) {
+		constexpr auto err = "Attempted to run the game as " ADMIN_STR ".\n"
+			"You should NEVER have to run the game with elevated priviledges.\n"
+			"If for some reason you REALLY want to do that, launch the game with the option \"-i-want-to-be-admin\""_sv;
+		epro::print("{}\n", err);
+		ygo::GUIUtils::ShowErrorWindow("Initialization fail", err);
+		return EXIT_FAILURE;
+	}
 	{
 		const auto& workdir = args[LAUNCH_PARAM::WORK_DIR];
 		const epro::path_stringview dest = workdir.enabled ? workdir.argument : ygo::Utils::GetExeFolder();
@@ -191,14 +139,6 @@ int _tmain(int argc, epro::path_char* argv[]) {
 		return EXIT_FAILURE;
 	}
 	show_changelog = args[LAUNCH_PARAM::CHANGELOG].enabled;
-#if EDOPRO_POSIX
-	setlocale(LC_CTYPE, "UTF-8");
-	struct sigaction sa;
-	sa.sa_handler = SIG_IGN;
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = 0;
-	(void)sigaction(SIGCHLD, &sa, 0);
-#endif //EDOPRO_POSIX
 	ygo::ClientUpdater updater(args[LAUNCH_PARAM::OVERRIDE_UPDATE_URL].argument);
 	ygo::gClientUpdater = &updater;
 	std::unique_ptr<ygo::DataHandler> data{ nullptr };
@@ -222,8 +162,12 @@ int _tmain(int argc, epro::path_char* argv[]) {
 	if (!data->configs->noClientUpdates)
 		updater.CheckUpdates();
 #if EDOPRO_WINDOWS
-	if(!data->configs->showConsole)
+	if(!data->configs->showConsole) {
+		fclose(stdin);
+		fclose(stderr);
+		fclose(stdout);
 		FreeConsole();
+	}
 #endif
 #if EDOPRO_MACOS
 	EDOPRO_SetupMenuBar([]() {
