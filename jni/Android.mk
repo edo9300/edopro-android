@@ -18,6 +18,10 @@ ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
 LOCAL_CFLAGS += -mno-unaligned-access
 endif
 
+ifeq ($(TARGET_ARCH_ABI), arm64-v8a)
+LOCAL_LDFLAGS += "-Wl,-z,max-page-size=16384"
+endif
+
 ifneq ($(PICS_URL),)
 LOCAL_CFLAGS += -DDEFAULT_PIC_URL=\"$(PICS_URL)\"
 endif
