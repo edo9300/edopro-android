@@ -1,3 +1,4 @@
+#include "compiler_features.h"
 #include "cli_args.h"
 #include "text_types.h"
 #include "repo_cloner.h"
@@ -34,7 +35,7 @@ auto GetOption(epro::path_stringview option) {
 		default: return LAUNCH_PARAM::COUNT;
 		}
 	}
-	if(option == EPRO_TEXT("i-want-to-be-admin"_sv))
+	if(option == EPRO_TEXT("i-want-to-be-admin"sv))
 		return LAUNCH_PARAM::WANTS_TO_RUN_AS_ADMIN;
 	return LAUNCH_PARAM::COUNT;
 }
@@ -57,8 +58,7 @@ auto ParseArguments(int argc, epro::path_char* argv[]) {
 					i++;
 				}
 			}
-			res[launch_param].enabled = true;
-			res[launch_param].argument = argument;
+			res[launch_param] = {true,  argument};
 			continue;
 		}
 	}

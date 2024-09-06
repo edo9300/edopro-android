@@ -270,28 +270,26 @@ auto Utils::GetFileNameImpl(const epro::basic_string_view<T>& _file, bool keepex
 template<typename T>
 inline std::vector<T> Utils::TokenizeString(epro::basic_string_view<typename T::value_type> input, const T& token) {
 	std::vector<T> res;
-	typename T::size_type pos1, pos2 = 0;
-	while((pos1 = input.find(token, pos2)) != T::npos) {
-		if(pos1 != pos2)
-			res.emplace_back(input.begin() + pos2, pos1 - pos2);
-		pos2 = pos1 + token.size();
+	typename T::size_type pos;
+	while((pos = input.find(token)) != T::npos) {
+		res.emplace_back(input.substr(0, pos));
+		input.remove_prefix(pos + token.size());
 	}
-	if(pos2 != input.size())
-		res.emplace_back(input.begin() + pos2, input.size() - pos2);
+	if(!input.empty())
+		res.emplace_back(input);
 	return res;
 }
 
 template<typename T>
 inline std::vector<T> Utils::TokenizeString(epro::basic_string_view<typename T::value_type> input, typename T::value_type token) {
 	std::vector<T> res;
-	typename T::size_type pos1, pos2 = 0;
-	while((pos1 = input.find(token, pos2)) != T::npos) {
-		if(pos1 != pos2)
-			res.emplace_back(input.begin() + pos2, pos1 - pos2);
-		pos2 = pos1 + 1;
+	typename T::size_type pos;
+	while((pos = input.find(token)) != T::npos) {
+		res.emplace_back(input.substr(0, pos));
+		input.remove_prefix(pos + 1);
 	}
-	if(pos2 != input.size())
-		res.emplace_back(input.begin() + pos2, input.size() - pos2);
+	if(!input.empty())
+		res.emplace_back(input);
 	return res;
 }
 
@@ -299,8 +297,6 @@ template<typename T>
 T Utils::ToUpperChar(T c) {
 #define IN_INTERVAL(start, end) (c >= start && c <= end)
 	if(std::is_same<T, wchar_t>::value) {
-		if(c > 255)
-			return c;
 		if(IN_INTERVAL(192, 197) || IN_INTERVAL(224, 229)
 		   || c == 0x2c6f || c == 0x250 //latin capital/small letter turned a
 		   || c == 0x2200) //for all
@@ -328,6 +324,8 @@ T Utils::ToUpperChar(T c) {
 		if(c == 191) { //inverted question mark
 			return static_cast<T>('?');
 		}
+		if(c > 255)
+			return c;
 		return static_cast<T>(std::toupper(static_cast<int>(c)));
 	} else
 		return static_cast<T>(std::toupper(c));

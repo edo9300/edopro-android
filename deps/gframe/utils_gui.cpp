@@ -1,7 +1,6 @@
 #include "utils_gui.h"
 #include <irrlicht.h>
 #include <ICursorControl.h>
-#include <fmt/chrono.h>
 #include "config.h"
 #include "utils.h"
 #include "game_config.h"
@@ -31,7 +30,7 @@ using CCursorControl = irr::CCursorControl;
 
 static inline bool try_guess_wayland() {
 	const char* env = getenv("XDG_SESSION_TYPE");
-	return env == nullptr || env != "x11"_sv;
+	return env == nullptr || env != "x11"sv;
 }
 #endif //EDOPRO_WINDOWS
 
