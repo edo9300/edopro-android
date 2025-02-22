@@ -2,7 +2,7 @@ name: Build app
 on: [push, pull_request]
 jobs:
   build-apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       DEPLOY_BRANCH: android
       OS_NAME: linux
