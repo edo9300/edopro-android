@@ -204,17 +204,20 @@ public class MainActivity extends Activity {
 		}
 	}
 
-	@SuppressWarnings("ConstantConditions")
 	public void next() {
 		boolean use_windbot = true;
-		try {
-			/*
-			 * windbot loading might fail, for whatever reason,
-			 * disable it if that's the case
-			 */
-			WindBot.initAndroid(working_directory + "/WindBot");
-		} catch (Exception e) {
+		if(Build.VERSION.SDK_INT <= Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1){
 			use_windbot = false;
+		} else {
+			try {
+				/*
+				 * windbot loading might fail, for whatever reason,
+				 * disable it if that's the case
+				 */
+				WindBot.initAndroid(working_directory + "/WindBot");
+			} catch (Exception e) {
+				use_windbot = false;
+			}
 		}
 		/*
 			pass the working directory via parameters, rather than making
