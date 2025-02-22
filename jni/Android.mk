@@ -3,7 +3,7 @@ LOCAL_PATH := $(call my-dir)/..
 include $(CLEAR_VARS)
 LOCAL_MODULE := EDOProClient
 
-LOCAL_CFLAGS := -DYGOPRO_USE_SFML -D_ANDROID -DYGOPRO_BUILD_DLL -Wno-deprecated-declarations -Wextra -Wpedantic -Wall\
+LOCAL_CFLAGS := -DYGOPRO_USE_MINIAUDIO -D_ANDROID -DYGOPRO_BUILD_DLL -Wno-deprecated-declarations -Wextra -Wpedantic -Wall\
 				-Wno-unused-parameter -Wno-unused-lambda-capture -Wno-missing-braces -Wno-unused-function\
 				-Wno-missing-field-initializers -Wno-inconsistent-missing-override
 
@@ -79,7 +79,7 @@ LOCAL_SRC_FILES := $(GFRAME_PATH)/Android/COSAndroidOperator.cpp \
 				   $(GFRAME_PATH)/MD5/md5.c \
 				   $(GFRAME_PATH)/ResizeablePanel/ResizeablePanel.cpp \
 				   $(GFRAME_PATH)/SoundBackends/sound_threaded_backend.cpp \
-				   $(GFRAME_PATH)/SoundBackends/sfml/sound_sfml.cpp \
+				   $(GFRAME_PATH)/SoundBackends/miniaudio/sound_miniaudio.cpp \
 				   $(GFRAME_PATH)/address.cpp \
 				   $(GFRAME_PATH)/client_card.cpp \
 				   $(GFRAME_PATH)/client_field.cpp \
@@ -136,7 +136,6 @@ LOCAL_STATIC_LIBRARIES := Irrlicht \
 						  libssl \
 						  git2 \
 						  curl \
-						  sfAudio \
 						  nlohmann-json
 
 include $(BUILD_SHARED_LIBRARY)
@@ -151,7 +150,6 @@ $(call import-module,fmt)
 $(call import-module,openssl)
 $(call import-module,libgit2)
 $(call import-module,curl)
-$(call import-module,sfAudio)
 $(call import-module,nlohmann-json)
 
 include $(CLASSES_PATH)/copy-assets/Android.mk
