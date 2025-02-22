@@ -38,6 +38,7 @@
 #include "joystick_wrapper.h"
 #include "porting.h"
 #include "config.h"
+#include "fmt.h"
 
 namespace {
 
@@ -1992,6 +1993,10 @@ bool ClientField::OnCommonEvent(const irr::SEvent& event, bool& stopPropagation)
 			}
 			case CHECKBOX_IGNORE_DECK_CONTENTS: {
 				gGameConfig->ignoreDeckContents = mainGame->gSettings.chkIgnoreDeckContents->isChecked();
+				return true;
+			}
+			case CHECKBOX_ADD_CARD_NAME_TO_DECK_LIST: {
+				gGameConfig->addCardNamesToDeckList = mainGame->gSettings.chkAddCardNamesInDeckList->isChecked();
 				return true;
 			}
 			case CHECKBOX_SHOW_FPS: {

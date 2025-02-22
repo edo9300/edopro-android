@@ -1,11 +1,12 @@
 #ifndef BUFFERIO_H
 #define BUFFERIO_H
 
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <cstring>
-#include <wchar.h>
 #include <cstdint>
+#include <tuple>
 #include "text_types.h"
 
 class BufferIO {
@@ -22,13 +23,13 @@ public:
 	}
 	template<typename input_type>
 	static void Read(input_type*& p, void* dest, size_t size) {
-		static_assert(std::is_same<std::remove_cv_t<input_type>, uint8_t>::value == true, "only uint8_t supported as buffer input");
+		static_assert(std::is_same_v<std::remove_cv_t<input_type>, uint8_t>, "only uint8_t supported as buffer input");
 		std::memcpy(dest, p, size);
 		p += size;
 	}
 	template<typename T, typename input_type>
 	static T Read(input_type*& p) {
-		static_assert(std::is_same<std::remove_cv_t<input_type>, uint8_t>::value == true, "only uint8_t supported as buffer input");
+		static_assert(std::is_same_v<std::remove_cv_t<input_type>, uint8_t>, "only uint8_t supported as buffer input");
 		T ret;
 		Read(p, &ret, sizeof(T));
 		return ret;
@@ -183,13 +184,13 @@ public:
 	// UTF-16 to UTF-16/UTF-32
 	static int DecodeUTF16(epro::basic_string_view<uint16_t> source, wchar_t* out, size_t size) {
 		if constexpr(isUtf16) {
-			auto src_size = std::min<size_t>(source.size() + 1, size);
+			auto src_size = std::min<size_t>(source.size(), size - 1);
 			std::copy_n(source.begin(), src_size, out);
-			out[size - 1] = 0;
-			return static_cast<int>(src_size);
+			out[src_size] = 0;
+			return static_cast<int>(src_size + 1);
 		} else {
 			wchar_t* pstr = out;
-			while(source.empty()) {
+			while(!source.empty()) {
 				const size_t len = out - pstr;
 				if(len >= (size - 1))
 					break;
@@ -214,10 +215,10 @@ public:
 	// UTF-16/UTF-32 to UTF-16
 	static int EncodeUTF16(epro::wstringview source, uint16_t* out, size_t size) {
 		if constexpr(isUtf16) {
-			auto src_size = std::min<size_t>(source.size() + 1, size);
-			std::copy_n(source.data(), src_size, out);
+			auto src_size = std::min<size_t>(source.size(), size - 1);
+			std::copy_n(source.begin(), src_size, out);
 			out[src_size] = 0;
-			return static_cast<int>(src_size);
+			return static_cast<int>(src_size + 1);
 		} else {
 			auto* pstr = out;
 			for(char32_t codepoint : source) {

@@ -28,6 +28,7 @@
 #include "progressivebuffer.h"
 #include "utils.h"
 #include "porting.h"
+#include "fmt.h"
 
 #define DEFAULT_DUEL_RULE 5
 namespace ygo {
@@ -4389,6 +4390,7 @@ void DuelClient::BeginRefreshHost() {
 	bool hasIpv6 = false;
 
 	auto createAndBindIpv6Socket = [&hasIpv6]() -> evutil_socket_t {
+#ifdef IPV6_V6ONLY
 		evutil_socket_t reply = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 		if(reply == EVUTIL_INVALID_SOCKET)
 			return EVUTIL_INVALID_SOCKET;
@@ -4408,6 +4410,9 @@ void DuelClient::BeginRefreshHost() {
 		}
 		hasIpv6 = true;
 		return reply;
+#else
+		return EVUTIL_INVALID_SOCKET;
+#endif
 	};
 
 	auto createAndBindIpv4Socket = []() -> evutil_socket_t {

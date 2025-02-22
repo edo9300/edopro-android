@@ -38,6 +38,7 @@
 #include "CGUIWindowedTabControl/CGUIWindowedTabControl.h"
 #include "file_stream.h"
 #include "porting.h"
+#include "fmt.h"
 
 #if EDOPRO_ANDROID || EDOPRO_IOS
 #include "CGUICustomComboBox/CGUICustomComboBox.h"
@@ -138,13 +139,13 @@ void Game::Initialize() {
 #endif
 	filesystem = device->getFileSystem();
 	filesystem->grab();
-	skinSystem = new CGUISkinSystem(epro::format(EPRO_TEXT("{}/skin"), Utils::GetWorkingDirectory()).data(), device);
+	skinSystem = new CGUISkinSystem(epro::format(EPRO_TEXT("{}/skin"), Utils::GetWorkingDirectory()).data(), device.get());
 	if(!skinSystem)
 		throw std::runtime_error("Couldn't create skin system");
 	linePatternGL = 0x0f0f;
 	menuHandler.prev_sel = -1;
 	driver = device->getVideoDriver();
-	imageManager.SetDevice(device);
+	imageManager.SetDevice(device.get());
 	imageManager.Initial();
 	RefreshAiDecks();
 	if(!discord.Initialize())
@@ -200,7 +201,7 @@ void Game::Initialize() {
 	stAbout = irr::gui::CGUICustomText::addCustomText(L"Project Ignis: EDOPro\n"
 											L"The bleeding-edge automatic duel simulator\n"
 											L"\n"
-											L"Copyright (C) 2020-2023  Edoardo Lolletti (edo9300) and others\n"
+											L"Copyright (C) 2020-2025 Edoardo Lolletti (edo9300) and others\n"
 											L"Card scripts and supporting resources by Project Ignis.\n"
 											L"https://github.com/edo9300/edopro\n"
 											L"https://github.com/edo9300/ygopro-core\n"
@@ -1692,6 +1693,8 @@ void Game::PopulateSettingsWindow() {
 		gSettings.chkIgnoreDeckContents = env->addCheckBox(gGameConfig->ignoreDeckContents, GetNextRect(), sPanel, CHECKBOX_IGNORE_DECK_CONTENTS, gDataManager->GetSysString(12119).data());
 		menuHandler.MakeElementSynchronized(gSettings.chkIgnoreDeckContents);
 		defaultStrings.emplace_back(gSettings.chkIgnoreDeckContents, 12119);
+		gSettings.chkAddCardNamesInDeckList = env->addCheckBox(gGameConfig->addCardNamesToDeckList, GetNextRect(), sPanel, CHECKBOX_ADD_CARD_NAME_TO_DECK_LIST, gDataManager->GetSysString(12123).data());
+		defaultStrings.emplace_back(gSettings.chkAddCardNamesInDeckList, 12123);
 	}
 
 	{

@@ -8,6 +8,14 @@
 #include "utils.h"
 #include "common.h"
 #include "file_stream.h"
+#include "fmt.h"
+
+#if !defined(SQLITE_NOTICE)
+#define SQLITE_NOTICE      27
+#endif
+#if !defined(SQLITE_WARNING)
+#define SQLITE_WARNING     28
+#endif
 
 namespace ygo {
 
@@ -25,8 +33,8 @@ DataManager::DataManager() : irrvfs(irrsqlite_createfilesystem()) {
 		sqlite3_config(SQLITE_CONFIG_SINGLETHREAD);
 	sqlite3_initialize();
 	sqlite3_vfs_register(irrvfs.get(), 0);
-	cards.reserve(10000);
-	locales.reserve(10000);
+	cards.reserve(25000);
+	locales.reserve(15000);
 }
 
 DataManager::~DataManager() {
@@ -46,7 +54,7 @@ void DataManager::ClearLocaleTexts() {
 sqlite3* DataManager::OpenDb(epro::path_stringview file) {
 	cur_database = Utils::ToUTF8IfNeeded(file);
 	sqlite3* pDB{ nullptr };
-	if(sqlite3_open_v2(cur_database.data(), &pDB, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
+	if(sqlite3_open_v2(Utils::ToUTF8IfNeeded(Utils::GetAbsolutePath(file)).data(), &pDB, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
 		Error(pDB);
 		pDB = nullptr;
 	}
