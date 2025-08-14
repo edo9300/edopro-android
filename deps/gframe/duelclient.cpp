@@ -29,6 +29,7 @@
 #include "utils.h"
 #include "porting.h"
 #include "fmt.h"
+#include "localtime.h"
 
 #define DEFAULT_DUEL_RULE 5
 namespace ygo {
@@ -1287,7 +1288,7 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 	auto PerformQueuedPanelConfirm = [&] {
 		if(mainGame->dField.queued_panel_confirm_cards.empty())
 			return;
-		if(!mainGame->dInfo.isCatchingUp && !mainGame->dInfo.isRelay) {
+		if(!mainGame->dInfo.isCatchingUp && !mainGame->dInfo.isReplay) {
 			std::swap(mainGame->dField.selectable_cards, mainGame->dField.queued_panel_confirm_cards);
 			auto old = std::exchange(curMsg, MSG_CONFIRM_CARDS);
 			std::unique_lock<epro::mutex> lock(mainGame->gMutex);
@@ -1390,7 +1391,7 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 		const auto type = BufferIO::Read<uint8_t>(pbuf);
 		const auto player = mainGame->LocalPlayer(BufferIO::Read<uint8_t>(pbuf));
 		uint64_t data = CompatRead<uint32_t, uint64_t>(pbuf);
-		if(type != HINT_MESSAGE)
+		if(type != HINT_SELECTMSG)
 			PerformQueuedPanelConfirm();
 		if(mainGame->dInfo.isCatchingUp && type < HINT_SKILL)
 			return true;
@@ -2117,7 +2118,8 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 		if(mainGame->dInfo.compat_mode)
 			count = BufferIO::Read<uint8_t>(pbuf);
 		const auto specount = BufferIO::Read<uint8_t>(pbuf);
-		const auto forced = BufferIO::Read<uint8_t>(pbuf);
+		if(!mainGame->dInfo.compat_mode)
+			mainGame->dField.chain_forced = BufferIO::Read<uint8_t>(pbuf) != 0;
 		/*uint32_t hint0 = */BufferIO::Read<uint32_t>(pbuf);
 		/*uint32_t hint1 = */BufferIO::Read<uint32_t>(pbuf);
 		if(!mainGame->dInfo.compat_mode)
@@ -2128,14 +2130,15 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 		bool panelmode = false;
 		bool conti_exist = false;
 		bool select_trigger = (specount == 0x7f);
-		mainGame->dField.chain_forced = (forced != 0);
 		mainGame->dField.activatable_cards.clear();
 		mainGame->dField.activatable_descs.clear();
 		mainGame->dField.conti_cards.clear();
 		for(uint32_t i = 0; i < count; ++i) {
 			uint8_t flag;
-			if(mainGame->dInfo.compat_mode)
+			if(mainGame->dInfo.compat_mode) {
 				flag = BufferIO::Read<uint8_t>(pbuf);
+				mainGame->dField.chain_forced = (BufferIO::Read<uint8_t>(pbuf) != 0) || mainGame->dField.chain_forced;
+			}
 			code = BufferIO::Read<uint32_t>(pbuf);
 			CoreUtils::loc_info info = CoreUtils::ReadLocInfo(pbuf, mainGame->dInfo.compat_mode);
 			info.controler = mainGame->LocalPlayer(info.controler);
@@ -2180,7 +2183,7 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 		const auto ignore_chain = mainGame->btnChainIgnore->isPressed();
 		const auto always_chain = mainGame->btnChainAlways->isPressed();
 		const auto chain_when_avail = mainGame->btnChainWhenAvail->isPressed();
-		if(!select_trigger && !forced && (ignore_chain || ((count == 0 || specount == 0) && !always_chain)) && (count == 0 || !chain_when_avail)) {
+		if(!select_trigger && !mainGame->dField.chain_forced && (ignore_chain || ((count == 0 || specount == 0) && !always_chain)) && (count == 0 || !chain_when_avail)) {
 			SetResponseI(-1);
 			mainGame->dField.ClearChainSelect();
 			if(mainGame->tabSettings.chkNoChainDelay->isChecked() && !ignore_chain) {
@@ -2190,7 +2193,7 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 			DuelClient::SendResponse();
 			return true;
 		}
-		if(mainGame->tabSettings.chkAutoChainOrder->isChecked() && forced && !(always_chain || chain_when_avail)) {
+		if(mainGame->tabSettings.chkAutoChainOrder->isChecked() && mainGame->dField.chain_forced && !(always_chain || chain_when_avail)) {
 			SetResponseI(0);
 			mainGame->dField.ClearChainSelect();
 			DuelClient::SendResponse();
@@ -2210,7 +2213,7 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 			mainGame->dField.selectable_cards.erase(eit, mainGame->dField.selectable_cards.end());
 			mainGame->dField.ShowChainCard();
 		} else {
-			if(!forced) {
+			if(!mainGame->dField.chain_forced) {
 				if(count == 0)
 					mainGame->stQMessage->setText(epro::format(L"{}\n{}", gDataManager->GetSysString(201), gDataManager->GetSysString(202)).data());
 				else if(select_trigger)
@@ -2578,6 +2581,8 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 	}
 	case MSG_CONFIRM_CARDS: {
 		/*const auto player = */mainGame->LocalPlayer(BufferIO::Read<uint8_t>(pbuf));
+		// for edopro we use heuristics
+		const auto skip_panel = mainGame->dInfo.compat_mode && (BufferIO::Read<uint8_t>(pbuf) != 0);
 		const auto count = CompatRead<uint8_t, uint32_t>(pbuf);
 		std::vector<ClientCard*> field_confirm;
 		std::vector<ClientCard*> panel_confirm;
@@ -2669,7 +2674,7 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 			}
 			mainGame->WaitFrameSignal(5, lock);
 		}
-		if(panel_confirm.size()) {
+		if(!skip_panel && panel_confirm.size()) {
 			std::sort(panel_confirm.begin(), panel_confirm.end(), ClientCard::client_card_sort);
 			if(field_confirm.empty() && mainGame->dField.limbo_temp.empty()) {
 				std::swap(panel_confirm, mainGame->dField.queued_panel_confirm_cards);
@@ -3297,17 +3302,19 @@ int DuelClient::ClientAnalyze(const uint8_t* msg, uint32_t len) {
 	case MSG_SPSUMMONING: {
 		const auto code = BufferIO::Read<uint32_t>(pbuf);
 		/*CoreUtils::loc_info info = CoreUtils::ReadLocInfo(pbuf, mainGame->dInfo.compat_mode);*/
-		if(!PlayChant(SoundManager::CHANT::SUMMON, code))
+		if(!code || !PlayChant(SoundManager::CHANT::SUMMON, code))
 			Play(SoundManager::SFX::SPECIAL_SUMMON);
 		if(!mainGame->dInfo.isCatchingUp) {
 			std::unique_lock<epro::mutex> lock(mainGame->gMutex);
 			event_string = epro::sprintf(gDataManager->GetSysString(1605), gDataManager->GetName(code));
-			mainGame->showcardcode = code;
-			mainGame->showcarddif = 1;
-			mainGame->showcard = 5;
-			mainGame->WaitFrameSignal(30, lock);
-			mainGame->showcard = 0;
-			mainGame->WaitFrameSignal(11, lock);
+			if(code) {
+				mainGame->showcardcode = code;
+				mainGame->showcarddif = 1;
+				mainGame->showcard = 5;
+				mainGame->WaitFrameSignal(30, lock);
+				mainGame->showcard = 0;
+				mainGame->WaitFrameSignal(11, lock);
+			}
 		}
 		return true;
 	}
@@ -4515,7 +4522,6 @@ int DuelClient::RefreshThread(event_base* broadev) {
 }
 void DuelClient::BroadcastReply(evutil_socket_t fd, short events, void* arg) {
 	if(events & EV_TIMEOUT) {
-		evutil_closesocket(fd);
 		event_base_loopbreak((event_base*)arg);
 		if(!is_closing)
 			mainGame->btnLanRefresh->setEnabled(true);
@@ -4632,7 +4638,7 @@ void DuelClient::ReplayPrompt(bool local_stream) {
 	mainGame->btnChainWhenAvail->setVisible(false);
 	mainGame->btnCancelOrFinish->setVisible(false);
 	auto now = std::time(nullptr);
-	mainGame->PopupSaveWindow(gDataManager->GetSysString(1340), epro::format(L"{:%Y-%m-%d %H-%M-%S}", fmt::localtime(now)), gDataManager->GetSysString(1342));
+	mainGame->PopupSaveWindow(gDataManager->GetSysString(1340), epro::format(L"{:%Y-%m-%d %H-%M-%S}", epro::localtime(now)), gDataManager->GetSysString(1342));
 	mainGame->replaySignal.Wait(lock);
 	if(mainGame->saveReplay || !is_local_host) {
 		if(mainGame->saveReplay)
