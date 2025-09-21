@@ -182,5 +182,18 @@
 				android:name="android.support.FILE_PROVIDER_PATHS"
 				android:resource="@xml/provider_paths" />
 		</provider>
+		<provider
+			android:name=".EdoproDocumentProvider"
+			android:authorities="${applicationId}.document_provider"
+			android:exported="true"
+			android:grantUriPermissions="true"
+			android:permission="android.permission.MANAGE_DOCUMENTS"
+			android:enabled="@bool/enable_document_provider"
+            tools:targetApi="24">
+			<intent-filter>
+				<action
+					android:name="android.content.action.DOCUMENTS_PROVIDER"/>
+			</intent-filter>
+		</provider>
 	</application>
 </manifest>
