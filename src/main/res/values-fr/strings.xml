@@ -5,6 +5,7 @@
 	<string name="default_path">Vous avez choisi un dossier sur un espace de stockage extern, dû à des limitations d\'Android, le répertoire du jeu sera: %s</string>
 	<string name="default_dir">Utilise %s comme répertoire de travail.</string>
 	<string name="default_dir_changeable">Utilise %s comme répertoire de travail. Voulez-vous changer?</string>
+	<string name="separate_data_dir">Using %s as working directory. This folder will be deleted automatically when you uninstall the app. Do you want to select a different folder to store your decks and replays?</string>
 	<string name="keep_game_folder">Garder</string>
 	<string name="change_game_folder">Changer</string>
 	<string name="assets_prompt">Copier les ressources internes?</string>

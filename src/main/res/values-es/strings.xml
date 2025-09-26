@@ -5,6 +5,7 @@
 	<string name="default_path">Elejiste un directorio en el almacenaje externo, debido a una limitación de Android, la dirección de los archivos del juego será: %s</string>
 	<string name="default_dir">Usando %s como directorio de trabajo</string>
 	<string name="default_dir_changeable">Usando %s como directorio de trabajo. ¿Deseas cambiarlo?</string>
+	<string name="separate_data_dir">Using %s as working directory. This folder will be deleted automatically when you uninstall the app. Do you want to select a different folder to store your decks and replays?</string>
 	<string name="keep_game_folder">Mantener</string>
 	<string name="change_game_folder">Cambiar</string>
 	<string name="assets_prompt">¿Copiar archivos internos?</string>

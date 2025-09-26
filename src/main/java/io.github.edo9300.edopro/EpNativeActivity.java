@@ -19,6 +19,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 
+import androidx.annotation.RequiresApi;
 import androidx.core.content.FileProvider;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
@@ -42,6 +43,8 @@ public class EpNativeActivity extends NativeActivity {
 
 	private boolean use_windbot;
 
+	private StorageOperations storage;
+
 	static {
 		//on 4.2 libraries aren't properly loaded automatically
 		//https://stackoverflow.com/questions/28806373/android-4-2-ndk-library-loading-crash-load-librarylinker-cpp750-soinfo-l/28817942
@@ -60,6 +63,10 @@ public class EpNativeActivity extends NativeActivity {
 		super.onCreate(savedInstanceState);
 		final var ex = Objects.requireNonNull(getIntent().getExtras());
 		use_windbot = ex.getBoolean("USE_WINDBOT", true);
+		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+			final String scoped_storage_dir = ex.getString("SCOPED_STORAGE_DIR", "");
+			storage = new StorageOperations(this, scoped_storage_dir);
+		}
 		var filter = new IntentFilter();
 		filter.addAction("RUN_WINDBOT");
 		filter.addAction("ATTACH_WINDBOT_DATABASE");
@@ -145,7 +152,12 @@ public class EpNativeActivity extends NativeActivity {
 				case "OPEN_SCRIPT": {
 					final var path = Objects.requireNonNull(intent.getStringExtra("args"));
 					Log.i("EDOPro", "opening script from: " + path);
-					final var uri = FileProvider.getUriForFile(context, context.getApplicationContext().getPackageName() + ".provider", new File(path));
+					Uri uri;
+					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && path.startsWith("content://")) {
+						uri = Uri.parse(storage.normalizeUri(path));
+					} else {
+						uri = FileProvider.getUriForFile(context, context.getApplicationContext().getPackageName() + ".provider", new File(path));
+					}
 					var fileIntent = new Intent(Intent.ACTION_VIEW);
 					fileIntent.setDataAndType(uri, "text/*");
 					fileIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -167,9 +179,14 @@ public class EpNativeActivity extends NativeActivity {
 				}
 				case "SHARE_FILE": {
 					final var path = Objects.requireNonNull(intent.getStringExtra("args"));
+					Uri uri;
+					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && path.startsWith("content://")) {
+						uri = Uri.parse(storage.normalizeUri(path));
+					} else {
+						uri = FileProvider.getUriForFile(context, context.getApplicationContext().getPackageName() + ".provider", new File(path));
+					}
 					Log.i("EDOPro", "sharing file from: " + path);
-					final var uri = FileProvider.getUriForFile(context, context.getApplicationContext().getPackageName() + ".provider", new File(path));
-					var fileIntent = new Intent(Intent.ACTION_SEND);
+					var fileIntent = new Intent(Intent.ACTION_VIEW);
 					fileIntent.setType("text/plain");
 					fileIntent.putExtra(Intent.EXTRA_STREAM, uri);
 					fileIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -298,10 +315,8 @@ public class EpNativeActivity extends NativeActivity {
 
 	@SuppressWarnings("unused")
 	public void setClipboard(final String text) {
-		EpNativeActivity.this.runOnUiThread(() -> {
-			((ClipboardManager) getSystemService(CLIPBOARD_SERVICE))
-					.setPrimaryClip(ClipData.newPlainText("", text));
-		});
+		EpNativeActivity.this.runOnUiThread(() -> ((ClipboardManager) getSystemService(CLIPBOARD_SERVICE))
+				.setPrimaryClip(ClipData.newPlainText("", text)));
 	}
 
 	class RunnableObject implements Runnable {
@@ -332,6 +347,30 @@ public class EpNativeActivity extends NativeActivity {
 			return "";
 		}
 		return myRunnable.result;
+	}
+
+	@SuppressWarnings("unused")
+	@RequiresApi(Build.VERSION_CODES.R)
+	public boolean contentUriRemoveFile(String uriString) {
+		return storage.contentUriRemoveFile(uriString);
+	}
+
+	@SuppressWarnings("unused")
+	@RequiresApi(Build.VERSION_CODES.R)
+	public boolean contentUriCreateDirectory(String dirUri) {
+		return storage.contentUriCreateDirectory(dirUri);
+	}
+
+	@SuppressWarnings("unused")
+	@RequiresApi(Build.VERSION_CODES.R)
+	public int openContentUri(String uriString, String mode) {
+		return storage.openContentUri(uriString, mode);
+	}
+
+	@SuppressWarnings("unused")
+	@RequiresApi(Build.VERSION_CODES.R)
+	public String[] listFolderUri(String uriString) {
+		return storage.listFolderUri(uriString);
 	}
 
 	@Override

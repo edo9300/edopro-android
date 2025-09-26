@@ -20,6 +20,7 @@
 		android:isGame="true"
 		android:label="${project}"
 		android:preserveLegacyExternalStorage="true"
+		android:requestLegacyExternalStorage ="true"
 		android:resizeableActivity="false"
 		android:roundIcon="@mipmap/ic_launcher_round"
 		tools:replace="android:allowBackup">
