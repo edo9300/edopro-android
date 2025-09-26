@@ -58,6 +58,7 @@ LOCAL_C_INCLUDES := $(GFRAME_PATH)/CGUICustomContextMenu \
 					$(GFRAME_PATH)/ResizeablePanel
 
 LOCAL_SRC_FILES := $(GFRAME_PATH)/Android/COSAndroidOperator.cpp \
+				   $(GFRAME_PATH)/Android/file_stream.cpp \
 				   $(GFRAME_PATH)/Android/porting_android.cpp \
 				   $(GFRAME_PATH)/CGUICustomCheckBox/CGUICustomCheckBox.cpp \
 				   $(GFRAME_PATH)/CGUICustomContextMenu/CGUICustomContextMenu.cpp \
