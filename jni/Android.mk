@@ -29,6 +29,11 @@ LOCAL_LDFLAGS += "-Wl,-z,max-page-size=16384"
 LOCAL_LDFLAGS += "-Wl,-z,common-page-size=16384"
 endif
 
+ifeq ($(TARGET_ARCH_ABI), x86_64)
+LOCAL_LDFLAGS += "-Wl,-z,max-page-size=16384"
+LOCAL_LDFLAGS += "-Wl,-z,common-page-size=16384"
+endif
+
 ifneq ($(PICS_URL),)
 LOCAL_CFLAGS += -DDEFAULT_PIC_URL=\"$(PICS_URL)\"
 endif
