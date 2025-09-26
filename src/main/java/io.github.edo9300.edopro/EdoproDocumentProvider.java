@@ -23,6 +23,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.Objects;
 
 @RequiresApi(api = Build.VERSION_CODES.N)
 public class EdoproDocumentProvider extends DocumentsProvider {
@@ -144,10 +145,20 @@ public class EdoproDocumentProvider extends DocumentsProvider {
 		return newFile.getPath();
 	}
 
+	private static void deleteRecursive(File fileOrDirectory) {
+		if (fileOrDirectory.isDirectory())
+			for (File child : Objects.requireNonNull(fileOrDirectory.listFiles()))
+				deleteRecursive(child);
+
+		fileOrDirectory.delete();
+	}
+
 	@Override
 	public void deleteDocument(String documentId) throws FileNotFoundException {
 		File file = getFileForDocId(documentId);
-		if (!file.delete()) {
+		if(file.isDirectory()) {
+			deleteRecursive(file);
+		} else if (!file.delete()) {
 			throw new FileNotFoundException("Failed to delete document with id " + documentId);
 		}
 	}
