@@ -319,6 +319,7 @@ public class EpNativeActivity extends NativeActivity {
 				.setPrimaryClip(ClipData.newPlainText("", text)));
 	}
 
+	final private Object lock = new Object();
 	class RunnableObject implements Runnable {
 		public String result = "";
 
@@ -331,8 +332,8 @@ public class EpNativeActivity extends NativeActivity {
 				var clip = clipboard.getPrimaryClip();
 				result = clip.getItemAt(0).getText().toString();
 			}
-			synchronized (this) {
-				this.notify();
+			synchronized (lock) {
+				lock.notify();
 			}
 		}
 	}
@@ -340,11 +341,13 @@ public class EpNativeActivity extends NativeActivity {
 	@SuppressWarnings("unused")
 	public String getClipboard() {
 		var myRunnable = new RunnableObject();
-		EpNativeActivity.this.runOnUiThread(myRunnable);
-		try {
-			myRunnable.wait(); // unlocks myRunable while waiting
-		} catch (InterruptedException e) {
-			return "";
+		synchronized (lock) {
+			EpNativeActivity.this.runOnUiThread(myRunnable);
+			try {
+				lock.wait(); // unlocks myRunable while waiting
+			} catch (InterruptedException e) {
+				return "";
+			}
 		}
 		return myRunnable.result;
 	}
