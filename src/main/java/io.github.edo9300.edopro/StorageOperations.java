@@ -264,10 +264,10 @@ public class StorageOperations {
 		final String[] columns = new String[]{
 				DocumentsContract.Document.COLUMN_DOCUMENT_ID,
 		};
-		final var resolver = context.getContentResolver();
-		final var documentId = DocumentsContract.getDocumentId(uri);
-		final var childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, documentId);
 		try {
+			final var resolver = context.getContentResolver();
+			final var documentId = DocumentsContract.getDocumentId(uri);
+			final var childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, documentId);
 			var c = resolver.query(childrenUri, columns, null, null, null);
 			if (c != null) {
 				c.close();
