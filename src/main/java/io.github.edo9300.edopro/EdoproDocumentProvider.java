@@ -164,6 +164,16 @@ public class EdoproDocumentProvider extends DocumentsProvider {
 	}
 
 	@Override
+	public String renameDocument(String documentId, String displayName) throws FileNotFoundException{
+		File file = getFileForDocId(documentId);
+		File newFile = new File(file.getParentFile(), displayName);
+		if(newFile.exists() || !file.renameTo(newFile)){
+			getDocIdForFile(file);
+		}
+		return getDocIdForFile(newFile);
+	}
+
+	@Override
 	public String getDocumentType(String documentId) throws FileNotFoundException {
 		File file = getFileForDocId(documentId);
 		return getMimeType(file);
