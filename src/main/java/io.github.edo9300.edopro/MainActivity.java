@@ -1,7 +1,5 @@
 package io.github.edo9300.edopro;
 
-import static android.os.Environment.isExternalStorageEmulated;
-
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -38,6 +36,7 @@ import java.util.Objects;
 import libwindbot.windbot.WindBot;
 
 public class MainActivity extends Activity {
+	private final static boolean wantsScopedStorage = Build.VERSION.SDK_INT > Build.VERSION_CODES.Q;
 
 	private final static int PERMISSIONS = 1;
 	private static final String[] REQUIRED_SDK_PERMISSIONS = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE};
@@ -45,6 +44,11 @@ public class MainActivity extends Activity {
 	private static String data_directory;
 	private static boolean changelog;
 	private static ArrayList<String> parameter;
+
+	final int COPY_ASSETS = 1;
+	final int CHOOSE_WORKING_DIR = 2;
+	final int CHOOSE_DATA_DIR = 3;
+	final int REAUTHORIZE_DATA_DIR = 4;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -84,7 +88,7 @@ public class MainActivity extends Activity {
 			}
 		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			if (Build.VERSION.SDK_INT > Build.VERSION_CODES.Q) {
+			if (wantsScopedStorage) {
 				// we skip the permissions check as we need none
 				getWorkingDirectory();
 			} else {
@@ -135,6 +139,7 @@ public class MainActivity extends Activity {
 				break;
 		}
 	}
+
 	private static void deleteRecursive(File fileOrDirectory) {
 		if (fileOrDirectory.isDirectory())
 			for (File child : Objects.requireNonNull(fileOrDirectory.listFiles()))
@@ -146,7 +151,7 @@ public class MainActivity extends Activity {
 	@SuppressWarnings("ResultOfMethodCallIgnored")
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		switch (requestCode) {
-			case 1: {
+			case COPY_ASSETS: {
 				try {
 					var file = new File(getFilesDir(), "assets_copied");
 					if (file.exists() || file.createNewFile()) {
@@ -154,7 +159,7 @@ public class MainActivity extends Activity {
 						wr.write("" + BuildConfig.VERSION_CODE);
 						wr.flush();
 					}
-					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && data_directory != null && !data_directory.isEmpty()) {
+					if (wantsScopedStorage && data_directory != null && !data_directory.isEmpty()) {
 						var decksFolder = new File(working_directory, "deck");
 						if (decksFolder.isDirectory()) {
 							var storage = new StorageOperations(this, data_directory);
@@ -173,7 +178,7 @@ public class MainActivity extends Activity {
 				next();
 				break;
 			}
-			case 2: {
+			case CHOOSE_WORKING_DIR: {
 				if (resultCode == Activity.RESULT_CANCELED) {
 					break;
 				}
@@ -230,8 +235,9 @@ public class MainActivity extends Activity {
 				}
 				break;
 			}
-			case 3: {
-				if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+			case REAUTHORIZE_DATA_DIR:
+			case CHOOSE_DATA_DIR: {
+				if (!wantsScopedStorage) {
 					return;
 				}
 				if (resultCode == Activity.RESULT_CANCELED) {
@@ -315,6 +321,14 @@ public class MainActivity extends Activity {
 			}
 		}
 
+		if (wantsScopedStorage && data_directory != null) {
+			var storage = new StorageOperations(this, data_directory);
+			if (!storage.hasAccess()) {
+				reauthorizeDataDir();
+				return;
+			}
+		}
+
 		if (working_directory != null) {
 			copyAssetsPrompt(working_directory);
 			return;
@@ -324,7 +338,7 @@ public class MainActivity extends Activity {
 
 	public void getDefaultPath() {
 		final File path;
-		if (Build.VERSION.SDK_INT > Build.VERSION_CODES.Q) {
+		if (wantsScopedStorage) {
 			path = new File(getExternalFilesDir("EDOPro").getPath());
 		} else {
 			path = new File(Environment.getExternalStorageDirectory() + "/EDOPro");
@@ -342,7 +356,7 @@ public class MainActivity extends Activity {
 							}
 							setWorkingDir(dest_dir);
 						});
-			} else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+			} else if (!wantsScopedStorage) {
 				builder.setMessage(String.format(getResources().getString(R.string.default_dir_changeable), dest_dir))
 						.setCancelable(false)
 						.setPositiveButton(R.string.keep_game_folder, (dialog, id) -> {
@@ -383,7 +397,7 @@ public class MainActivity extends Activity {
 		i.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
 		i.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);  // not yet used properly
 		i.putExtra(Intent.EXTRA_LOCAL_ONLY, true);  // Only allow local folders.
-		startActivityForResult(Intent.createChooser(i, "Choose directory"), 2);
+		startActivityForResult(Intent.createChooser(i, "Choose directory"), CHOOSE_WORKING_DIR);
 	}
 
 	@RequiresApi(Build.VERSION_CODES.R)
@@ -398,24 +412,48 @@ public class MainActivity extends Activity {
 		i.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);  // not yet used properly
 		i.putExtra(Intent.EXTRA_LOCAL_ONLY, true);  // Only allow local folders.
 		working_directory = base_dir;
-		startActivityForResult(Intent.createChooser(i, "Choose directory"), 3);
+		startActivityForResult(Intent.createChooser(i, "Choose directory"), CHOOSE_DATA_DIR);
+	}
+
+	@RequiresApi(Build.VERSION_CODES.R)
+	public void reauthorizeDataDir() {
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setMessage(getResources().getString(R.string.reconfirm_data_dir))
+				.setCancelable(false)
+				.setPositiveButton("OK", (dialog, id) -> {
+					var i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+					var suggestedPath = Environment.getExternalStorageDirectory().getPath() + "/EDOPro";
+					Log.d("EDOPro", suggestedPath);
+					i.putExtra(DocumentsContract.EXTRA_INITIAL_URI, Uri.parse(data_directory));
+					i.addCategory(Intent.CATEGORY_DEFAULT);
+					i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+					i.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+					i.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);  // not yet used properly
+					i.putExtra(Intent.EXTRA_LOCAL_ONLY, true);  // Only allow local folders.
+					startActivityForResult(Intent.createChooser(i, "Choose directory"), REAUTHORIZE_DATA_DIR);
+				});
+
+		AlertDialog alert = builder.create();
+		alert.show();
 	}
 
 	public void setWorkingDir(String dest_dir, String data_dir) {
-		working_directory = dest_dir;
-		data_directory = data_dir;
-		var file = new File(getFilesDir(), "working_dir");
-		try {
-			var fOut = new FileOutputStream(file);
-			new OutputStreamWriter(fOut).append(dest_dir).close();
-			fOut.close();
-		} catch (Exception e) {
-			Log.e("EDOPro", "cannot write to working directory file: " + e.getMessage());
-			finish();
-			return;
+		if (!dest_dir.equals(working_directory)) {
+			working_directory = dest_dir;
+			var file = new File(getFilesDir(), "working_dir");
+			try {
+				var fOut = new FileOutputStream(file);
+				new OutputStreamWriter(fOut).append(dest_dir).close();
+				fOut.close();
+			} catch (Exception e) {
+				Log.e("EDOPro", "cannot write to working directory file: " + e.getMessage());
+				finish();
+				return;
+			}
 		}
-		if (data_directory != null) {
-			file = new File(getFilesDir(), "data_dir");
+		if (data_directory != null && !data_directory.equals(data_dir)) {
+			data_directory = data_dir;
+			var file = new File(getFilesDir(), "data_dir");
 			try {
 				var fOut = new FileOutputStream(file);
 				new OutputStreamWriter(fOut).append(data_dir).close();
@@ -510,6 +548,6 @@ public class MainActivity extends Activity {
 		params.putString("workingDir", working_dir);
 		params.putBoolean("isUpdate", isUpdate);
 		intent.putExtras(params);
-		startActivityForResult(intent, 1);
+		startActivityForResult(intent, COPY_ASSETS);
 	}
 }

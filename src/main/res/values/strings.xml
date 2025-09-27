@@ -6,6 +6,7 @@
 	<string name="default_dir">Using %s as working directory</string>
 	<string name="default_dir_changeable">Using %s as working directory. Do you want to change it?</string>
 	<string name="separate_data_dir">Using %s as working directory. This folder will be deleted automatically when you uninstall the app. Do you want to select a different folder to store your decks and replays?</string>
+	<string name="reconfirm_data_dir">The folder configured as data directory is no longer accessible. Please give access to the same folder again or a new one.</string>
 	<string name="keep_game_folder">Keep</string>
 	<string name="change_game_folder">Change</string>
 	<string name="assets_prompt">Copy internal assets?</string>

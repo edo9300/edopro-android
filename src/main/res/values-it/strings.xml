@@ -6,6 +6,7 @@
 	<string name="default_dir">Usando %s come cartella di lavoro</string>
 	<string name="default_dir_changeable">%s verrà utilizzata come cartella di lavoro. Vuoi cambiarla?</string>
 	<string name="separate_data_dir"> %s verrà utilizzata come cartella di lavoro. Questa cartella verrà cancellata in automatico quando disinstalli l\'app. Vuoi selezionare un altra cartella dove salvare i deck e i replay?</string>
+	<string name="reconfirm_data_dir">La cartella selezionata per salvare i deck e i replay non è più accessibile. Concedere di nuovo i permessi di accesso alla stessa cartella od a una nuova cartella.</string>
 	<string name="keep_game_folder">Mantieni</string>
 	<string name="change_game_folder">Cambia</string>
 	<string name="assets_prompt">Copiare gli asset interni?</string>

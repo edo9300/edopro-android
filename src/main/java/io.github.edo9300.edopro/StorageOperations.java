@@ -257,4 +257,27 @@ public class StorageOperations {
 			Log.e("EDOPro", "Unexpected copyDocument exception: " + e);
 		}
 	}
+
+	@RequiresApi(Build.VERSION_CODES.R)
+	public boolean hasAccess() {
+		var uri = Uri.parse(normalizeUri(scoped_storage_dir));
+		final String[] columns = new String[]{
+				DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+		};
+		final var resolver = context.getContentResolver();
+		final var documentId = DocumentsContract.getDocumentId(uri);
+		final var childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, documentId);
+		try {
+			var c = resolver.query(childrenUri, columns, null, null, null);
+			if (c != null) {
+				c.close();
+			}
+			return true;
+		} catch (SecurityException e) {
+			return false;
+		} catch (Exception e) {
+			Log.e("EDOPro", "Unkonwn exception: " + e);
+			return false;
+		}
+	}
 }
