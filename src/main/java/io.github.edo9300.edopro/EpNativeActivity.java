@@ -13,6 +13,7 @@ import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.DocumentsContract;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -63,7 +64,7 @@ public class EpNativeActivity extends NativeActivity {
 		super.onCreate(savedInstanceState);
 		final var ex = Objects.requireNonNull(getIntent().getExtras());
 		use_windbot = ex.getBoolean("USE_WINDBOT", true);
-		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
 			final String scoped_storage_dir = ex.getString("SCOPED_STORAGE_DIR", "");
 			storage = new StorageOperations(this, scoped_storage_dir);
 		}
@@ -193,9 +194,37 @@ public class EpNativeActivity extends NativeActivity {
 					startActivity(fileIntent);
 					break;
 				}
+				case "OPEN_WORK_DIRECTORY": {
+					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+						var documentPackage = getDocumentsUiPackage();
+						if (documentPackage == null)
+							break;
+						final var EXTERNAL_STORAGE_PROVIDER_AUTHORITY = "com.android.externalstorage.documents";
+						final var DOCUMENT_ID_PRIMARY = "primary";
+						final var DOCUMENT_ID_PRIMARY_ANDROID_DATA = "primary:Android/data/" + context.getApplicationContext().getPackageName() + "/files/EDOPro";
+						final var TREE_URI_PRIMARY_ANDROID = DocumentsContract.buildTreeDocumentUri(EXTERNAL_STORAGE_PROVIDER_AUTHORITY, DOCUMENT_ID_PRIMARY);
+						final var DOCUMENT_URI_ANDROID_DATA = DocumentsContract.buildDocumentUriUsingTree(TREE_URI_PRIMARY_ANDROID, DOCUMENT_ID_PRIMARY_ANDROID_DATA);
+						Intent documentViewerIntent = new Intent(Intent.ACTION_VIEW)
+								.setDataAndType(DOCUMENT_URI_ANDROID_DATA, DocumentsContract.Document.MIME_TYPE_DIR)
+								.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).setPackage(documentPackage);
+						if (documentViewerIntent.resolveActivity(getPackageManager()) != null)
+							startActivity(documentViewerIntent);
+					}
+					break;
+				}
 			}
 		}
 	};
+
+	@RequiresApi(Build.VERSION_CODES.R)
+	private String getDocumentsUiPackage() {
+		var packageInfos = getPackageManager().getPackagesHoldingPermissions(new String[]{android.Manifest.permission.MANAGE_DOCUMENTS}, 0);
+		for (final var packageinfo : packageInfos) {
+			if (packageinfo.packageName.endsWith(".documentsui"))
+				return packageinfo.packageName;
+		}
+		return null;
+	}
 
 	@SuppressWarnings({"unused", "deprecation"})
 	public void launchWindbot(String parameters) {
@@ -280,6 +309,13 @@ public class EpNativeActivity extends NativeActivity {
 		LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
 	}
 
+	@SuppressWarnings({"unused", "deprecation"})
+	public void openWorkdir() {
+		var intent = new Intent();
+		intent.setAction("OPEN_WORK_DIRECTORY");
+		LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+	}
+
 	@SuppressWarnings("unused")
 	public float getDensity() {
 		return getResources().getDisplayMetrics().density;
@@ -320,6 +356,7 @@ public class EpNativeActivity extends NativeActivity {
 	}
 
 	final private Object lock = new Object();
+
 	class RunnableObject implements Runnable {
 		public String result = "";
 
