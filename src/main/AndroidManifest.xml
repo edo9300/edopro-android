@@ -20,7 +20,7 @@
 		android:isGame="true"
 		android:label="${project}"
 		android:preserveLegacyExternalStorage="true"
-		android:hasFragileUserData="true"
+		android:hasFragileUserData="@bool/enable_fragile_userdata"
 		android:requestLegacyExternalStorage ="true"
 		android:resizeableActivity="false"
 		android:roundIcon="@mipmap/ic_launcher_round"
