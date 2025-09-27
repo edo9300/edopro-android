@@ -187,7 +187,7 @@ public class EpNativeActivity extends NativeActivity {
 						uri = FileProvider.getUriForFile(context, context.getApplicationContext().getPackageName() + ".provider", new File(path));
 					}
 					Log.i("EDOPro", "sharing file from: " + path);
-					var fileIntent = new Intent(Intent.ACTION_VIEW);
+					var fileIntent = new Intent(Intent.ACTION_SEND);
 					fileIntent.setType("text/plain");
 					fileIntent.putExtra(Intent.EXTRA_STREAM, uri);
 					fileIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
