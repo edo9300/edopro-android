@@ -37,6 +37,9 @@
 			android:launchMode="singleTask"
 			android:screenOrientation="sensorLandscape"
 			android:theme="@style/AppTheme">
+			<meta-data
+				android:name="android.app.shortcuts"
+				android:resource="@xml/shortcuts" />
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
@@ -168,6 +171,16 @@
 			<meta-data
 				android:name="android.app.lib_name"
 				android:value="EDOProClient" />
+		</activity>
+		<activity
+			android:name=".ManageFilesActivity"
+			android:noHistory="true"
+			android:exported="true"
+			android:enabled="@bool/enable_file_shortcut" >
+			<intent-filter>
+				<action android:name="io.github.edo9300.edopro.intent.action.MANAGE_WORKDIR" />
+				<category android:name="android.intent.category.DEFAULT" />
+			</intent-filter>
 		</activity>
 		<activity
 			android:name=".AssetCopy"
