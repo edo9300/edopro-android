@@ -438,7 +438,7 @@ public class MainActivity extends Activity {
 	}
 
 	public void setWorkingDir(String dest_dir, String data_dir) {
-		if (!dest_dir.equals(working_directory)) {
+		{
 			working_directory = dest_dir;
 			var file = new File(getFilesDir(), "working_dir");
 			try {
@@ -451,7 +451,7 @@ public class MainActivity extends Activity {
 				return;
 			}
 		}
-		if (data_directory != null && !data_directory.equals(data_dir)) {
+		if (data_dir != null && !data_dir.equals(data_directory)) {
 			data_directory = data_dir;
 			var file = new File(getFilesDir(), "data_dir");
 			try {
