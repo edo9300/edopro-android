@@ -44,6 +44,10 @@
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
 			</intent-filter>
+			<intent-filter>
+				<action android:name="io.github.edo9300.edopro.intent.action.MANAGE_WORKDIR" />
+				<category android:name="android.intent.category.DEFAULT" />
+			</intent-filter>
 			<!-- <intent-filter> -->
 				<!-- <action android:name="android.intent.action.VIEW" /> -->
 				<!-- <category android:name="android.intent.category.DEFAULT" /> -->
@@ -171,16 +175,6 @@
 			<meta-data
 				android:name="android.app.lib_name"
 				android:value="EDOProClient" />
-		</activity>
-		<activity
-			android:name=".ManageFilesActivity"
-			android:noHistory="true"
-			android:exported="true"
-			android:enabled="@bool/enable_file_shortcut" >
-			<intent-filter>
-				<action android:name="io.github.edo9300.edopro.intent.action.MANAGE_WORKDIR" />
-				<category android:name="android.intent.category.DEFAULT" />
-			</intent-filter>
 		</activity>
 		<activity
 			android:name=".AssetCopy"
