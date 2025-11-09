@@ -59,36 +59,40 @@ public class MainActivity extends Activity {
 		final var DOCUMENT_ID_PRIMARY_ANDROID_DATA = "primary:Android/data/" + getApplicationContext().getPackageName() + "/files/EDOPro";
 		final var TREE_URI_PRIMARY_ANDROID = DocumentsContract.buildTreeDocumentUri(EXTERNAL_STORAGE_PROVIDER_AUTHORITY, DOCUMENT_ID_PRIMARY);
 		final var DOCUMENT_URI_ANDROID_DATA = DocumentsContract.buildDocumentUriUsingTree(TREE_URI_PRIMARY_ANDROID, DOCUMENT_ID_PRIMARY_ANDROID_DATA);
-		try {
-			startActivity(new Intent()
-					.setComponent(ComponentName.createRelative("com.google.android.documentsui", "com.android.documentsui.files.FilesActivity"))
-					.setAction("android.intent.action.VIEW")
-					.setData(DOCUMENT_URI_ANDROID_DATA)
-					.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
-			);
-			new Handler().postDelayed(this::finishAndRemoveTask, 600L);
-		} catch (Exception e) {
-			try {
-				startActivity(new Intent().
+
+		final var EDOPRO_PROVIDER_AUTHORITY = getApplicationContext().getPackageName() + ".document_provider";
+		final var filePath = getExternalFilesDir("EDOPro").getPath();
+		final var EDOPRO_TREE_URI_PRIMARY_ANDROID = DocumentsContract.buildTreeDocumentUri(EDOPRO_PROVIDER_AUTHORITY, filePath);
+		final var EDOPRO_DOCUMENT_URI_ANDROID_DATA = DocumentsContract.buildDocumentUriUsingTree(EDOPRO_TREE_URI_PRIMARY_ANDROID, filePath);
+		final var intents = Arrays.asList(new Intent()
+						.setComponent(ComponentName.createRelative("com.google.android.documentsui", "com.android.documentsui.files.FilesActivity"))
+						.setAction("android.intent.action.VIEW")
+						.setData(EDOPRO_DOCUMENT_URI_ANDROID_DATA),
+				new Intent().
 						setComponent(ComponentName.createRelative("com.android.documentsui", ".files.FilesActivity"))
 						.setAction("android.intent.action.VIEW")
-						.setData(DOCUMENT_URI_ANDROID_DATA)
-						.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
-				);
+						.setData(EDOPRO_DOCUMENT_URI_ANDROID_DATA),
+				new Intent()
+						.setComponent(ComponentName.createRelative("com.google.android.documentsui", "com.android.documentsui.files.FilesActivity"))
+						.setAction("android.intent.action.VIEW")
+						.setData(DOCUMENT_URI_ANDROID_DATA),
+				new Intent().
+						setComponent(ComponentName.createRelative("com.android.documentsui", ".files.FilesActivity"))
+						.setAction("android.intent.action.VIEW")
+						.setData(DOCUMENT_URI_ANDROID_DATA),
+				new Intent("android.intent.action.VIEW")
+						.setData(Uri.parse("content://com.android.externalstorage.documents/root/primary"))
+		);
+
+		for (final var intent : intents) {
+			try {
+				startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION));
 				new Handler().postDelayed(this::finishAndRemoveTask, 600L);
-			} catch (Exception e2) {
-				try {
-					startActivity(new Intent("android.intent.action.VIEW")
-							.setData(Uri.parse("content://com.android.externalstorage.documents/root/primary"))
-							.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
-					);
-					new Handler().postDelayed(this::finishAndRemoveTask, 600L);
-				} catch (Exception var3) {
-					this.finishAndRemoveTask();
-				}
+				return;
+			} catch (Exception ignored) {
 			}
 		}
-
+		this.finishAndRemoveTask();
 	}
 
 	@Override

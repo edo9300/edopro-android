@@ -1,5 +1,11 @@
 // Contains GPLv3-licensed code from the Termux project.
 // https://github.com/termux/termux-app/blob/master/app/src/main/java/com/termux/filepicker/TermuxDocumentsProvider.java
+
+/*
+ * dirContainsFile, findDocumentPath, findDocumentPath functions taken from zomdroid
+ * https://github.com/udarmolota/zomdroid/blob/9c8f64f8e2d60089bee6fc1aae3f3151f5c301d7/app/src/main/java/com/zomdroid/AppStorageProvider.java#L381-L422
+ * Supposedly licensed under MIT, but the source file is itself derived from the same termux sources, hence that code is GPLv3 as well
+ * */
 package io.github.edo9300.edopro;
 
 import android.content.res.AssetFileDescriptor;
@@ -9,6 +15,7 @@ import android.graphics.Point;
 import android.os.Build;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
+import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
 import android.provider.DocumentsProvider;
@@ -21,8 +28,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Objects;
 
 @RequiresApi(api = Build.VERSION_CODES.N)
@@ -54,23 +63,29 @@ public class EdoproDocumentProvider extends DocumentsProvider {
 			Document.COLUMN_SIZE
 	};
 
-	@Override
-	public Cursor queryRoots(String[] projection) throws FileNotFoundException {
-		var context = getContext();
-		File file = new File(context.getFilesDir(), "working_dir");
-		String working_directory;
-		if (!file.exists())
-			return null;
+	private File getBaseDir() {
 		try {
+			File file = new File(getContext().getFilesDir(), "working_dir");
+			String working_directory;
+			if (!file.exists())
+				return null;
 			BufferedReader br = new BufferedReader(new FileReader(file));
 			working_directory = br.readLine();
 			br.close();
-			if(working_directory == null)
+			if (working_directory == null)
 				return null;
-		} catch (IOException e) {
+			return new File(working_directory);
+		} catch (Exception e) {
 			return null;
 		}
-		final File BASE_DIR = new File(working_directory);
+	}
+
+	@Override
+	public Cursor queryRoots(String[] projection) throws FileNotFoundException {
+		var context = getContext();
+		final File BASE_DIR = getBaseDir();
+		if (BASE_DIR == null)
+			return null;
 		final MatrixCursor result = new MatrixCursor(projection != null ? projection : DEFAULT_ROOT_PROJECTION);
 		final String applicationName = context.getApplicationInfo().loadLabel(context.getPackageManager()).toString();
 
@@ -91,6 +106,52 @@ public class EdoproDocumentProvider extends DocumentsProvider {
 		final MatrixCursor result = new MatrixCursor(projection != null ? projection : DEFAULT_DOCUMENT_PROJECTION);
 		includeFile(result, documentId, null);
 		return result;
+	}
+
+
+	public static boolean dirContainsFile(File dir, File file) {
+		if (dir == null || file == null) return false;
+		String dirPath = dir.getAbsolutePath();
+		String filePath = file.getAbsolutePath();
+		if (dirPath.equals(filePath)) {
+			return true;
+		}
+		if (!dirPath.endsWith("/")) {
+			dirPath += "/";
+		}
+		return filePath.startsWith(dirPath);
+	}
+
+	protected final List<String> findDocumentPath(File parent, File doc)
+			throws FileNotFoundException {
+		if (!doc.exists()) {
+			throw new FileNotFoundException(doc + " is not found.");
+		}
+		if (!dirContainsFile(parent, doc)) {
+			throw new FileNotFoundException(doc + " is not found under " + parent);
+		}
+		List<String> path = new ArrayList<>();
+		while (doc != null && dirContainsFile(parent, doc)) {
+			path.add(0, getDocIdForFile(doc));
+
+			doc = doc.getParentFile();
+		}
+		return path;
+	}
+
+	@Override
+	@RequiresApi(api = Build.VERSION_CODES.O)
+	public DocumentsContract.Path findDocumentPath(String parentDocumentId, String childDocumentId) throws FileNotFoundException {
+		final var baseDir = getBaseDir();
+		if (baseDir == null)
+			throw new FileNotFoundException();
+		final String rootId = (parentDocumentId == null) ? getDocIdForFile(baseDir) : null;
+		if (parentDocumentId == null) {
+			parentDocumentId = getDocIdForFile(baseDir);
+		}
+		final File parent = getFileForDocId(parentDocumentId);
+		final File doc = getFileForDocId(childDocumentId);
+		return new DocumentsContract.Path(rootId, findDocumentPath(parent, doc));
 	}
 
 	@Override
@@ -156,7 +217,7 @@ public class EdoproDocumentProvider extends DocumentsProvider {
 	@Override
 	public void deleteDocument(String documentId) throws FileNotFoundException {
 		File file = getFileForDocId(documentId);
-		if(file.isDirectory()) {
+		if (file.isDirectory()) {
 			deleteRecursive(file);
 		} else if (!file.delete()) {
 			throw new FileNotFoundException("Failed to delete document with id " + documentId);
@@ -164,10 +225,10 @@ public class EdoproDocumentProvider extends DocumentsProvider {
 	}
 
 	@Override
-	public String renameDocument(String documentId, String displayName) throws FileNotFoundException{
+	public String renameDocument(String documentId, String displayName) throws FileNotFoundException {
 		File file = getFileForDocId(documentId);
 		File newFile = new File(file.getParentFile(), displayName);
-		if(newFile.exists() || !file.renameTo(newFile)){
+		if (newFile.exists() || !file.renameTo(newFile)) {
 			getDocIdForFile(file);
 		}
 		return getDocIdForFile(newFile);
@@ -250,7 +311,7 @@ public class EdoproDocumentProvider extends DocumentsProvider {
 				final String extension = name.substring(lastDot + 1).toLowerCase();
 				final String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
 				if (mime != null) return mime;
-				if("lua".equals(extension) || "md".equals(extension) || "log".equals(extension))
+				if ("lua".equals(extension) || "md".equals(extension) || "log".equals(extension))
 					return "text/plain";
 			}
 			return "application/octet-stream";
@@ -278,7 +339,8 @@ public class EdoproDocumentProvider extends DocumentsProvider {
 		} else if (file.canWrite()) {
 			flags |= Document.FLAG_SUPPORTS_WRITE;
 		}
-		if (file.getParentFile().canWrite()) flags |= Document.FLAG_SUPPORTS_DELETE | Document.FLAG_SUPPORTS_RENAME;
+		if (file.getParentFile().canWrite())
+			flags |= Document.FLAG_SUPPORTS_DELETE | Document.FLAG_SUPPORTS_RENAME;
 
 		final String displayName = file.getName();
 		final String mimeType = getMimeType(file);
