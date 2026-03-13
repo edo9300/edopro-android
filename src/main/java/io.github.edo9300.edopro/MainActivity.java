@@ -184,7 +184,7 @@ public class MainActivity extends Activity {
 				for (int index = 0; index < permissions.length; index++) {
 					if (grantResults[index] != PackageManager.PERMISSION_GRANTED) {
 						// permission not granted - toast and exit
-						Toast.makeText(this, R.string.not_granted, Toast.LENGTH_LONG).show();
+						Toast.makeText(this, getResources().getString(R.string.not_granted), Toast.LENGTH_LONG).show();
 						finish();
 						return;
 					}
@@ -414,13 +414,13 @@ public class MainActivity extends Activity {
 			} else if (!wantsScopedStorage) {
 				builder.setMessage(String.format(getResources().getString(R.string.default_dir_changeable), dest_dir))
 						.setCancelable(false)
-						.setPositiveButton(R.string.keep_game_folder, (dialog, id) -> {
+						.setPositiveButton(getResources().getString(R.string.keep_game_folder), (dialog, id) -> {
 							if (!path.exists()) {
 								path.mkdirs();
 							}
 							setWorkingDir(dest_dir);
 						})
-						.setNeutralButton(R.string.change_game_folder, (dialog, id) -> chooseWorkingDir());
+						.setNeutralButton(getResources().getString(R.string.change_game_folder), (dialog, id) -> chooseWorkingDir());
 			} else {
 				if (!path.exists()) {
 					path.mkdirs();
@@ -551,7 +551,7 @@ public class MainActivity extends Activity {
 		}
 		copyCertificate();
 		new AlertDialog.Builder(this)
-				.setMessage(R.string.assets_prompt)
+				.setMessage(getResources().getString(R.string.assets_prompt))
 				.setNegativeButton("No", (dialog, id) -> {
 					try {
 						var file1 = new File(getFilesDir(), "assets_copied");
