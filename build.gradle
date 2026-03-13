@@ -4,7 +4,7 @@ buildscript {
 		google()
 	}
 	dependencies {
-		classpath 'com.android.tools.build:gradle:8.9.2'
+		classpath 'com.android.tools.build:gradle:9.1.0'
 	}
 }
 
@@ -19,7 +19,7 @@ apply plugin: "com.android.application"
 
 android {
 	lint {
-		abortOnError false
+		abortOnError = false
 		disable 'OldTargetApi', 'GoogleAppIndexingWarning', 'ExpiredTargetSdkVersion'
 	}
 	compileOptions {
@@ -27,7 +27,7 @@ android {
 		targetCompatibility JavaVersion.VERSION_17
 	}
 
-	compileSdk 36
+	compileSdk = 36
 
 	defaultConfig {
 		versionCode 21
@@ -50,13 +50,13 @@ android {
 
 
 	Properties props = new Properties()
-	namespace 'io.github.edo9300.edopro'
+	namespace = 'io.github.edo9300.edopro'
 	androidResources {
-		ignoreAssetsPattern '!.svn:!.git:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*.scc:*~'
+		ignoreAssetsPattern = '!.svn:!.git:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*.scc:*~'
 		noCompress += ['dll', 'config']
 	}
 	buildFeatures {
-		buildConfig true
+		buildConfig = true
 	}
 	props.load(new FileInputStream(file("local.properties")))
 
@@ -81,7 +81,9 @@ android {
 dependencies {
 	//noinspection GradleDependency
 	implementation 'androidx.appcompat:appcompat:1.6.1'
+	//noinspection GradleDependency
 	implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
+	//noinspection GradleDependency
 	implementation "androidx.documentfile:documentfile:1.0.1"
 	implementation(files("libs/libWindbot.aar"))
 }
