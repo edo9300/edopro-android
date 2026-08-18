@@ -51,7 +51,8 @@ LOCAL_CFLAGS += -DUPDATE_URL=\"$(UPDATE_URL)\"
 endif
 
 CLASSES_PATH := $(LOCAL_PATH)/deps
-GFRAME_PATH := $(CLASSES_PATH)/gframe
+EABI_CLASSES_PATH := $(LOCAL_PATH)/deps-armeabi
+GFRAME_PATH := $(CLASSES_PATH)/edopro/gframe
 LOCAL_C_INCLUDES := $(GFRAME_PATH)/CGUICustomContextMenu \
 					$(GFRAME_PATH)/CGUICustomTabControl \
 					$(GFRAME_PATH)/CGUICustomText \
@@ -149,6 +150,7 @@ LOCAL_STATIC_LIBRARIES := Irrlicht \
 include $(BUILD_SHARED_LIBRARY)
 
 $(call import-add-path,$(CLASSES_PATH))
+$(call import-add-path,$(CLASSES_PATH)/edopro)
 $(call import-module,irrlicht)
 $(call import-module,libevent)
 $(call import-module,sqlite3)

@@ -1,6 +1,8 @@
 # Edopro-android
 
 ## Building & Installation
+Clone the repo recursively
+
 Assuming `ndk-build` is in your PATH
 ```
 ndk-build
